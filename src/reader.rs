@@ -84,14 +84,20 @@ impl<'s> TomlReader {
                 let s = String::from(&self.temp_c[pos..end_pos]);
                 self.slices.get_mut(&key)
                     .expect("get mut push").push(s);
-                self.temp_c = self.temp_c[end_pos..].to_owned();
+                
+                // cuts just read chunk out of toml
+                let start = pos - key.len();
+                self.temp_c.drain(start..end_pos);
             },
             None => {
                 let s = String::from(&self.temp_c[pos..end_pos]);
                 self.slices.insert(key.clone(), Vec::default());
+
                 self.slices.get_mut(&key)
                     .expect("insert push").push(s);
-                self.temp_c = self.temp_c[end_pos..].to_owned();
+
+                let start = pos - key.len();
+                self.temp_c.drain(start..end_pos);
             },
         }
 
@@ -341,5 +347,50 @@ mod tests {
         }
         // fail
         assert!(tr.is_sorted());
+    }
+
+    #[test]
+    fn out_of_order() {
+        let mut toml = 
+        r#"
+        [dependencies]
+        a="0"
+        b="0"
+        c="0"
+
+        [build-dependencies.bar]
+        version="10"
+
+        [build-dependencies.foo]
+        version="10"
+
+        [build-dependencies]
+        a="1"
+        b="1"
+        c="1"
+
+        [dev-dependencies]
+        a="0"
+        b="0"
+        c="0"
+
+        [workspace.members]
+        a="0"
+        b="0"
+        c="0"
+
+        "#.to_owned();
+
+        let mut tr = TomlReader::new(&mut toml);
+        for header in HEADERS.iter() {
+            let full_header = format!("[{}]", header);
+            tr.slice_table(full_header, "\n[").expect("create_reader pass");
+
+            if header.contains("dependencies") {
+                while tr.slice_header(format!("[{}.", header), "]").expect("create_reader pass") {}
+            }
+        }
+        // fail
+        assert_eq!(tr.slices.len(), 5);
     }
 }

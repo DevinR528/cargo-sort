@@ -5,14 +5,14 @@ c="0"
 d="0"
 
 [build-dependencies]
-z="0"
-x="9"
-b="3"
+x="0"
+y="9"
+z="3"
 
-[build-dependencies.f]
+[build-dependencies.abc]
 version="0"
 
-[build-dependencies.a]
+[build-dependencies.def]
 version="0"
 
 [dependencies.alpha]

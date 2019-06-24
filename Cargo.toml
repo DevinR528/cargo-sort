@@ -11,9 +11,9 @@ edition = "2018"
 readme = "README.md"
 
 [dependencies]
-clap = "2.33.0"
-regex = "1.1.7"
+clap = "2.33"
 colored="1.8"
+toml="0.5"
 
 [badges]
 travis-ci = { repository = "DevinR528/cargo-sort-ck" }
