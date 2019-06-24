@@ -16,4 +16,4 @@ regex = "1.1.7"
 colored="1.8"
 
 [badges]
-travis-ci = { repository = "dtolnay/cargo-expand" }
+travis-ci = { repository = "DevinR528/cargo-sort-ck" }
