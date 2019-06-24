@@ -1,18 +1,15 @@
-use std::collections::{ HashMap, HashSet };
-use std::io::{ Read, };
+use std::collections::HashMap;
+use std::io::Read;
 
-use bytes::{ BytesMut, BufMut, };
 
-pub struct TomlReader<'s> {
+pub struct TomlReader {
     inner: String,
     temp_c: String,
-    slices: HashMap<&'s str, Vec<String>>,
+    slices: HashMap<String, Vec<String>>,
     eo_table: Vec<u8>,
-    eof_flag: bool,
-
 }
 
-impl<'s> TomlReader<'s> {
+impl<'s> TomlReader {
 
     pub fn new(s: &mut String) -> Self {
         // TODO cp 
@@ -31,7 +28,6 @@ impl<'s> TomlReader<'s> {
             slices: HashMap::default(),
             //TODO
             eo_table: b"\n\n".to_vec(),
-            eof_flag: false,
         }
     }
 
@@ -80,20 +76,21 @@ impl<'s> TomlReader<'s> {
         &mut self,
         pos: usize,
         end: &'s str,
+        key: String
     ) {
         let end_pos = self.unsorted_len(pos, end).expect("unsorted_len() failed");
-        match self.slices.get(end) {
+        match self.slices.get(&key) {
             Some(_) => {
                 let s = String::from(&self.temp_c[pos..end_pos]);
-                self.slices.get_mut(end)
-                    .unwrap().push(s);
+                self.slices.get_mut(&key)
+                    .expect("get mut push").push(s);
                 self.temp_c = self.temp_c[end_pos..].to_owned();
             },
             None => {
                 let s = String::from(&self.temp_c[pos..end_pos]);
-                self.slices.insert(end, Vec::default());
-                self.slices.get_mut(end)
-                    .unwrap().push(s);
+                self.slices.insert(key.clone(), Vec::default());
+                self.slices.get_mut(&key)
+                    .expect("insert push").push(s);
                 self.temp_c = self.temp_c[end_pos..].to_owned();
             },
         }
@@ -102,7 +99,7 @@ impl<'s> TomlReader<'s> {
 
     pub fn slice_table(
         &mut self,
-        seek_to: &str,
+        seek_to: String,
         end: &'s str,
     ) -> std::io::Result<bool> {
         // refresh the string that we cut up so if we get
@@ -116,7 +113,7 @@ impl<'s> TomlReader<'s> {
             Some(pos) => { 
                 let cursor_pos = pos + seek_to.len();
                 
-                self.slice_range(cursor_pos, end);
+                self.slice_range(cursor_pos, end, seek_to);
                 Ok(true)
             }
             None => Ok(false),
@@ -125,7 +122,7 @@ impl<'s> TomlReader<'s> {
 
     pub fn slice_header(
         &mut self,
-        seek_to: &str,
+        seek_to: String,
         end: &'s str,
     ) -> std::io::Result<bool> {
         match self.temp_c
@@ -136,7 +133,7 @@ impl<'s> TomlReader<'s> {
             Some(pos) => { 
                 let cursor_pos = pos + seek_to.len();
                 
-                self.slice_range(cursor_pos, end);
+                self.slice_range(cursor_pos, end, seek_to);
                 Ok(true)
             }
             None => Ok(false),
@@ -154,7 +151,7 @@ impl<'s> TomlReader<'s> {
                 return false;
             }
         }
-        //println!("{:#?}", sorted);
+        println!("{:#?}", sorted);
         true
     }
     
@@ -171,7 +168,7 @@ impl<'s> TomlReader<'s> {
             }
             all_of_key.push(to_flatten.into_iter().flatten().collect());
         }
-        //println!("{:#?}", all_of_key);
+        println!("{:#?}", all_of_key);
         all_of_key
     }
 

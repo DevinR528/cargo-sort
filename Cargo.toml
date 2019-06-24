@@ -2,11 +2,15 @@
 name = "cargo-sort-ck"
 version = "0.1.0"
 authors = ["Devin R <devin.ragotzy@gmail.com>"]
+license = "MIT/Apache-2.0"
+description = "Check Cargo.toml for sorted dependencies"
+repository = "https://github.com/DevinR528/cargo-expand"
+keywords = ["cargo", "subcommand", "dependencies", "sort", "check"]
+categories = ["development-tools::cargo-plugins", "development-tools::format"]
 edition = "2018"
+readme = "README.md"
 
 [dependencies]
 clap = "2.33.0"
-regex = "1.1.5"
-toml = { version = "0.5", features = ["preserve_order"] }
+regex = "1.1.7"
 colored="1.8"
-bytes="0.4"

@@ -1,22 +1,13 @@
 use std::fs;
-use std::fs::{ File, OpenOptions };
 use std::env;
 use std::path::{ PathBuf, };
 
 
 use clap::{App, Arg};
 use colored::{ Colorize };
-use regex::Regex;
 
-mod utils;
 mod reader;
 use reader::TomlReader;
-
-//Checks if filepath points to a .toml file
-fn is_toml_filepath(filepath: &str) -> bool {
-    let toml_filepath_re = Regex::new(r"^.*\.toml$").unwrap();
-    return toml_filepath_re.is_match(filepath);
-}
 
 //Takes a file path and reads its contents in as plain text
 fn load_file_contents(filepath: &str) -> String {
@@ -26,36 +17,18 @@ fn load_file_contents(filepath: &str) -> String {
     return file_contents;
 }
 
-fn load_toml_file(toml_filepath: &str) -> Option<String> {
+fn load_toml_file(path: &str) -> Option<String> {
     //Check if a valid .toml filepath
-    if !is_toml_filepath(toml_filepath) {
+    if !path.contains(".toml") {
         eprintln!("{}", &format!("{} detected invalid path to .toml file:\n{}",
             "ERROR:".red(),
-            toml_filepath
+            path
         ));
         return None
     }
     //Fetch toml data
-    Some(load_file_contents(toml_filepath))
+    Some(load_file_contents(path))
 }
-
-/// Returns the string if it needed sorting else None
-/// sorts including version
-fn check_table_sorted(toml_table: &toml::value::Table) -> bool {
-    let dep_table: Vec<&str> = toml_table.iter()
-        .map(|(k, _v)| k)
-        .filter(|k| k != &"")
-        .map(AsRef::as_ref)
-        .collect();
-    
-    let mut sorted_table = dep_table.clone();
-    sorted_table.sort_unstable();
-
-    dep_table == sorted_table
-}
-
-//TODO: implement unit/integration tests for all major functions
-//TODO: write functions to write a properly sorted Cargo.toml file to disk
 
 fn main() -> std::io::Result<()> {
     let included_headers: Vec<&str> = vec![
@@ -100,10 +73,10 @@ fn main() -> std::io::Result<()> {
     //Check if appropriate tables in file are sorted
     for header in included_headers.iter() {
         let full_header = format!("[{}]", header);
-        tr.slice_table(&full_header, "\n[")?;
+        tr.slice_table(full_header, "\n[")?;
 
         if header.contains("dependencies") {
-            while tr.slice_header(&format!("{}.", header), "]")? {}
+            while tr.slice_header(format!("{}.", header), "]")? {}
         }
     }
 
