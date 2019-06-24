@@ -14,7 +14,11 @@ use reader::TomlReader;
 fn load_file_contents(path: &str) -> String {
     let file_contents =
         fs::read_to_string(path)
-        .expect(&format!("{} Something went wrong reading the file", "ERROR:".red()));
+        .unwrap_or_else(|_| {
+            let msg = format!("{} No file found at: {}", "ERROR:".red(), path);
+            eprintln!("{}", msg);
+            std::process::exit(1);
+        });
     // since we are only string munching validate it first
     if let Err(e) = de::from_str::<toml::value::Table>(&file_contents) {
         println!("{}",

@@ -9,9 +9,7 @@ keywords = ["cargo", "subcommand", "dependencies", "sort", "check"]
 categories = ["development-tools::cargo-plugins", "development-tools"]
 edition = "2018"
 readme = "README.md"
-exclude = [
-    "examp",
-]
+exclude = [ "examp" ]
 
 [dependencies]
 clap = "2.33"
