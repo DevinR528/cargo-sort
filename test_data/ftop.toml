@@ -1,0 +1,21 @@
+[dependencies]
+c="0"
+d="0"
+a="0"
+b="0"
+
+[dependencies.alpha]
+version = "0.15"
+default-features = false
+features = ["full", "parsing", "printing", "visit-mut"]
+
+[dependencies.beta]
+version = "0.15"
+default-features = false
+features = ["full", "parsing", "printing", "visit-mut"]
+
+
+[dependencies.syn]
+version = "0.15"
+default-features = false
+features = ["full", "parsing", "printing", "visit-mut"]

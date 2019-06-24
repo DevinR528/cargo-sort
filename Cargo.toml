@@ -1,0 +1,12 @@
+[package]
+name = "cargo-sort-ck"
+version = "0.1.0"
+authors = ["Devin R <devin.ragotzy@gmail.com>"]
+edition = "2018"
+
+[dependencies]
+clap = "2.33.0"
+regex = "1.1.5"
+toml = { version = "0.5", features = ["preserve_order"] }
+colored="1.8"
+bytes="0.4"
