@@ -174,6 +174,7 @@ impl<'s> TomlReader {
         all_of_key
     }
 
+    #[allow(dead_code)]
     pub fn print(&self) {
         println!("{:#?}", self.slices);
     }
