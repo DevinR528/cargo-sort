@@ -1,0 +1,13 @@
+sudo: false
+
+language: rust
+
+rust:
+  - stable
+  - beta
+  - nightly
+  - 1.32.0
+
+script:
+  - cargo check
+  - cargo test

@@ -97,6 +97,8 @@ impl<'s> TomlReader {
 
     }
 
+    /// Slices all toml tables with seek_to as header
+    /// also resets the temp_c
     pub fn slice_table(
         &mut self,
         seek_to: String,
@@ -120,6 +122,7 @@ impl<'s> TomlReader {
         }
     }
 
+    /// Slices all expanded headers deps.foo
     pub fn slice_header(
         &mut self,
         seek_to: String,
@@ -140,22 +143,22 @@ impl<'s> TomlReader {
         }
     }
 
+    /// Sorts and checks if sorted
     pub fn is_sorted (&mut self) -> bool {
         let unsorted = self.collect();
         let mut sorted = unsorted.clone();
         
-        //println!("{:#?}", self.slices);
         for (i, table) in sorted.iter_mut().enumerate() {
             table.sort_unstable();
+            //println!("{:#?} = {:#?}", table, unsorted[i]);
             if table != &unsorted[i] {
                 return false;
             }
         }
-        println!("{:#?}", sorted);
         true
     }
     
-    pub fn collect(&mut self) -> Vec<Vec<&str>> {
+    fn collect(&mut self) -> Vec<Vec<&str>> {
         let mut all_of_key: Vec<Vec<&str>> = Vec::new();
         for (_, v) in self.slices.iter() {
             let mut to_flatten: Vec<Vec<&str>> = Vec::new();
@@ -168,8 +171,174 @@ impl<'s> TomlReader {
             }
             all_of_key.push(to_flatten.into_iter().flatten().collect());
         }
-        println!("{:#?}", all_of_key);
         all_of_key
     }
 
+    pub fn print(&self) {
+        println!("{:#?}", self.slices);
+    }
+
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    static HEADERS: &'static [&'static str] = &[
+        "dependencies",
+        "dev-dependencies",
+        "build-dependencies",
+        "workspace.members",
+        "workspace.exclude",
+    ];
+
+    #[test]
+    fn create_reader_fail() {
+        let mut toml = 
+        r#"
+        [dependencies]
+        a="0"
+        d="0"
+        c="0""#.to_owned();
+
+        let mut tr = TomlReader::new(&mut toml);
+        for header in HEADERS.iter() {
+            let full_header = format!("[{}]", header);
+            tr.slice_table(full_header, "\n[").expect("create_reader pass");
+
+            if header.contains("dependencies") {
+                while tr.slice_header(format!("[{}.", header), "]").expect("create_reader pass") {}
+            }
+        }
+        // fails
+        assert!(!tr.is_sorted());
+    }
+
+    #[test]
+    fn create_reader_pass() {
+        let mut toml = 
+        r#"
+        [dependencies]
+        a="0"
+        b="0"
+        c="0""#.to_owned();
+
+        let mut tr = TomlReader::new(&mut toml);
+        for header in HEADERS.iter() {
+            let full_header = format!("[{}]", header);
+            tr.slice_table(full_header, "\n[").expect("create_reader pass");
+
+            if header.contains("dependencies") {
+                while tr.slice_header(format!("[{}.", header), "]").expect("create_reader pass") {}
+            }
+        }
+        // pass
+        assert!(tr.is_sorted());
+    }
+
+    #[test]
+    fn create_reader_dup() {
+        let mut toml = 
+        r#"
+        [dependencies]
+        a="0"
+        d="0"
+        a="0""#.to_owned();
+
+        let mut tr = TomlReader::new(&mut toml);
+        for header in HEADERS.iter() {
+            let full_header = format!("[{}]", header);
+            tr.slice_table(full_header, "\n[").expect("create_reader pass");
+
+            if header.contains("dependencies") {
+                while tr.slice_header(format!("[{}.", header), "]").expect("create_reader pass") {}
+            }
+        }
+        // fails
+        assert!(!tr.is_sorted());
+    }
+
+    #[test]
+    fn complicated_deps_fail() {
+        let mut toml = 
+        r#"
+        [dependencies]
+        a="0"
+        b="0"
+        c="0"
+
+        [workspace.members]
+        a="0"
+        b="0"
+        c="0"
+
+        [build-dependencies.bar]
+        version="10"
+
+        [build-dependencies.foo]
+        version="10"
+
+        [dev-dependencies]
+        a="0"
+        f="0"
+        c="0"
+
+        "#.to_owned();
+
+        let mut tr = TomlReader::new(&mut toml);
+        for header in HEADERS.iter() {
+            let full_header = format!("[{}]", header);
+            tr.slice_table(full_header, "\n[").expect("create_reader pass");
+
+            if header.contains("dependencies") {
+                while tr.slice_header(format!("[{}.", header), "]").expect("create_reader pass") {}
+            }
+        }
+        // fail
+        assert!(!tr.is_sorted());
+    }
+
+    #[test]
+    fn complicated_deps_pass() {
+        let mut toml = 
+        r#"
+        [dependencies]
+        a="0"
+        b="0"
+        c="0"
+
+        [build-dependencies]
+        a="1"
+        b="1"
+        c="1"
+
+        [build-dependencies.bar]
+        version="10"
+
+        [build-dependencies.foo]
+        version="10"
+
+        [dev-dependencies]
+        a="0"
+        b="0"
+        c="0"
+
+        [workspace.members]
+        a="0"
+        b="0"
+        c="0"
+
+        "#.to_owned();
+
+        let mut tr = TomlReader::new(&mut toml);
+        for header in HEADERS.iter() {
+            let full_header = format!("[{}]", header);
+            tr.slice_table(full_header, "\n[").expect("create_reader pass");
+
+            if header.contains("dependencies") {
+                while tr.slice_header(format!("[{}.", header), "]").expect("create_reader pass") {}
+            }
+        }
+        // fail
+        assert!(tr.is_sorted());
+    }
 }

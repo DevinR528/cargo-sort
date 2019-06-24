@@ -40,8 +40,8 @@ fn main() -> std::io::Result<()> {
     ];
     //Instantiate command line args through clap
     let matches = App::new("cargo-dep-sort")
-        .author("Jordan Poles <jpdev.noreply@gmail.com>")
-        .about("Helps ensure sorting of Cargo.toml file dependency list")
+        .author("Devin R <devin.ragotzy@gmail.com>")
+        .about("Helps ensure Cargo.toml dependency list is sorted.")
         .arg(Arg::with_name("cwd")
                 .value_name("CWD")
                 .help("Sets cwd, must contain Cargo.toml")
@@ -62,8 +62,6 @@ fn main() -> std::io::Result<()> {
         _ => {},
     }
 
-    println!("{:#?}", path);
-
     let mut toml_raw = match load_toml_file(path.to_str().unwrap()) {
         Some(t) => t,
         None => std::process::exit(1),
@@ -76,7 +74,7 @@ fn main() -> std::io::Result<()> {
         tr.slice_table(full_header, "\n[")?;
 
         if header.contains("dependencies") {
-            while tr.slice_header(format!("{}.", header), "]")? {}
+            while tr.slice_header(format!("[{}.", header), "]")? {}
         }
     }
 
@@ -84,19 +82,7 @@ fn main() -> std::io::Result<()> {
         println!("{} dependencies are sorted!", "Success".bold().bright_green());
         std::process::exit(0);
     } else {
-        println!("{} dependencies are not sorted", "Failure".bold().red());
+        eprintln!("{} dependencies are not sorted", "Failure".bold().red());
         std::process::exit(1);
-    }
-}
-
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_is_toml_filepath() {
-        assert!(is_toml_filepath("/cargo.toml"));
-        assert!(!is_toml_filepath("cargo.tomls"));
     }
 }

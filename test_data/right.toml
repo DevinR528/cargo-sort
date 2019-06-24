@@ -4,15 +4,15 @@ b="0"
 c="0"
 d="0"
 
-["build-dependencies"]
-w="0"
+[build-dependencies]
+z="0"
 x="9"
-y="3"
+b="3"
 
-["build-dependencies.f"]
+[build-dependencies.f]
 version="0"
 
-["build-dependencies.a"]
+[build-dependencies.a]
 version="0"
 
 [dependencies.alpha]
