@@ -10,7 +10,7 @@ categories = ["development-tools::cargo-plugins", "development-tools"]
 edition = "2018"
 readme = "README.md"
 exclude = [
-    "/examp",
+    "examp",
 ]
 
 [dependencies]
