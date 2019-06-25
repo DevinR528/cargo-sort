@@ -8,6 +8,8 @@ use toml::de;
 
 mod reader;
 use reader::TomlReader;
+mod writer;
+use writer::check_save;
 
 //Takes a file path and reads its contents in as plain text
 fn load_file_contents(path: &str) -> String {
@@ -38,6 +40,10 @@ fn load_toml_file(path: &str) -> Option<String> {
 }
 
 fn main() -> std::io::Result<()> {
+
+    check_save(&"./Cargo.toml");
+
+
     let included_headers: Vec<&str> = vec![
         "dependencies",
         "dev-dependencies",
@@ -58,7 +64,6 @@ fn main() -> std::io::Result<()> {
         .get_matches();
 
     let cwd = env::current_dir().expect(&format!("{} could not get cwd", "ERROR:".red()));
-
     // either default cwd or user selected
     let mut path = matches
         .value_of("cwd")
@@ -69,6 +74,12 @@ fn main() -> std::io::Result<()> {
         }
         _ => {}
     }
+
+
+    
+
+
+
 
     let mut toml_raw = match load_toml_file(path.to_str().unwrap()) {
         Some(t) => t,
