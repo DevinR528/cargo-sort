@@ -1,15 +1,19 @@
 use std::collections::HashMap;
 use std::io::Read;
 
+use crate::writer::TomlWriter;
+
 pub struct TomlReader {
     inner: String,
     temp_c: String,
     slices: HashMap<String, Vec<String>>,
     eo_table: Vec<u8>,
+    write_flag: bool,
+    writer: Option<TomlWriter>,
 }
 
 impl<'s> TomlReader {
-    pub fn new(s: &mut String) -> Self {
+    pub fn new(s: &mut String, write_flag: bool) -> Self {
         // TODO cp
         // is_char_boundary panics in std lib string.rs if there is only
         // one eol at eof? hack fix
@@ -20,12 +24,20 @@ impl<'s> TomlReader {
                 s.push_str("\n\n");
             }
         }
+
+        let mut tw: Option<TomlWriter> = None;
+        if write_flag {
+            tw = Some(TomlWriter::new(&mut s.to_owned()));
+        }
+
         TomlReader {
             inner: s.to_owned(),
             temp_c: s.to_owned(),
             slices: HashMap::default(),
             //TODO
             eo_table: b"\n\n".to_vec(),
+            write_flag,
+            writer: tw,
         }
     }
 
@@ -65,7 +77,30 @@ impl<'s> TomlReader {
         }
     }
 
-    fn slice_range(&mut self, pos: usize, end: &'s str, key: String) {
+    fn slice_range(&mut self, pos: usize, key: String, end: &'s str,) {
+        let end_pos = self.unsorted_len(pos, end).expect("unsorted_len() failed");
+        match self.slices.get(&key) {
+            Some(_) => {
+                let s = String::from(&self.temp_c[pos..end_pos]);
+                self.slices.get_mut(&key).expect("get mut push").push(s);
+
+                // cuts just read chunk out of toml
+                let start = pos - key.len();
+                self.temp_c.drain(start..end_pos);
+            }
+            None => {
+                let s = String::from(&self.temp_c[pos..end_pos]);
+                self.slices.insert(key.clone(), Vec::default());
+
+                self.slices.get_mut(&key).expect("insert push").push(s);
+
+                let start = pos - key.len();
+                self.temp_c.drain(start..end_pos);
+            }
+        }
+    }
+
+    fn replace_range(&mut self, pos: usize, key: String, end: &'s str,) {
         let end_pos = self.unsorted_len(pos, end).expect("unsorted_len() failed");
         match self.slices.get(&key) {
             Some(_) => {
@@ -103,7 +138,11 @@ impl<'s> TomlReader {
             Some(pos) => {
                 let cursor_pos = pos + seek_to.len();
 
-                self.slice_range(cursor_pos, end, seek_to);
+                if self.write_flag {
+                    self.replace_range(cursor_pos, seek_to, end)
+                } else {
+                    self.slice_range(cursor_pos, seek_to, end);
+                }
                 Ok(true)
             }
             None => Ok(false),
@@ -121,7 +160,7 @@ impl<'s> TomlReader {
             Some(pos) => {
                 let cursor_pos = pos + seek_to.len();
 
-                self.slice_range(cursor_pos, end, seek_to);
+                self.slice_range(cursor_pos, seek_to, end);
                 Ok(true)
             }
             None => Ok(false),
@@ -183,7 +222,7 @@ mod tests {
         c="0""#
             .to_owned();
 
-        let mut tr = TomlReader::new(&mut toml);
+        let mut tr = TomlReader::new(&mut toml, false);
         for header in HEADERS.iter() {
             let full_header = format!("[{}]", header);
             tr.slice_table(full_header, "\n[")
@@ -209,7 +248,7 @@ mod tests {
         c="0""#
             .to_owned();
 
-        let mut tr = TomlReader::new(&mut toml);
+        let mut tr = TomlReader::new(&mut toml, false);
         for header in HEADERS.iter() {
             let full_header = format!("[{}]", header);
             tr.slice_table(full_header, "\n[")
@@ -235,7 +274,7 @@ mod tests {
         a="0""#
             .to_owned();
 
-        let mut tr = TomlReader::new(&mut toml);
+        let mut tr = TomlReader::new(&mut toml, false);
         for header in HEADERS.iter() {
             let full_header = format!("[{}]", header);
             tr.slice_table(full_header, "\n[")
@@ -279,7 +318,7 @@ mod tests {
         "#
         .to_owned();
 
-        let mut tr = TomlReader::new(&mut toml);
+        let mut tr = TomlReader::new(&mut toml, false);
         for header in HEADERS.iter() {
             let full_header = format!("[{}]", header);
             tr.slice_table(full_header, "\n[")
@@ -328,7 +367,7 @@ mod tests {
         "#
         .to_owned();
 
-        let mut tr = TomlReader::new(&mut toml);
+        let mut tr = TomlReader::new(&mut toml, false);
         for header in HEADERS.iter() {
             let full_header = format!("[{}]", header);
             tr.slice_table(full_header, "\n[")
@@ -377,7 +416,7 @@ mod tests {
         "#
         .to_owned();
 
-        let mut tr = TomlReader::new(&mut toml);
+        let mut tr = TomlReader::new(&mut toml, false);
         for header in HEADERS.iter() {
             let full_header = format!("[{}]", header);
             tr.slice_table(full_header, "\n[")
