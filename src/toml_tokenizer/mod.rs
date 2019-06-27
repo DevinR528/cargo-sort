@@ -163,20 +163,30 @@ pub struct TomlTokenizer {
 impl TomlTokenizer {
 
 
-    pub fn get_items(&self) {
+    pub fn get_table(&self, k: &str) -> Option<&TomlTable> {
+        let table: Vec<&TomlTable> = self.tables.iter()
+            .filter(|t| t.header.inner == k)
+            .collect();
+        table.first().map(|t| *t)
+    }
 
+    pub fn sort_ext(&mut self) {
+        self.tables.sort_by(|a: &TomlTable, b: &TomlTable| {
+            if a.header.extended && b.header.extended {
+                a.header.seg.last().unwrap().cmp(b.header.seg.last().unwrap())
+            } else {
+                std::cmp::Ordering::Equal
+            }
+        });
+        println!("{:#?}", self.tables);
     }
 
     pub fn iter(&self) -> TokenIter {
         TokenIter { inner: self, idx: 0, }
     }
 
-    pub fn iter_mut(&mut self) -> TokenIterMut {
-        TokenIterMut {
-            tables: self,
-            next: self.tables.first_mut(),
-            idx: 0,
-        }
+    pub fn iter_mut(&mut self) -> impl Iterator<Item=&mut TomlTable> {
+        self.tables.iter_mut()
     }
 
     pub fn parse_toml(
@@ -229,7 +239,17 @@ impl TomlTokenizer {
 
 }
 
-struct TokenIter<'t> {
+impl PartialEq for TomlTokenizer {
+    fn eq(&self, other: &TomlTokenizer) -> bool {
+        let mut flag = true;
+        for (i, table) in self.tables.iter().enumerate() {
+            flag = table == &other.tables[i];
+        }
+        flag
+    }
+}
+
+pub struct TokenIter<'t> {
     inner: &'t TomlTokenizer,
     idx: usize,
 }
@@ -240,24 +260,6 @@ impl<'t> Iterator for TokenIter<'t> {
     fn next(&mut self) -> Option<Self::Item> {
         self.idx += 1;
         self.inner.tables.get(self.idx - 1)
-    }
-}
-
-struct TokenIterMut<'t> {
-    tables: &'t TomlTokenizer,
-    next: Option<&'t mut TomlTable>,
-    idx: usize,
-}
-
-impl<'t> Iterator for TokenIterMut<'t> {
-    type Item = &'t mut TomlTable;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        self.next.as_mut().map(|table| {
-            self.idx += 1;
-            self.next = self.tables.tables.get_mut(self.idx - 1);
-            *table
-        })
     }
 }
 
@@ -273,6 +275,9 @@ mod tests {
         //println!("{}", f);
         let mut tt = TomlTokenizer::from_str(&f).parse_toml().unwrap();
         println!("{:#?}", tt);
-        tt.sort_toml(vec!["dependencies"])
+        let unsorted = tt.clone();
+        tt.sort_ext();
+        println!("{:#?}", tt);
+        assert_ne!(unsorted, tt)
     }
 }

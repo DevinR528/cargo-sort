@@ -89,16 +89,16 @@ fn main() -> std::io::Result<()> {
     // parses/to_token the toml for sort checking
     let mut tt = TomlTokenizer::from_str(&toml_raw);
     //Check if appropriate tables in file are sorted
-    for header in included_headers.iter() {
-        let full_header = format!("[{}]", header);
-        tr.slice_table(full_header, "\n[")?;
+    // for header in included_headers.iter() {
+    //     let full_header = format!("[{}]", header);
+    //     tr.slice_table(full_header, "\n[")?;
 
-        if header.contains("dependencies") {
-            while tr.slice_header(format!("[{}.", header), "]")? {}
-        }
-    }
+    //     if header.contains("dependencies") {
+    //         while tr.slice_header(format!("[{}.", header), "]")? {}
+    //     }
+    // }
 
-    if tr.is_sorted() {
+    if /*tr.is_sorted()*/true {
         println!(
             "{} dependencies are sorted!",
             "Success".bold().bright_green()
