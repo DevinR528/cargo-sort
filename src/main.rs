@@ -86,7 +86,8 @@ fn main() -> std::io::Result<()> {
         None => std::process::exit(1),
     };
 
-    let mut tr = TomlReader::new(&mut toml_raw, write_flag);
+    // parses/to_token the toml for sort checking
+    let mut tt = TomlTokenizer::from_str(&toml_raw);
     //Check if appropriate tables in file are sorted
     for header in included_headers.iter() {
         let full_header = format!("[{}]", header);

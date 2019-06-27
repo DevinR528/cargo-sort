@@ -167,13 +167,15 @@ impl TomlTokenizer {
 
     }
 
-    pub fn get_tables(&self) {
-
+    pub fn iter(&self) -> TokenIter {
+        TokenIter { inner: self, idx: 0, }
     }
 
-    pub fn sort_toml(&mut self, headers: Vec<&str>) {
-        for h in headers.iter() {
-            for 
+    pub fn iter_mut(&mut self) -> TokenIterMut {
+        TokenIterMut {
+            tables: self,
+            next: self.tables.first_mut(),
+            idx: 0,
         }
     }
 
@@ -227,7 +229,37 @@ impl TomlTokenizer {
 
 }
 
+struct TokenIter<'t> {
+    inner: &'t TomlTokenizer,
+    idx: usize,
+}
 
+impl<'t> Iterator for TokenIter<'t> {
+    type Item = &'t TomlTable;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.idx += 1;
+        self.inner.tables.get(self.idx - 1)
+    }
+}
+
+struct TokenIterMut<'t> {
+    tables: &'t TomlTokenizer,
+    next: Option<&'t mut TomlTable>,
+    idx: usize,
+}
+
+impl<'t> Iterator for TokenIterMut<'t> {
+    type Item = &'t mut TomlTable;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.next.as_mut().map(|table| {
+            self.idx += 1;
+            self.next = self.tables.tables.get_mut(self.idx - 1);
+            *table
+        })
+    }
+}
 
 
 #[cfg(test)]
