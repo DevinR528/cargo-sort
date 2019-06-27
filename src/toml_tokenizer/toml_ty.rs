@@ -14,6 +14,7 @@ impl TomlItems {
 
 #[derive(Debug, Clone)]
 pub struct TomlHeader {
+    pub extended: bool,
     pub inner: String,
     pub seg: Vec<String>,
 }

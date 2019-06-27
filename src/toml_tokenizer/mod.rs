@@ -19,6 +19,12 @@ struct TomlString {
 
 impl TomlString {
 
+    fn default() -> Self {
+        TomlString {
+            chunks: VecDeque::default(),
+        }
+    }
+
     fn has_more(&self) -> bool {
         println!("TOML S {:#?}", self.chunks);
         if let Some(c) = self.chunks.front() {
@@ -63,10 +69,18 @@ impl TomlString {
 
     pub(super) fn get_items(&mut self,) ->  Result<TomlItems, ParseTomlError> {
         let mut items = Vec::default();
+        let mut end = false;
+        loop {
+            let line = match self.chunks.iter().next() {
+                Some(l) => l,
+                None => {
+                    end = true;
+                    ""
+                },
+            };
 
-        while let Some(line) = self.chunks.iter().next() {
             if line.is_empty() || line.starts_with("\r") {
-                self.chunks.pop_front().unwrap();
+                if !end { self.chunks.pop_front().unwrap(); }
                 // println!("{:#?}", items);
                 let t_items = TomlString::parse(items)?;
                 return Ok(t_items)
@@ -76,26 +90,9 @@ impl TomlString {
                 items.push(item);
             }
         } 
-        
-        // while let Some(line) = self.chunks.iter().next() {
-        //     if line.is_empty() || line.starts_with("\r") {
-        //         self.chunks.pop_front().unwrap();
-        //         // println!("{:#?}", items);
-        //         let t_items = TomlString::parse(items)?;
-        //         return Ok(t_items)
-        //     } else {
-        //         let item = self.chunks.pop_front().unwrap();
-        //         println!("{}", item);
-        //         items.push(item);
-        //     }
-        // } 
         println!("ITEMS NEVER {:#?}", self.chunks);
-        // this should never happen
-        Err(ParseTomlError::new(
-                "No items found?".into(),
-                TomlErrorKind::InternalParseError("".into()))
-            )
     }
+
 }
 
 trait Parse<T> {
@@ -114,7 +111,11 @@ impl<'p> Parse<String> for TomlString {
             let segmented = header.trim_matches(|c| c == '[' || c == ']');
             let seg = segmented.split(".").map(|s| s.to_owned()).collect();
             // println!("SEG {:#?}", seg);
-            return Ok(TomlHeader { inner: header.to_string(), seg: seg })
+            return Ok(TomlHeader {
+                inner: header.to_string(),
+                seg: seg,
+                extended: true
+            })
         }
         let seg: Vec<String> = header.trim_matches(|c| c == '[' || c == ']')
             .split(".").map(|s| s.to_owned()).collect();
@@ -129,7 +130,11 @@ impl<'p> Parse<String> for TomlString {
                     TomlErrorKind::UnexpectedToken(span))
             )
         }
-        Ok(TomlHeader { inner: header.to_string(), seg,  })
+        Ok(TomlHeader {
+            inner: header.to_string(),
+            seg,
+            extended: false,
+        })
         
     }
 }
@@ -151,7 +156,7 @@ impl<'p> Parse<Vec<String>> for TomlString {
 
 #[derive(Debug, Clone)]
 pub struct TomlTokenizer {
-    tables: Vec<TomlTable>,
+    pub tables: Vec<TomlTable>,
     inner: TomlString,
 }
 
@@ -166,9 +171,21 @@ impl TomlTokenizer {
 
     }
 
+    pub fn sort_toml(&mut self, headers: Vec<&str>) {
+        for h in headers.iter() {
+            for 
+        }
+    }
+
     pub fn parse_toml(
         &mut self,
-    ) -> Result<Vec<TomlTable>, ParseTomlError> {
+    ) -> Result<Self, ParseTomlError> {
+
+        let mut new_tt = TomlTokenizer {
+            tables: Vec::default(),
+            inner: TomlString::default()
+        };
+
         while self.inner.has_more() {
 
             let header = match self.inner.get_header() {
@@ -186,11 +203,11 @@ impl TomlTokenizer {
                 header: header,
                 items: items.clone(),
             };
-            self.tables.push(table);
+            new_tt.tables.push(table);
             
             // println!("{:#?}", items);
         }
-        Ok(self.tables.clone())
+        Ok(new_tt)
     }
 
     pub fn from_str(s: &str,) -> TomlTokenizer {
@@ -222,7 +239,8 @@ mod tests {
 
         let f = std::fs::read_to_string("examp/right.toml").expect("no file found");
         //println!("{}", f);
-        let tt = TomlTokenizer::from_str(&f).parse_toml().unwrap();
-        println!("{:#?}", tt)
+        let mut tt = TomlTokenizer::from_str(&f).parse_toml().unwrap();
+        println!("{:#?}", tt);
+        tt.sort_toml(vec!["dependencies"])
     }
 }
