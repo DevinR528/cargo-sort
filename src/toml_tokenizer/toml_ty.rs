@@ -1,4 +1,3 @@
-
 #[derive(Debug, Clone)]
 pub struct TomlItems {
     pub items: Vec<String>,
@@ -6,9 +5,7 @@ pub struct TomlItems {
 
 impl TomlItems {
     pub fn new(items: Vec<String>) -> TomlItems {
-        TomlItems {
-            items,
-        }
+        TomlItems { items }
     }
 }
 
@@ -31,15 +28,13 @@ impl PartialEq for TomlHeader {
     }
 }
 
-
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone,)]
 pub struct TomlTable {
     pub header: TomlHeader,
     pub items: TomlItems,
 }
 
 impl TomlTable {
-
     pub fn sort_items(&mut self) {
         self.items.items.sort_unstable()
     }
@@ -48,5 +43,19 @@ impl TomlTable {
 impl PartialEq for TomlTable {
     fn eq(&self, other: &TomlTable) -> bool {
         self.header == other.header && self.items == other.items
+    }
+}
+
+impl Eq for TomlTable {}
+
+impl PartialOrd for TomlTable  {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for TomlTable {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.header.inner.cmp(&other.header.inner)
     }
 }

@@ -9,16 +9,16 @@ x="0"
 y="9"
 z="3"
 
-[dependencies.syn]
-version = "0.15"
-default-features = false
-features = ["full", "parsing", "printing", "visit-mut"]
+[build-dependencies.def]
+version="0"
 
 [build-dependencies.abc]
 version="0"
 
-[build-dependencies.def]
-version="0"
+[dependencies.syn]
+version = "0.15"
+default-features = false
+features = ["full", "parsing", "printing", "visit-mut"]
 
 [dependencies.alpha]
 version = "0.15"
@@ -29,3 +29,7 @@ features = ["full", "parsing", "printing", "visit-mut"]
 version = "0.15"
 default-features = false
 features = ["full", "parsing", "printing", "visit-mut"]
+
+[workspace.members]
+this = "that"
+that = "this"

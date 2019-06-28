@@ -1,6 +1,6 @@
 use std::collections::HashMap;
-use std::io::{ Read, Write };
 use std::fs;
+use std::io::{Read, Write};
 
 pub struct TomlWriter {
     inner: String,
@@ -9,7 +9,6 @@ pub struct TomlWriter {
 }
 
 impl<'s> TomlWriter {
-
     pub fn new(s: &mut String) -> Self {
         TomlWriter {
             inner: s.to_owned(),
@@ -18,11 +17,7 @@ impl<'s> TomlWriter {
         }
     }
 
-    pub fn swap_range(
-        &mut self,
-        pos: usize,
-        sorted: String,
-    ) {
+    pub fn swap_range(&mut self, pos: usize, sorted: String) {
         let eo_table = String::from_utf8_lossy(&self.eo_table);
         let fmt_sort = format!("{}{}", sorted, eo_table);
 
@@ -46,26 +41,24 @@ impl<'s> TomlWriter {
             curse.set_position((pos - 1) as u64);
 
             // if we find double eol or "[" return cursor position
-            if (&window_buf == self.eo_table.as_slice()) | (&window_buf == self.header_brace.as_slice()) {
-                return Some(pos)
+            if (&window_buf == self.eo_table.as_slice())
+                | (&window_buf == self.header_brace.as_slice())
+            {
+                return Some(pos);
             }
         }
-
     }
 
-    pub fn replace_dep(
-        &mut self,
-        seek_to: &str,
-        sorted: String,
-    ) -> std::io::Result<()> {
-        match self.inner
+    pub fn replace_dep(&mut self, seek_to: &str, sorted: String) -> std::io::Result<()> {
+        match self
+            .inner
             .as_bytes()
             .windows(seek_to.len())
             .position(|win| win == seek_to.as_bytes())
         {
-            Some(pos) => { 
+            Some(pos) => {
                 let cursor_pos = pos + seek_to.len();
-                
+
                 self.swap_range(cursor_pos, sorted);
                 Ok(())
             }
@@ -74,10 +67,7 @@ impl<'s> TomlWriter {
     }
 
     pub fn write_all_changes(&self, path: &str) -> std::io::Result<()> {
-        let mut fd = fs::OpenOptions::new()
-            .write(true)
-            .create(true)
-            .open(path)?;
+        let mut fd = fs::OpenOptions::new().write(true).create(true).open(path)?;
 
         fd.write_all(self.inner.as_bytes())?;
         fd.flush()

@@ -1,6 +1,5 @@
-use std::io;
 use std::error::Error;
-
+use std::io;
 
 pub enum TomlErrorKind {
     UnexpectedToken(String),
@@ -26,7 +25,7 @@ impl std::convert::From<io::Error> for ParseTomlError {
         let msg = e.description().to_owned();
         ParseTomlError::new(
             msg,
-            TomlErrorKind::InternalParseError("? op Error".to_owned())
+            TomlErrorKind::InternalParseError("? op Error".to_owned()),
         )
     }
 }

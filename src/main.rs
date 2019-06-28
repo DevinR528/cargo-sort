@@ -8,8 +8,8 @@ use toml::de;
 
 mod reader;
 use reader::TomlReader;
-mod writer;
 mod toml_tokenizer;
+mod writer;
 use toml_tokenizer::TomlTokenizer;
 
 //Takes a file path and reads its contents in as plain text
@@ -41,7 +41,6 @@ fn load_toml_file(path: &str) -> Option<String> {
 }
 
 fn main() -> std::io::Result<()> {
-    
     let included_headers: Vec<&str> = vec![
         "dependencies",
         "dev-dependencies",
@@ -63,7 +62,7 @@ fn main() -> std::io::Result<()> {
             Arg::with_name("write")
                 .short("w")
                 .long("write")
-                .help("rewrites Cargo.toml file so it is lexically sorted")
+                .help("rewrites Cargo.toml file so it is lexically sorted"),
         )
         .get_matches();
 
@@ -98,7 +97,9 @@ fn main() -> std::io::Result<()> {
     //     }
     // }
 
-    if /*tr.is_sorted()*/true {
+    if
+    /*tr.is_sorted()*/
+    true {
         println!(
             "{} dependencies are sorted!",
             "Success".bold().bright_green()

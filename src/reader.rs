@@ -77,7 +77,7 @@ impl<'s> TomlReader {
         }
     }
 
-    fn slice_range(&mut self, pos: usize, key: String, end: &'s str,) {
+    fn slice_range(&mut self, pos: usize, key: String, end: &'s str) {
         let end_pos = self.unsorted_len(pos, end).expect("unsorted_len() failed");
         match self.slices.get(&key) {
             Some(_) => {
@@ -100,7 +100,7 @@ impl<'s> TomlReader {
         }
     }
 
-    fn replace_range(&mut self, pos: usize, key: String, end: &'s str,) {
+    fn replace_range(&mut self, pos: usize, key: String, end: &'s str) {
         let end_pos = self.unsorted_len(pos, end).expect("unsorted_len() failed");
         match self.slices.get(&key) {
             Some(_) => {
