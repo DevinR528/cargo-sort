@@ -176,7 +176,7 @@ impl TomlTokenizer {
 
     /// Returns taken tables from tokenizer with headers that match key
     /// filter_take removes items from self 
-    fn take_nested_sec(&mut self, key: &str) -> (usize, Vec<TomlTable>) {
+    fn take_nested_sel(&mut self, key: &str) -> (usize, Vec<TomlTable>) {
         self.take_filter(|t| {
             t.header.inner.contains(&format!("[{}.", key))
         }).iter_with_pos()
@@ -188,23 +188,16 @@ impl TomlTokenizer {
 
         for field in fields.iter() {
             
-            let (start, mut nested) = self.take_nested_sec(field);
+            let (mut start, mut nested) = self.take_nested_sel(field);
             // println!("UNSORTED {:#?}", nested);
             nested.sort_unstable();
-            println!("SORTED {:#?}", self.tables);
 
-            match self.tables
-                .windows(1)
-                .position(|t| t[0].header.inner.contains(&format!("[{}.", field)))
-            {
-                Some(pos) => {
-                    println!("PRE {}:  {:#?}", field, self.tables);
-                    let end = nested.len() + pos;
-                    nested.swap_with_slice(&mut self.tables[pos..end]);
-                    println!("POST {}:  {:#?}", field, self.tables);
-                },
-                None => {}
+            println!("PRE {}:  {:#?}", field, nested);
+            for table in nested {
+                self.tables.insert(start, table);
+                start += 1;
             }
+            //println!("POST {}:  {:#?}", field, self.tables);
 
             
             //println!("SORTED {:#?}", self.tables);
