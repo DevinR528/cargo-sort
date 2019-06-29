@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 use std::collections::VecDeque;
 use std::io;
 use std::result::Result;
@@ -25,7 +27,6 @@ impl TomlString {
     }
 
     fn has_more(&self) -> bool {
-        println!("TOML S {:#?}", self.chunks);
         if let Some(c) = self.chunks.front() {
             if c.len() > 0 {
                 match self.chunks.front() {
@@ -51,10 +52,8 @@ impl TomlString {
                 ));
             }
         };
-        //for line in self.chunks {
         if line.starts_with("[") {
             let header = self.chunks.pop_front().unwrap();
-            println!("{}", header);
 
             let t_header = TomlString::parse(header).unwrap();
             Ok(t_header)
@@ -71,7 +70,7 @@ impl TomlString {
         let mut end = false;
         loop {
             let line = match self.chunks.iter().next() {
-                Some(l) => l,
+                Some(l) => l.trim(),
                 None => {
                     end = true;
                     ""
@@ -87,7 +86,6 @@ impl TomlString {
                 return Ok(t_items);
             } else {
                 let item = self.chunks.pop_front().unwrap();
-                println!("{}", item);
                 items.push(item);
             }
         }
@@ -144,7 +142,6 @@ impl<'p> Parse<Vec<String>> for TomlString {
     type Error = ParseTomlError;
 
     fn parse(lines: Vec<String>) -> Result<Self::Return, Self::Error> {
-        println!("IN ITEMS {:#?}", lines);
         let toml_items = TomlItems::new(lines);
         Ok(toml_items)
     }
@@ -157,18 +154,33 @@ pub struct TomlTokenizer {
 }
 
 impl TomlTokenizer {
-    /// Clone only the tables
-    pub fn clone_tables(&self, k: &str) -> Vec<TomlTable> {
-        let table: Vec<TomlTable> = self.tables.iter().map(|t| t.clone()).collect();
-        table
+
+    fn new() -> Self {
+        Self {
+            tables: Vec::default(),
+            inner: TomlString::default(),
+        }
     }
 
-    /// Returns an owned copy of tables with headers that match key
-    fn get_nested_sec(&mut self, key: &str) -> Vec<TomlTable> {
-        self.tables.iter()
-            .filter(|t| t.header.inner.contains(&format!("[{}.", key)))
-            .map(Clone::clone)
-            .collect()
+    /// Clone only the tables
+    pub fn clone_tables(&self) -> Vec<TomlTable> {
+        self.tables.clone()
+    }
+
+    fn take_filter<F>(&mut self, f: F) -> FilterTake<'_, F>
+    where
+        F: Fn(&TomlTable) -> bool
+    {
+        FilterTake::new(self, f)
+    }
+
+    /// Returns taken tables from tokenizer with headers that match key
+    /// filter_take removes items from self 
+    fn take_nested_sec(&mut self, key: &str) -> (usize, Vec<TomlTable>) {
+        self.take_filter(|t| {
+            t.header.inner.contains(&format!("[{}.", key))
+        }).iter_with_pos()
+        .collect()
     }
 
     /// Sorts the whole file by nested headers
@@ -176,18 +188,20 @@ impl TomlTokenizer {
 
         for field in fields.iter() {
             
-            let mut nested = self.get_nested_sec(field);
+            let (start, mut nested) = self.take_nested_sec(field);
             // println!("UNSORTED {:#?}", nested);
             nested.sort_unstable();
-            // println!("SORTED {:#?}", nested);
+            println!("SORTED {:#?}", self.tables);
 
             match self.tables
                 .windows(1)
                 .position(|t| t[0].header.inner.contains(&format!("[{}.", field)))
             {
                 Some(pos) => {
+                    println!("PRE {}:  {:#?}", field, self.tables);
                     let end = nested.len() + pos;
-                    nested.swap_with_slice(&mut self.tables[pos..end])
+                    nested.swap_with_slice(&mut self.tables[pos..end]);
+                    println!("POST {}:  {:#?}", field, self.tables);
                 },
                 None => {}
             }
@@ -243,9 +257,9 @@ impl TomlTokenizer {
         let cleaned: Vec<String> = temp
             .join(&format!("{}{}", EOL, EOL))
             .lines()
-            .map(|s| s.to_owned())
+            // mostly for tests, removes whitespace from lines
+            .map(|s| s.trim().to_owned())
             .collect();
-        println!("{:?}", cleaned);
 
         let lines_mut = VecDeque::from(cleaned);
 
@@ -267,6 +281,16 @@ impl PartialEq for TomlTokenizer {
     }
 }
 
+impl IntoIterator for TomlTokenizer {
+    type Item = TomlTable;
+    type IntoIter = std::vec::IntoIter<Self::Item>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.tables.into_iter()
+    }
+    
+}
+
 pub struct TokenIter<'t> {
     inner: &'t TomlTokenizer,
     idx: usize,
@@ -279,7 +303,58 @@ impl<'t> Iterator for TokenIter<'t> {
         self.idx += 1;
         self.inner.tables.get(self.idx - 1)
     }
+    
 }
+
+pub struct FilterTake<'a, P> {
+    predicate: P,
+    idx: usize,
+    steal_idx: usize,
+    old_len: usize,
+    first_found_idx: usize,
+    tokens: &'a mut TomlTokenizer,
+    taken: Vec<TomlTable>,
+}
+
+impl<'a, P> FilterTake<'a, P> {
+
+    pub(super) fn new(tokens: &'a mut TomlTokenizer, predicate: P) -> FilterTake<'a, P> {
+        println!("{:#?}", tokens.tables);
+        let old_len = tokens.tables.len();
+        FilterTake {
+            predicate,
+            tokens,
+            taken: Vec::default(),
+            old_len,
+            idx: 0,
+            steal_idx: 0,
+            first_found_idx: 0,
+        }
+    }
+
+    fn iter_with_pos(mut self) -> Self
+    where 
+        P: Fn(&TomlTable) -> bool 
+    {
+        while self.idx != self.old_len {
+            if (self.predicate)(&mut self.tokens.tables[self.steal_idx]) {
+                let val = self.tokens.tables.remove(self.steal_idx);
+                self.idx += 1;
+                self.taken.push(val);
+            } else {
+                self.first_found_idx += 1;
+                self.steal_idx += 1;
+                self.idx += 1;
+            }
+        }
+        self
+    }
+
+    fn collect(self) -> (usize, Vec<TomlTable>) {
+        (self.first_found_idx, self.taken.into_iter().collect())
+    }
+}
+
 
 #[cfg(test)]
 mod tests {
@@ -299,9 +374,39 @@ mod tests {
         //println!("{}", f);
         let mut tt = TomlTokenizer::from_str(&f).parse_toml().unwrap();
         //println!("{:#?}", tt);
-        let unsorted = tt.clone();
+        let unsorted = tt.clone_tables();
         tt.sort_nested(included_headers);
         //println!("{:#?}", tt);
-        assert_ne!(unsorted, tt)
+        assert_ne!(unsorted, tt.tables)
+    }
+
+    #[test]
+    fn take_all_filter() {
+        let mut toml = r#"[dependencies]
+        a="0"
+        b="0"
+        c="0"
+
+        [dev-dependencies]
+        a="0"
+        f="0"
+        c="0"
+
+        [foo]
+        a="0"
+
+        "#;
+
+        let mut tt = TomlTokenizer::from_str(toml).parse_toml().unwrap();
+        //println!("{:#?}", tt);
+        // we get to test this too
+        let control = tt.clone_tables();
+        let (pos, taken) = tt.take_filter(|table| {
+            table.header.inner == "[foo]"
+        }).iter_with_pos().collect();
+
+        assert_eq!(taken.len(), 1);
+        assert_eq!(pos, 2);
+
     }
 }
