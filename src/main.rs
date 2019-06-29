@@ -6,11 +6,8 @@ use clap::{App, Arg};
 use colored::Colorize;
 use toml::de;
 
-mod reader;
-use reader::TomlReader;
 mod toml_tokenizer;
-mod writer;
-use toml_tokenizer::TomlTokenizer;
+use toml_tokenizer::{ TomlTokenizer, parse::Parse };
 
 //Takes a file path and reads its contents in as plain text
 fn load_file_contents(path: &str) -> String {
@@ -19,6 +16,7 @@ fn load_file_contents(path: &str) -> String {
         eprintln!("{}", msg);
         std::process::exit(1);
     });
+    // TODO: remove 
     // since we are only string munching validate it first
     if let Err(e) = de::from_str::<toml::value::Table>(&file_contents) {
         println!("{}", &format!("{} {} in {}", "ERROR:".red(), e, path));
@@ -86,7 +84,13 @@ fn main() -> std::io::Result<()> {
     };
 
     // parses/to_token the toml for sort checking
-    let mut tt = TomlTokenizer::from_str(&toml_raw);
+    let mut tt = TomlTokenizer::parse(&toml_raw)
+        .unwrap_or_else(|e| {
+            let msg = format!("{} No file found at: {}", "ERROR:".red(), e);
+            eprintln!("{}", msg);
+            std::process::exit(1);
+        });
+    
     //Check if appropriate tables in file are sorted
     // for header in included_headers.iter() {
     //     let full_header = format!("[{}]", header);

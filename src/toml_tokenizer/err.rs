@@ -31,7 +31,7 @@ impl std::convert::From<io::Error> for ParseTomlError {
 }
 
 impl std::convert::From<ParseTomlError> for io::Error {
-    fn from(e: ParseTomlError) -> io::Error {
+    fn from(_e: ParseTomlError) -> io::Error {
         io::Error::new(io::ErrorKind::Other, "uh oh")
     }
 }
