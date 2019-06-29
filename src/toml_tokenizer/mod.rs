@@ -167,15 +167,32 @@ impl TomlTokenizer {
         self.tables.clone()
     }
 
-    fn take_filter<F>(&mut self, f: F) -> FilterTake<'_, F>
+    // TODO Remove when drain_filter is stable
+    /// Destructivly removes and returns elements from vec
+    /// based on P: predicate.
+    fn take_filter<P>(&mut self, pred: P) -> FilterTake<'_, P>
     where
-        F: Fn(&TomlTable) -> bool
+        P: Fn(&TomlTable) -> bool
     {
-        FilterTake::new(self, f)
+        FilterTake::new(self, pred)
     }
 
     /// Returns taken tables from tokenizer with headers that match key
     /// filter_take removes items from self 
+    /// 
+    /// # Arguments
+    /// * `key`: compared with .contains and formatted "[{key}."
+    // this allows for:
+    // [deps.foo]
+    // a="0"
+    // a="0"
+    // 
+    // [other.thing]
+    // b=""
+    // 
+    // [deps.bar]
+    // a=""
+    // will now be grouped (starting at deps.foo) and sorted deps.bar then deps.foo
     fn take_nested_sel(&mut self, key: &str) -> (usize, Vec<TomlTable>) {
         self.take_filter(|t| {
             t.header.inner.contains(&format!("[{}.", key))
@@ -192,15 +209,29 @@ impl TomlTokenizer {
             // println!("UNSORTED {:#?}", nested);
             nested.sort_unstable();
 
-            println!("PRE {}:  {:#?}", field, nested);
+            // println!("PRE {}:  {:#?}", field, nested);
+            nested.reverse();
             for table in nested {
                 self.tables.insert(start, table);
-                start += 1;
             }
-            //println!("POST {}:  {:#?}", field, self.tables);
+        }
+    }
 
-            
-            //println!("SORTED {:#?}", self.tables);
+    pub fn sort_items(&mut self, key: &str) {
+        let (mut start, mut tables) = self.take_filter(|t| {
+            t.header.inner == format!("[{}]", key)
+        }).iter_with_pos().collect();
+
+        tables.iter_mut().for_each(|t| {
+            t.items.items.sort_unstable();
+            println!("IN FOREACH{:#?}", t.items.items);
+        });
+
+        let x = tables.len();
+        for table in tables {
+            println!("LEN {} {}", start, x);
+            self.tables.insert(start, table);
+            start += 1;
         }
     }
 
@@ -312,7 +343,7 @@ pub struct FilterTake<'a, P> {
 impl<'a, P> FilterTake<'a, P> {
 
     pub(super) fn new(tokens: &'a mut TomlTokenizer, predicate: P) -> FilterTake<'a, P> {
-        println!("{:#?}", tokens.tables);
+        // println!("{:#?}", tokens.tables);
         let old_len = tokens.tables.len();
         FilterTake {
             predicate,
@@ -329,13 +360,20 @@ impl<'a, P> FilterTake<'a, P> {
     where 
         P: Fn(&TomlTable) -> bool 
     {
+        let mut found = false;
         while self.idx != self.old_len {
             if (self.predicate)(&mut self.tokens.tables[self.steal_idx]) {
+                found = true;
+
                 let val = self.tokens.tables.remove(self.steal_idx);
-                self.idx += 1;
                 self.taken.push(val);
+
+                if found {
+                    self.first_found_idx = self.idx;
+                }
+                self.idx += 1;
+
             } else {
-                self.first_found_idx += 1;
                 self.steal_idx += 1;
                 self.idx += 1;
             }
@@ -369,7 +407,7 @@ mod tests {
         //println!("{:#?}", tt);
         let unsorted = tt.clone_tables();
         tt.sort_nested(included_headers);
-        //println!("{:#?}", tt);
+        println!("{:#?}", tt);
         assert_ne!(unsorted, tt.tables)
     }
 
@@ -393,13 +431,46 @@ mod tests {
         let mut tt = TomlTokenizer::from_str(toml).parse_toml().unwrap();
         //println!("{:#?}", tt);
         // we get to test this too
-        let control = tt.clone_tables();
         let (pos, taken) = tt.take_filter(|table| {
             table.header.inner == "[foo]"
         }).iter_with_pos().collect();
 
         assert_eq!(taken.len(), 1);
         assert_eq!(pos, 2);
+
+    }
+
+    #[test]
+    fn sort_items() {
+        let mut toml = r#"[dependencies]
+        a="0"
+        b="0"
+        c="0"
+
+        [dev-dependencies]
+        a="0"
+        f="0"
+        c="0"
+
+        [foo]
+        a="0"
+
+        "#;
+
+        let sorted = vec![
+            r#"a="0""#,
+            r#"c="0""#,
+            r#"f="0""#,
+        ];
+
+        let mut tt = TomlTokenizer::from_str(toml).parse_toml().unwrap();
+        //println!("{:#?}", tt);
+        // we get to test this too
+        let control = tt.clone_tables();
+        tt.sort_items("dev-dependencies");
+        println!("{:#?}", tt.tables[1].items.items);
+        assert_ne!(tt.tables[1], control[1]);
+        assert_eq!(tt.tables[1].items.items, sorted);
 
     }
 }
