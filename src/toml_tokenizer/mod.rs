@@ -17,6 +17,7 @@ pub const EOL: &'static str = "\n";
 
 #[derive(Debug, Clone)]
 pub struct TomlTokenizer {
+    was_sorted: bool,
     pub tables: Vec<TomlTable>,
     inner: TomlString,
 }
@@ -25,6 +26,7 @@ pub struct TomlTokenizer {
 impl TomlTokenizer {
     fn new() -> Self {
         Self {
+            was_sorted: false,
             tables: Vec::default(),
             inner: TomlString::default(),
         }
@@ -78,9 +80,14 @@ impl TomlTokenizer {
     /// Sorts the whole file by nested headers
     pub fn sort_nested(&mut self, field: &str) {
         let (start, mut nested) = self.take_nested_sel(field);
+        let unsorted = nested.clone();
         // println!("UNSORTED {:#?}", nested);
         nested.sort();
 
+        if unsorted == nested {
+            println!("sorted");
+            self.was_sorted = true
+        }
         // println!("PRE {}:  {:#?}", field, nested);
         nested.reverse();
         for table in nested {
@@ -88,6 +95,26 @@ impl TomlTokenizer {
         }
     }
 
+    /// Sorts all of the items under the header `key`
+    /// 
+    /// # Examples
+    /// 
+    /// ```
+    /// let toml = 
+    /// r#"[deps]
+    /// a="0"
+    /// f="0"
+    /// c="0"
+    /// 
+    /// "#;
+    /// 
+    /// let mut tt = TomlTokenizer::parse(toml).unwrap();
+    /// let control = tt.clone_tables();
+    /// 
+    /// tt.sort_items("deps");
+    /// 
+    /// assert_ne!(tt.tables[0], control[0]);
+    /// ```
     pub fn sort_items(&mut self, key: &str) {
         let (start, mut tables) = self
             .drain_filter(|t| {
@@ -102,13 +129,23 @@ impl TomlTokenizer {
             .collect();
 
         tables.iter_mut().for_each(|t| {
-            t.items.as_mut().unwrap().items.sort_unstable();
+            let unsorted = t.clone();
+            t.items.as_mut().unwrap().items.sort();
+
+            if &unsorted == t {
+                println!("sorted");
+                self.was_sorted = true
+            }
         });
 
         tables.reverse();
         for table in tables {
             self.tables.insert(start, table);
         }
+    }
+
+    pub fn is_sorted(&self) -> bool {
+        self.was_sorted
     }
 
     pub fn iter(&self) -> TokenIter {
@@ -141,6 +178,7 @@ impl Parse<&str> for TomlTokenizer {
         cleaned.pop();
 
         let mut tokenizer = TomlTokenizer {
+            was_sorted: false,
             tables: Vec::default(),
             inner: TomlString::from(cleaned),
         };

@@ -25,19 +25,28 @@ impl std::convert::From<io::Error> for ParseTomlError {
         let msg = e.description().to_owned();
         ParseTomlError::new(
             msg,
-            TomlErrorKind::InternalParseError("? op Error".to_owned()),
+            TomlErrorKind::InternalParseError("? opperator returned error".to_owned()),
         )
     }
 }
 
 impl std::convert::From<ParseTomlError> for io::Error {
-    fn from(_e: ParseTomlError) -> io::Error {
-        io::Error::new(io::ErrorKind::Other, "uh oh")
+    fn from(e: ParseTomlError) -> io::Error {
+        match e.kind {
+            TomlErrorKind::InternalParseError(info) => {
+                io::Error::new(io::ErrorKind::Other, info)
+            },
+            TomlErrorKind::UnexpectedToken(info) => {
+                io::Error::new(io::ErrorKind::Other, info)
+            },
+        }
+        
     }
 }
 
 impl std::error::Error for ParseTomlError {
     fn description(&self) -> &str {
+        // TODO add enum string?
         self.info.as_str()
     }
 }

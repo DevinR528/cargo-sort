@@ -91,14 +91,10 @@ fn main() -> std::io::Result<()> {
     });
 
     //Check if appropriate tables in file are sorted
-    // for header in included_headers.iter() {
-    //     let full_header = format!("[{}]", header);
-    //     tr.slice_table(full_header, "\n[")?;
-
-    //     if header.contains("dependencies") {
-    //         while tr.slice_header(format!("[{}.", header), "]")? {}
-    //     }
-    // }
+    for header in included_headers.iter() {
+        tt.sort_items(header);
+        tt.sort_nested(header);
+    }
 
     if
     /*tr.is_sorted()*/
