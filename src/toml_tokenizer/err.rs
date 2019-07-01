@@ -54,6 +54,6 @@ impl std::fmt::Display for ParseTomlError {
             TomlErrorKind::InternalParseError(ref span) => span,
             TomlErrorKind::UnexpectedToken(ref span) => span,
         };
-        write!(f, "{} caused by {}", self.info, span)
+        write!(f, "{}, found '{}'", self.info, span)
     }
 }

@@ -1,64 +1,113 @@
-use super::err::{ ParseTomlError, TomlErrorKind };
+use super::err::{ParseTomlError, TomlErrorKind};
 use super::parse::Parse;
-use super::toml_str::TomlString;
 
-
-#[derive(Debug, Clone)]
-pub struct Comment {
-    inner: String,
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TomlKVPair {
+    comment: Option<String>,
+    key: Option<String>,
+    val: Option<String>,
 }
 
-#[derive(Debug, Clone)]
-pub struct KVPair {
-    key: String,
-    val: String,
-}
-
-impl KVPair {
-
-}
-
-impl Parse<&str> for KVPair {
-    type Item = KVPair;
-    type Error = ParseTomlError;
-    fn parse(s: &str) -> Result<Self::Item, Self::Error> {
-        let (key, val) = split_once(&s);
-        Ok(KVPair { key, val, })
+impl PartialOrd for TomlKVPair {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
     }
 }
 
-fn split_once(s: &str) -> (String, String) {
-    let mut splitter = s.split('=');
-    let first = splitter.next().unwrap();
-    let second = splitter.fold("".to_owned(), |a, b| a + &format!(" = {}", b)); 
-    (first.into(), second)
+impl Ord for TomlKVPair {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        if let Some(key) = &self.key {
+            if let Some(other_k) = &other.key {
+                key.cmp(&other_k)
+            // else we have key and comment
+            } else {
+                std::cmp::Ordering::Equal
+            }
+        } else {
+            std::cmp::Ordering::Equal
+        }
+    }
 }
 
-#[derive(Debug, Clone)]
+fn split_once(s: &str) -> (Option<String>, Option<String>) {
+    let mut pair: Vec<&str> = s.split('=').collect();
+    let mut all = pair.iter().take(pair.len());
+
+    let first = *all.next().unwrap();
+    let mut second = String::default();
+
+    let mut c = 0;
+    for kv in all {
+        if c % 2 == 0 {
+            second.push_str(kv);
+        } else {
+            second.push_str(&format!(" = {}", kv))
+        }
+        c += 1;
+    }
+    //println!("{}", second);
+    (Some(first.into()), Some(second))
+}
+
+impl Parse<&str> for TomlKVPair {
+    type Item = TomlKVPair;
+    type Error = ParseTomlError;
+    fn parse(s: &str) -> Result<Self::Item, Self::Error> {
+        if s.starts_with("#") {
+            Ok(TomlKVPair {
+                key: None,
+                val: None,
+                comment: Some(s.into()),
+            })
+        } else {
+            let (key, val) = split_once(&s);
+            Ok(TomlKVPair {
+                key,
+                val,
+                comment: None,
+            })
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub struct TomlItems {
-    pub items: Vec<String>,
+    pub items: Vec<TomlKVPair>,
 }
 
-impl TomlItems {
-    pub fn new(items: Vec<String>) -> TomlItems {
-        TomlItems { items }
+impl std::fmt::Display for TomlItems {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> Result<(), std::fmt::Error> {
+        for item in self.items.iter() {
+            if let Some(k) = &item.key {
+                if let Some(v) = &item.val {
+                    write!(f, "{} = {}{}", k, v, super::EOL)?;
+                } else {
+                    // TODO what happpens when no value found
+                    write!(f, "{} = {}", k, super::EOL)?;
+                }
+            } else {
+                if let Some(com) = &item.comment {
+                    write!(f, "{}{}", com, super::EOL)?;
+                }
+            }
+        }
+        write!(f, "{}", super::EOL)
     }
 }
 
 impl<'p> Parse<Vec<String>> for TomlItems {
-
     type Item = TomlItems;
     type Error = ParseTomlError;
 
     fn parse(lines: Vec<String>) -> Result<Self::Item, Self::Error> {
-        let toml_items = TomlItems::new(lines);
+        let mut toml_items = TomlItems {
+            items: Vec::default(),
+        };
+        for (i, line) in lines.iter().enumerate() {
+            let item = TomlKVPair::parse(line)?;
+            toml_items.items.push(item);
+        }
         Ok(toml_items)
-    }
-}
-
-impl PartialEq for TomlItems {
-    fn eq(&self, other: &TomlItems) -> bool {
-        self.items == other.items
     }
 }
 
@@ -69,8 +118,13 @@ pub struct TomlHeader {
     pub seg: Vec<String>,
 }
 
-impl<'p> Parse<String> for TomlHeader {
+impl std::fmt::Display for TomlHeader {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> Result<(), std::fmt::Error> {
+        write!(f, "{}{}", self.inner, super::EOL)
+    }
+}
 
+impl<'p> Parse<String> for TomlHeader {
     type Item = TomlHeader;
     type Error = ParseTomlError;
 
@@ -85,6 +139,8 @@ impl<'p> Parse<String> for TomlHeader {
                 extended: true,
             });
         }
+
+        // if not just a single element vec
         let seg: Vec<String> = header
             .trim_matches(|c| c == '[' || c == ']')
             .split(".")
@@ -114,15 +170,58 @@ impl PartialEq for TomlHeader {
     }
 }
 
-#[derive(Debug, Clone,)]
+#[derive(Debug, Clone)]
 pub struct TomlTable {
-    pub header: TomlHeader,
-    pub items: TomlItems,
+    pub comment: Option<String>,
+    pub header: Option<TomlHeader>,
+    pub items: Option<TomlItems>,
 }
 
 impl TomlTable {
     pub fn sort_items(&mut self) {
-        self.items.items.sort_unstable()
+        match &mut self.items {
+            Some(i) => i.items.sort(),
+            None => {}
+        }
+    }
+}
+
+impl std::fmt::Display for TomlTable {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> Result<(), std::fmt::Error> {
+        match self {
+            TomlTable {
+                items: Some(items),
+                header: Some(header),
+                comment: Some(comment),
+            } => write!(
+                f,
+                "{}{}{}",
+                comment,
+                header,
+                items,
+            ),
+            TomlTable {
+                items: Some(items),
+                header: Some(header),
+                ..
+            } => write!(f, "{}{}", header, items),
+            TomlTable {
+                comment: Some(comment),
+                ..
+            } => write!(f, "{}", comment),
+            TomlTable {
+                header: Some(header),
+                ..
+            } => write!(f, "{}", header),
+            TomlTable {
+                items: Some(items), ..
+            } => write!(f, "{}", items),
+            TomlTable {
+                comment: None,
+                header: None,
+                items: None,
+            } => write!(f, "nothing"),
+        }
     }
 }
 
@@ -134,7 +233,7 @@ impl PartialEq for TomlTable {
 
 impl Eq for TomlTable {}
 
-impl PartialOrd for TomlTable  {
+impl PartialOrd for TomlTable {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
         Some(self.cmp(other))
     }
@@ -142,22 +241,27 @@ impl PartialOrd for TomlTable  {
 
 impl Ord for TomlTable {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        self.header.inner.cmp(&other.header.inner)
+        self.header
+            .as_ref()
+            .unwrap()
+            .inner
+            .cmp(&other.header.as_ref().unwrap().inner)
     }
 }
-
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
+
     #[test]
     fn test_items_parse() {
         let item = r#"hello="{ why=yes }""#;
 
-        let parsed = KVPair::parse(item);
-        println!("{:#?}", parsed);
-        
-        //assert_ne!(unsorted, tt.tables)
+        let kv = TomlKVPair::parse(item).unwrap();
+        //println!("{:#?}", kv);
+
+        assert_eq!(kv.key.unwrap(), "hello".to_string());
+        assert_eq!(kv.val.unwrap(), "\"{ why = yes }\"".to_string());
     }
 }

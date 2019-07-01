@@ -3,9 +3,9 @@
 use std::collections::VecDeque;
 use std::result::Result;
 
-use super::err::{ ParseTomlError, TomlErrorKind };
+use super::err::{ParseTomlError, TomlErrorKind};
 use super::parse::Parse;
-use super::toml_ty::{ TomlHeader, TomlItems, };
+use super::toml_ty::{TomlHeader, TomlItems};
 
 #[cfg(windows)]
 const EOL: &'static str = "\r\n";
@@ -18,13 +18,14 @@ pub struct TomlString {
 }
 
 impl TomlString {
-
     pub fn new(chunks: VecDeque<String>) -> Self {
         Self { chunks }
     }
 
     pub fn from(v: Vec<String>) -> Self {
-        Self { chunks: VecDeque::from(v) }
+        Self {
+            chunks: VecDeque::from(v),
+        }
     }
 
     pub fn default() -> Self {
@@ -37,7 +38,7 @@ impl TomlString {
         if let Some(c) = self.chunks.front() {
             if c.len() > 0 {
                 match self.chunks.front() {
-                    Some(line) => line.contains("["),
+                    Some(line) => line.contains("[") || line.contains("#"),
                     None => false,
                 }
             } else {
@@ -48,7 +49,51 @@ impl TomlString {
         }
     }
 
+    /// Checks for comment and also returns (Some(String), true) if EOF was reached.
+    // TODO this is ugly                        here ********************
+    pub(super) fn check_comment(&mut self) -> Result<(Option<String>, bool), ParseTomlError> {
+        let lines_clone = self.chunks.clone();
+        let mut chunk_iter = lines_clone.iter();
+        let line = match chunk_iter.next() {
+            Some(l) => l,
+            None => {
+                // this should not happen
+                return Err(ParseTomlError::new(
+                    "Found empty .toml file".into(),
+                    TomlErrorKind::UnexpectedToken("".into()),
+                ));
+            }
+        };
 
+        let mut end = false;
+        if line.starts_with("#") {
+            let mut comment = self.chunks.pop_front().unwrap();
+            comment.push_str(super::EOL);
+
+            loop {
+                let next_l = match chunk_iter.next() {
+                    Some(l) => l,
+                    None => {
+                        end = true;
+                        ""
+                    }
+                };
+
+                //println!("next l: {}", next_l);
+                if next_l.starts_with("#") {
+                    let comm = self.chunks.pop_front().unwrap();
+                    comment.push_str(&format!("{}{}", comm, super::EOL));
+
+                } else if next_l.is_empty() && !end {
+                    self.chunks.pop_front().unwrap();
+                    comment.push_str(super::EOL);
+                } else {
+                    return Ok((Some(comment), end));
+                }
+            }
+        }
+        Ok((None, false))
+    }
 
     pub(super) fn parse_header(&mut self) -> Result<TomlHeader, ParseTomlError> {
         let line = match self.chunks.iter().next() {
@@ -68,7 +113,7 @@ impl TomlString {
             Ok(t_header)
         } else {
             Err(ParseTomlError::new(
-                "Header did not start with [".into(),
+                "Header did not start with '['".into(),
                 TomlErrorKind::UnexpectedToken(line.to_owned()),
             ))
         }
@@ -76,10 +121,11 @@ impl TomlString {
 
     pub(super) fn parse_itmes(&mut self) -> Result<TomlItems, ParseTomlError> {
         let mut items = Vec::default();
+
         let mut end = false;
         loop {
             let line = match self.chunks.iter().next() {
-                Some(l) => l.trim(),
+                Some(l) => l,
                 None => {
                     end = true;
                     ""
@@ -100,51 +146,3 @@ impl TomlString {
         }
     }
 }
-
-// impl<'p> Parse<String> for TomlString {
-//     type Return = TomlHeader;
-//     type Error = ParseTomlError;
-
-//     fn parse(header: String) -> Result<Self::Return, Self::Error> {
-//         if header.contains(".") {
-//             let segmented = header.trim_matches(|c| c == '[' || c == ']');
-//             let seg = segmented.split(".").map(|s| s.to_owned()).collect();
-//             // println!("SEG {:#?}", seg);
-//             return Ok(TomlHeader {
-//                 inner: header.into(),
-//                 seg: seg,
-//                 extended: true,
-//             });
-//         }
-//         let seg: Vec<String> = header
-//             .trim_matches(|c| c == '[' || c == ']')
-//             .split(".")
-//             .map(Into::into)
-//             .collect();
-
-//         // println!("SEG {:#?}", seg);
-
-//         if seg.is_empty() {
-//             let span = header.to_string();
-//             return Err(ParseTomlError::new(
-//                 "No value inside header".into(),
-//                 TomlErrorKind::UnexpectedToken(span),
-//             ));
-//         }
-//         Ok(TomlHeader {
-//             inner: header.into(),
-//             seg,
-//             extended: false,
-//         })
-//     }
-// }
-
-// impl<'p> Parse<Vec<String>> for TomlString {
-//     type Return = TomlItems;
-//     type Error = ParseTomlError;
-
-//     fn parse(lines: Vec<String>) -> Result<Self::Return, Self::Error> {
-//         let toml_items = TomlItems::new(lines);
-//         Ok(toml_items)
-//     }
-// }

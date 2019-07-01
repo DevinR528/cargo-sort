@@ -1,22 +1,19 @@
 #![allow(dead_code)]
-
-use std::collections::VecDeque;
 use std::result::Result;
 
 mod err;
-use err::{ParseTomlError, TomlErrorKind};
+use err::ParseTomlError;
 pub mod parse;
 use parse::Parse;
 mod toml_ty;
-use toml_ty::{TomlHeader, TomlItems, TomlTable};
+use toml_ty::TomlTable;
 mod toml_str;
 use toml_str::TomlString;
 
 #[cfg(windows)]
-const EOL: &'static str = "\r\n";
+pub const EOL: &'static str = "\r\n";
 #[cfg(not(windows))]
-const EOL: &'static str = "\n";
-
+pub const EOL: &'static str = "\n";
 
 #[derive(Debug, Clone)]
 pub struct TomlTokenizer {
@@ -24,9 +21,8 @@ pub struct TomlTokenizer {
     inner: TomlString,
 }
 
-/// Toml Tokenizer 
+/// Toml Tokenizer
 impl TomlTokenizer {
-
     fn new() -> Self {
         Self {
             tables: Vec::default(),
@@ -44,56 +40,69 @@ impl TomlTokenizer {
     /// based on P: predicate.
     fn drain_filter<P>(&mut self, pred: P) -> FilterTake<'_, P>
     where
-        P: Fn(&TomlTable) -> bool
+        P: Fn(&TomlTable) -> bool,
     {
         FilterTake::new(self, pred)
     }
 
     /// Returns taken tables from tokenizer with headers that match key
-    /// filter_take removes items from self 
-    /// 
+    /// filter_take removes items from self
+    ///
     /// # Arguments
-    /// * `key`: compared with .contains and formatted "[{key}."
-    // this allows for:
-    // [deps.foo]
-    // a="0"
-    // a="0"
-    // 
-    // [other.thing]
-    // b=""
-    // 
-    // [deps.bar]
-    // a=""
-    // will now be grouped (starting at deps.foo) and sorted deps.bar then deps.foo
+    /// * `key`: compared with .contains() and formatted "[{key}."
+    /// this allows for:
+    ///
+    /// [deps.foo]
+    /// a="0"
+    /// a="0"
+    ///
+    /// [other.thing]
+    /// b=""
+    ///
+    /// [deps.bar]
+    /// a=""
+    /// will now be grouped (starting at deps.foo) and sorted deps.bar then deps.foo
     fn take_nested_sel(&mut self, key: &str) -> (usize, Vec<TomlTable>) {
         self.drain_filter(|t| {
-            t.header.inner.contains(&format!("[{}.", key))
-        }).iter_with_pos()
+            // unwrap? this would only happen if cargo.toml was empty
+            if let Some(header) = &t.header {
+                header.inner.contains(&format!("[{}.", key))
+            } else {
+                false
+            }
+        })
+        .iter_with_pos()
         .collect()
     }
 
     /// Sorts the whole file by nested headers
     pub fn sort_nested(&mut self, field: &str) {
-
         let (start, mut nested) = self.take_nested_sel(field);
-            // println!("UNSORTED {:#?}", nested);
-            nested.sort_unstable();
+        // println!("UNSORTED {:#?}", nested);
+        nested.sort();
 
-            // println!("PRE {}:  {:#?}", field, nested);
-            nested.reverse();
-            for table in nested {
-                self.tables.insert(start, table);
-            }
+        // println!("PRE {}:  {:#?}", field, nested);
+        nested.reverse();
+        for table in nested {
+            self.tables.insert(start, table);
+        }
     }
 
     pub fn sort_items(&mut self, key: &str) {
-        let (start, mut tables) = self.drain_filter(|t| {
-            t.header.inner == format!("[{}]", key)
-        }).iter_with_pos().collect();
+        let (start, mut tables) = self
+            .drain_filter(|t| {
+                // unwrap?
+                if let Some(header) = &t.header {
+                    header.inner == format!("[{}]", key)
+                } else {
+                    false
+                }
+            })
+            .iter_with_pos()
+            .collect();
 
         tables.iter_mut().for_each(|t| {
-            t.items.items.sort_unstable();
-            println!("IN FOREACH{:#?}", t.items.items);
+            t.items.as_mut().unwrap().items.sort_unstable();
         });
 
         tables.reverse();
@@ -112,69 +121,24 @@ impl TomlTokenizer {
     pub fn iter_mut(&mut self) -> impl Iterator<Item = &mut TomlTable> {
         self.tables.iter_mut()
     }
-
-    // pub fn parse_toml(&mut self) -> Result<Self, ParseTomlError> {
-    //     let mut new_tt = TomlTokenizer {
-    //         tables: Vec::default(),
-    //         inner: TomlString::default(),
-    //     };
-
-    //     while self.inner.has_more() {
-    //         let header = match self.inner.parse_header() {
-    //             Ok(h) => h,
-    //             Err(e) => return Err(e),
-    //         };
-
-    //         let items = match self.inner.parse_itmes() {
-    //             Ok(i) => i,
-    //             Err(e) => return Err(e),
-    //         };
-
-    //         // println!("{:#?}", items);
-    //         let table = TomlTable {
-    //             header: header,
-    //             items: items.clone(),
-    //         };
-    //         new_tt.tables.push(table);
-
-    //         // println!("{:#?}", items);
-    //     }
-    //     Ok(new_tt)
-    // }
-
-    // pub fn from_str(s: &str) -> TomlTokenizer {
-    //     // cleans input
-    //     let temp: Vec<&str> = s.split(&format!("{}{}{}", EOL, EOL, EOL)).collect();
-    //     let cleaned: Vec<String> = temp
-    //         .join(&format!("{}{}", EOL, EOL))
-    //         .lines()
-    //         // mostly for tests, removes whitespace from lines
-    //         .map(|s| s.trim().to_owned())
-    //         .collect();
-
-    //     let lines = VecDeque::from(cleaned);
-    //     let content = TomlString::new(lines);
-    //     TomlTokenizer {
-    //         tables: Vec::default(),
-    //         inner: content,
-    //     }
-    // }
 }
 
 impl Parse<&str> for TomlTokenizer {
-
     type Item = TomlTokenizer;
     type Error = ParseTomlError;
 
     fn parse(s: &str) -> Result<Self::Item, Self::Error> {
         // cleans input
         let temp: Vec<&str> = s.split(&format!("{}{}{}", EOL, EOL, EOL)).collect();
-        let cleaned: Vec<String> = temp
+        let mut cleaned: Vec<String> = temp
             .join(&format!("{}{}", EOL, EOL))
             .lines()
             // mostly for tests, removes whitespace from lines
             .map(|s| s.trim().to_owned())
             .collect();
+        // Im probably dumb but some where an extra \n is 
+        // being split and adds 3 to the end of every string
+        cleaned.pop();
 
         let mut tokenizer = TomlTokenizer {
             tables: Vec::default(),
@@ -182,21 +146,44 @@ impl Parse<&str> for TomlTokenizer {
         };
 
         while tokenizer.inner.has_more() {
-            let header = match tokenizer.inner.parse_header() {
-                Ok(h) => h,
-                Err(e) => return Err(e),
-            };
+            let (comment, end) = tokenizer.inner.check_comment()?;
+            if !end {
+                let header = match tokenizer.inner.parse_header() {
+                    Ok(h) => Some(h),
+                    Err(e) => return Err(e),
+                };
 
-            let items = match tokenizer.inner.parse_itmes() {
-                Ok(i) => i,
-                Err(e) => return Err(e),
-            };
-            
-            let table = TomlTable { header, items, };
-            tokenizer.tables.push(table);
+                let items = match tokenizer.inner.parse_itmes() {
+                    Ok(i) => Some(i),
+                    Err(e) => return Err(e),
+                };
+
+                let table = TomlTable {
+                    header,
+                    items,
+                    comment,
+                };
+                tokenizer.tables.push(table);
             // println!("{:#?}", items);
+            } else {
+                let table = TomlTable {
+                    header: None,
+                    items: None,
+                    comment,
+                };
+                tokenizer.tables.push(table);
+            }
         }
         Ok(tokenizer)
+    }
+}
+
+impl std::fmt::Display for TomlTokenizer {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> Result<(), std::fmt::Error> {
+        for t in self.tables.iter() {
+            write!(f, "{}", t)?;
+        }
+        write!(f, "")
     }
 }
 
@@ -205,6 +192,9 @@ impl PartialEq for TomlTokenizer {
         let mut flag = true;
         for (i, table) in self.tables.iter().enumerate() {
             flag = table == &other.tables[i];
+            if !flag {
+                return flag
+            }
         }
         flag
     }
@@ -217,7 +207,6 @@ impl IntoIterator for TomlTokenizer {
     fn into_iter(self) -> Self::IntoIter {
         self.tables.into_iter()
     }
-    
 }
 
 pub struct TokenIter<'t> {
@@ -232,7 +221,6 @@ impl<'t> Iterator for TokenIter<'t> {
         self.idx += 1;
         self.inner.tables.get(self.idx - 1)
     }
-    
 }
 
 pub struct FilterTake<'a, P> {
@@ -246,7 +234,6 @@ pub struct FilterTake<'a, P> {
 }
 
 impl<'a, P> FilterTake<'a, P> {
-
     pub(super) fn new(tokens: &'a mut TomlTokenizer, predicate: P) -> FilterTake<'a, P> {
         // println!("{:#?}", tokens.tables);
         let old_len = tokens.tables.len();
@@ -262,13 +249,12 @@ impl<'a, P> FilterTake<'a, P> {
     }
 
     fn iter_with_pos(mut self) -> Self
-    where 
-        P: Fn(&TomlTable) -> bool 
+    where
+        P: Fn(&TomlTable) -> bool,
     {
         let mut first = true;
         while self.idx != self.old_len {
             if (self.predicate)(&mut self.tokens.tables[self.steal_idx]) {
-
                 let val = self.tokens.tables.remove(self.steal_idx);
                 self.taken.push(val);
 
@@ -277,7 +263,6 @@ impl<'a, P> FilterTake<'a, P> {
                     first = false;
                 }
                 self.idx += 1;
-
             } else {
                 self.steal_idx += 1;
                 self.idx += 1;
@@ -290,7 +275,6 @@ impl<'a, P> FilterTake<'a, P> {
         (self.first_found_idx, self.taken.into_iter().collect())
     }
 }
-
 
 #[cfg(test)]
 mod tests {
@@ -319,7 +303,7 @@ mod tests {
 
     #[test]
     fn take_all_filter() {
-        let mut toml = r#"[dependencies]
+        let toml = r#"[dependencies]
         a="0"
         b="0"
         c="0"
@@ -335,52 +319,110 @@ mod tests {
         "#;
 
         let mut tt = TomlTokenizer::parse(toml).unwrap();
-        println!("{:#?}", tt);
         // we get to test this too
-        let (pos, taken) = tt.drain_filter(|table| {
-            table.header.inner == "[foo]"
-        }).iter_with_pos().collect();
+        let (pos, taken) = tt
+            .drain_filter(|table| table.header.as_ref().unwrap().inner == "[foo]")
+            .iter_with_pos()
+            .collect();
 
         assert_eq!(taken.len(), 1);
         assert_eq!(pos, 2);
-
     }
 
     #[test]
     fn sort_items() {
-        let mut toml = r#"[dependencies]
-        a="0"
-        b="0"
-        c="0"
-
-        [dev-dependencies]
+        let toml = r#"[dev-dependencies]
         a="0"
         f="0"
         c="0"
 
-        [foo]
-        a="0"
-
         "#;
 
-        let sorted = vec![
-            r#"a="0""#,
-            r#"c="0""#,
-            r#"f="0""#,
-        ];
+        let sorted = r#"a = "0"
+c = "0"
+f = "0"
+
+"#;
 
         let mut tt = TomlTokenizer::parse(toml).unwrap();
         //println!("{:#?}", tt);
         // we get to test this too
         let control = tt.clone_tables();
         tt.sort_items("dev-dependencies");
-        assert_ne!(tt.tables[1], control[1]);
-        assert_eq!(tt.tables[1].items.items, sorted);
+        let tt_sort = tt.tables[0].items.as_ref().unwrap().to_string();
+        println!("{:#?}", tt);
+        assert_ne!(tt.tables[0], control[0]);
+        assert_eq!(&tt_sort, sorted);
+    }
+
+    #[test]
+    fn sort_items_comment() {
+        let toml = r#"[dev-dependencies]
+        # just to make it interesting
+        a="0"
+        f="0"
+        c="0"
+
+        "#;
+
+        let sorted = r#"# just to make it interesting
+a = "0"
+c = "0"
+f = "0"
+
+"#;
+
+        let mut tt = TomlTokenizer::parse(toml).unwrap();
+        //println!("{:#?}", tt);
+        // we get to test this too
+        let control = tt.clone_tables();
+        tt.sort_items("dev-dependencies");
+        let tt_sort = tt.tables[0].items.as_ref().unwrap().to_string();
+        println!("{}", tt);
+        assert_ne!(tt.tables[0], control[0]);
+        assert_eq!(&tt_sort, sorted);
+    }
+
+    #[test]
+    fn table_comment() {
+        let toml = r#"#this is a comment
+        # this too
+
+        [dev-dependencies]
+        # just to make it interesting
+        a="0"
+        f="0"
+        c="0"
+
+        #the end
+
+        "#;
+
+        let sorted = r#"#this is a comment
+# this too
+
+[dev-dependencies]
+# just to make it interesting
+a = "0"
+c = "0"
+f = "0"
+
+#the end
+
+"#;
+
+        let mut tt = TomlTokenizer::parse(toml).unwrap();
+        //println!("{:#?}", tt);
+        let control = tt.clone_tables();
+        tt.sort_items("dev-dependencies");
+        println!("{}", tt);
+        assert_ne!(tt.tables[0], control[0]);
+        assert_eq!(&tt.to_string(), sorted);
     }
 
     #[test]
     fn sort_ungrouped() {
-        let mut toml = r#"[dependencies.syn]
+        let toml = r#"[dependencies.syn]
 version = "0.15"
 default-features = false
 features = ["full", "parsing", "printing", "visit-mut"]
@@ -402,17 +444,15 @@ features = ["full", "parsing", "printing", "visit-mut"]
         "#;
 
         let sorted = vec![
-r#"[dependencies.alpha]
+            r#"[dependencies.alpha]
 version = "0.15"
 default-features = false
 features = ["full", "parsing", "printing", "visit-mut"]"#,
-
-r#"[dependencies.beta]
+            r#"[dependencies.beta]
 version = "0.15"
 default-features = false
 features = ["full", "parsing", "printing", "visit-mut"]"#,
-
-r#"[dependencies.syn]
+            r#"[dependencies.syn]
 version = "0.15"
 default-features = false
 features = ["full", "parsing", "printing", "visit-mut"]"#,
@@ -422,7 +462,7 @@ features = ["full", "parsing", "printing", "visit-mut"]"#,
         //println!("{:#?}", tt);
         let control = tt.clone_tables();
         tt.sort_nested("dependencies");
-        println!("{:#?}", tt.tables);
+        println!("{}", tt);
         assert_ne!(tt.tables[1], control[1]);
         //assert_eq!(tt.tables[1].items.items, sorted);
     }
