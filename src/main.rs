@@ -4,26 +4,17 @@ use std::path::PathBuf;
 
 use clap::{App, Arg};
 use colored::Colorize;
-use toml::de;
 
 mod toml_tokenizer;
 use toml_tokenizer::{parse::Parse, TomlTokenizer};
 
 //Takes a file path and reads its contents in as plain text
 fn load_file_contents(path: &str) -> String {
-    let file_contents = fs::read_to_string(path).unwrap_or_else(|_| {
+    fs::read_to_string(path).unwrap_or_else(|_| {
         let msg = format!("{} No file found at: {}", "ERROR:".red(), path);
         eprintln!("{}", msg);
         std::process::exit(1);
-    });
-    // TODO: remove
-    // since we are only string munching validate it first
-    if let Err(e) = de::from_str::<toml::value::Table>(&file_contents) {
-        println!("{}", &format!("{} {} in {}", "ERROR:".red(), e, path));
-        std::process::exit(1)
-    }
-
-    return file_contents;
+    })
 }
 
 fn load_toml_file(path: &str) -> Option<String> {
