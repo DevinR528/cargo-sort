@@ -75,8 +75,8 @@ fn main() -> std::io::Result<()> {
         }
         _ => {}
     }
-    
-    println!("{:?}", path);
+
+    //println!("{:?}", path);
 
     let write_flag = matches.is_present("write");
 

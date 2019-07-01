@@ -4,7 +4,7 @@
 [![Latest Version](https://img.shields.io/crates/v/cargo-sort-ck.svg)](https://crates.io/crates/toml)
 
 A tool to check that your Cargo.toml dependencies are sorted alphabetically. Project inspired by
-[jpoles1](https://github.com/jpoles1) as a solution to @dtolnay's [request for implementation #29](https://github.com/dtolnay/request-for-implementation/issues/29).  Cross platform implementation, windows compatible.  Checks/sorts by key in tables and also nested table header (does not sort the items in a nested header). To pass the nested tables must be grouped.
+[jpoles1](https://github.com/jpoles1) as a solution to @dtolnay's [request for implementation #29](https://github.com/dtolnay/request-for-implementation/issues/29).  Cross platform implementation, windows compatible.  Checks/sorts by key in tables and also nested table header (does not sort the items in a nested header). To pass the nested tables must be grouped. 
 
 [toml]: https://github.com/toml-lang/toml
 included in sort check is:
@@ -53,7 +53,7 @@ bar="0"
 foo="0"
 
 ```
-Will sort to 
+Will sort to, or fail until organized like so
 ```toml
 [dependencies]
 a="0.1.1"
