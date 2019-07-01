@@ -84,7 +84,7 @@ impl TomlTokenizer {
         // println!("UNSORTED {:#?}", nested);
         nested.sort();
 
-        if unsorted == nested {
+        if unsorted != nested {
             println!("sorted");
             self.was_sorted = true
         }
@@ -132,7 +132,7 @@ impl TomlTokenizer {
             let unsorted = t.clone();
             t.items.as_mut().unwrap().items.sort();
 
-            if &unsorted == t {
+            if &unsorted != t {
                 println!("sorted");
                 self.was_sorted = true
             }
@@ -144,7 +144,7 @@ impl TomlTokenizer {
         }
     }
 
-    pub fn is_sorted(&self) -> bool {
+    pub fn was_sorted(&self) -> bool {
         self.was_sorted
     }
 

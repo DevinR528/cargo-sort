@@ -75,7 +75,7 @@ fn main() -> std::io::Result<()> {
         }
         _ => {}
     }
-
+    println!("{:?}", path);
     let write_flag = matches.is_present("write");
 
     let toml_raw = match load_toml_file(path.to_str().unwrap()) {
@@ -96,9 +96,7 @@ fn main() -> std::io::Result<()> {
         tt.sort_nested(header);
     }
 
-    if
-    /*tr.is_sorted()*/
-    true {
+    if !tt.was_sorted() {
         println!(
             "{} dependencies are sorted!",
             "Success".bold().bright_green()
