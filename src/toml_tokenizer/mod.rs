@@ -85,7 +85,6 @@ impl TomlTokenizer {
         nested.sort();
 
         if unsorted != nested {
-            println!("sorted");
             self.was_sorted = true
         }
         // println!("PRE {}:  {:#?}", field, nested);
@@ -133,7 +132,6 @@ impl TomlTokenizer {
             t.items.as_mut().unwrap().items.sort();
 
             if &unsorted != t {
-                println!("sorted");
                 self.was_sorted = true
             }
         });
@@ -317,6 +315,7 @@ impl<'a, P> FilterTake<'a, P> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use pretty_assertions::{assert_eq, assert_ne};
 
     #[test]
     fn parse_sort_ne() {
@@ -376,9 +375,9 @@ mod tests {
 
         "#;
 
-        let sorted = r#"a = "0"
-c = "0"
-f = "0"
+        let sorted = r#"a="0"
+c="0"
+f="0"
 
 "#;
 
@@ -388,7 +387,6 @@ f = "0"
         let control = tt.clone_tables();
         tt.sort_items("dev-dependencies");
         let tt_sort = tt.tables[0].items.as_ref().unwrap().to_string();
-        println!("{:#?}", tt);
         assert_ne!(tt.tables[0], control[0]);
         assert_eq!(&tt_sort, sorted);
     }
@@ -404,9 +402,9 @@ f = "0"
         "#;
 
         let sorted = r#"# just to make it interesting
-a = "0"
-c = "0"
-f = "0"
+a="0"
+c="0"
+f="0"
 
 "#;
 
@@ -428,9 +426,9 @@ f = "0"
 
         [dev-dependencies]
         # just to make it interesting
-        a="0"
-        f="0"
-        c="0"
+        a = "0"
+        f = "0"
+        c = "0"
 
         #the end
 
@@ -481,20 +479,27 @@ features = ["full", "parsing", "printing", "visit-mut"]
 
         "#;
 
-        let sorted = vec![
-            r#"[dependencies.alpha]
+        let sorted = 
+r#"[dependencies.alpha]
 version = "0.15"
 default-features = false
-features = ["full", "parsing", "printing", "visit-mut"]"#,
-            r#"[dependencies.beta]
+features = ["full", "parsing", "printing", "visit-mut"]
+
+[dependencies.beta]
 version = "0.15"
 default-features = false
-features = ["full", "parsing", "printing", "visit-mut"]"#,
-            r#"[dependencies.syn]
+features = ["full", "parsing", "printing", "visit-mut"]
+
+[dependencies.syn]
 version = "0.15"
 default-features = false
-features = ["full", "parsing", "printing", "visit-mut"]"#,
-        ];
+features = ["full", "parsing", "printing", "visit-mut"]
+
+[workspace.members]
+this = "that"
+that = "this"
+
+"#;
 
         let mut tt = TomlTokenizer::parse(toml).unwrap();
         //println!("{:#?}", tt);
@@ -502,7 +507,7 @@ features = ["full", "parsing", "printing", "visit-mut"]"#,
         tt.sort_nested("dependencies");
         println!("{}", tt);
         assert_ne!(tt.tables[1], control[1]);
-        //assert_eq!(tt.tables[1].items.items, sorted);
+        assert_eq!(tt.to_string(), sorted);
     }
 
 }

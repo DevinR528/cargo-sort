@@ -56,12 +56,11 @@ fn main() -> std::io::Result<()> {
                 .help("Sets cwd, must contain Cargo.toml")
                 .index(1),
         )
-        .arg(
-            Arg::with_name("write")
-                .short("w")
-                .long("write")
-                .help("rewrites Cargo.toml file so it is lexically sorted"),
-        )
+        // .arg(
+        //     Arg::with_name("write")
+        //         .long("write")
+        //         .help("rewrites Cargo.toml file so it is lexically sorted"),
+        // )
         .get_matches();
 
     let cwd = env::current_dir().expect(&format!("{} could not get cwd", "ERROR:".red()));
@@ -77,8 +76,8 @@ fn main() -> std::io::Result<()> {
     }
 
     //println!("{:?}", path);
-
-    let write_flag = matches.is_present("write");
+    // TODO make write to file
+    //let write_flag = matches.is_present("write");
 
     let toml_raw = match load_toml_file(path.to_str().unwrap()) {
         Some(t) => t,

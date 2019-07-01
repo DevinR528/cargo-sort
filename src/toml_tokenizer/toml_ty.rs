@@ -30,7 +30,7 @@ impl Ord for TomlKVPair {
 }
 
 fn split_once(s: &str) -> (Option<String>, Option<String>) {
-    let mut pair: Vec<&str> = s.split('=').collect();
+    let pair: Vec<&str> = s.split('=').collect();
     let mut all = pair.iter().take(pair.len());
 
     let first = *all.next().unwrap();
@@ -80,10 +80,10 @@ impl std::fmt::Display for TomlItems {
         for item in self.items.iter() {
             if let Some(k) = &item.key {
                 if let Some(v) = &item.val {
-                    write!(f, "{} = {}{}", k, v, super::EOL)?;
+                    write!(f, "{}={}{}", k, v, super::EOL)?;
                 } else {
                     // TODO what happpens when no value found
-                    write!(f, "{} = {}", k, super::EOL)?;
+                    write!(f, "{}={}", k, super::EOL)?;
                 }
             } else {
                 if let Some(com) = &item.comment {
@@ -103,7 +103,7 @@ impl<'p> Parse<Vec<String>> for TomlItems {
         let mut toml_items = TomlItems {
             items: Vec::default(),
         };
-        for (i, line) in lines.iter().enumerate() {
+        for line in lines.iter() {
             let item = TomlKVPair::parse(line)?;
             toml_items.items.push(item);
         }

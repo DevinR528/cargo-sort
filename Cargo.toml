@@ -16,5 +16,8 @@ clap = "2.33"
 colored="1.8"
 toml="0.5"
 
+[dev-dependencies]
+pretty_assertions="0.6"
+
 [badges]
 travis-ci = { repository = "DevinR528/cargo-sort-ck" }
