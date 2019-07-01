@@ -75,7 +75,9 @@ fn main() -> std::io::Result<()> {
         }
         _ => {}
     }
+    
     println!("{:?}", path);
+
     let write_flag = matches.is_present("write");
 
     let toml_raw = match load_toml_file(path.to_str().unwrap()) {
