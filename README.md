@@ -32,6 +32,7 @@ cargo-sort-ck [path/to/dir | ./path/to/dir | path/to/Cargo.toml]
 ```toml
 [dependencies]
 a="0.1.1"
+# comments will stay with the item
 c="0.1.1"
 b="0.1.1"
 
@@ -42,6 +43,7 @@ version="0"
 foo="0"
 bar="0"
 
+# comments will also stay with header
 [dependencies.zed]
 version="0"
 
@@ -58,6 +60,7 @@ Will sort to, or fail until organized like so
 [dependencies]
 a="0.1.1"
 b="0.1.1"
+# comments will stay with the item
 c="0.1.1"
 
 [dependencies.alpha]
@@ -66,6 +69,7 @@ version="0"
 [dependencies.beta]
 version="0"
 
+# comments will also stay with header
 [dependencies.zed]
 version="0"
 

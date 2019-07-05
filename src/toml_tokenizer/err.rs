@@ -33,14 +33,9 @@ impl std::convert::From<io::Error> for ParseTomlError {
 impl std::convert::From<ParseTomlError> for io::Error {
     fn from(e: ParseTomlError) -> io::Error {
         match e.kind {
-            TomlErrorKind::InternalParseError(info) => {
-                io::Error::new(io::ErrorKind::Other, info)
-            },
-            TomlErrorKind::UnexpectedToken(info) => {
-                io::Error::new(io::ErrorKind::Other, info)
-            },
+            TomlErrorKind::InternalParseError(info) => io::Error::new(io::ErrorKind::Other, info),
+            TomlErrorKind::UnexpectedToken(info) => io::Error::new(io::ErrorKind::Other, info),
         }
-        
     }
 }
 

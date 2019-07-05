@@ -83,7 +83,6 @@ impl TomlString {
                 if next_l.starts_with("#") {
                     let comm = self.chunks.pop_front().unwrap();
                     comment.push_str(&format!("{}{}", comm, super::EOL));
-
                 } else if next_l.is_empty() && !end {
                     self.chunks.pop_front().unwrap();
                     comment.push_str(super::EOL);

@@ -82,8 +82,7 @@ impl std::fmt::Display for TomlItems {
                 if let Some(v) = &item.val {
                     write!(f, "{}={}{}", k, v, super::EOL)?;
                 } else {
-                    // TODO what happpens when no value found
-                    write!(f, "{}={}", k, super::EOL)?;
+                    write!(f, "{}{}", k, super::EOL)?;
                 }
             } else {
                 if let Some(com) = &item.comment {
@@ -193,13 +192,7 @@ impl std::fmt::Display for TomlTable {
                 items: Some(items),
                 header: Some(header),
                 comment: Some(comment),
-            } => write!(
-                f,
-                "{}{}{}",
-                comment,
-                header,
-                items,
-            ),
+            } => write!(f, "{}{}{}", comment, header, items,),
             TomlTable {
                 items: Some(items),
                 header: Some(header),
@@ -252,7 +245,6 @@ impl Ord for TomlTable {
 #[cfg(test)]
 mod tests {
     use super::*;
-
 
     #[test]
     fn test_items_parse() {

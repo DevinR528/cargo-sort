@@ -95,23 +95,23 @@ impl TomlTokenizer {
     }
 
     /// Sorts all of the items under the header `key`
-    /// 
+    ///
     /// # Examples
-    /// 
+    ///
     /// ```
-    /// let toml = 
+    /// let toml =
     /// r#"[deps]
     /// a="0"
     /// f="0"
     /// c="0"
-    /// 
+    ///
     /// "#;
-    /// 
+    ///
     /// let mut tt = TomlTokenizer::parse(toml).unwrap();
     /// let control = tt.clone_tables();
-    /// 
+    ///
     /// tt.sort_items("deps");
-    /// 
+    ///
     /// assert_ne!(tt.tables[0], control[0]);
     /// ```
     pub fn sort_items(&mut self, key: &str) {
@@ -171,7 +171,7 @@ impl Parse<&str> for TomlTokenizer {
             // mostly for tests, removes whitespace from lines
             .map(|s| s.trim().to_owned())
             .collect();
-        // Im probably dumb but some where an extra \n is 
+        // Im probably dumb but somewhere an extra \n is
         // being split and adds 3 to the end of every string
         cleaned.pop();
 
@@ -229,7 +229,7 @@ impl PartialEq for TomlTokenizer {
         for (i, table) in self.tables.iter().enumerate() {
             flag = table == &other.tables[i];
             if !flag {
-                return flag
+                return flag;
             }
         }
         flag
@@ -479,8 +479,7 @@ features = ["full", "parsing", "printing", "visit-mut"]
 
         "#;
 
-        let sorted = 
-r#"[dependencies.alpha]
+        let sorted = r#"[dependencies.alpha]
 version = "0.15"
 default-features = false
 features = ["full", "parsing", "printing", "visit-mut"]
