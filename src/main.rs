@@ -1,5 +1,6 @@
 use std::env;
-use std::fs;
+use std::fs::{read_to_string, OpenOptions};
+use std::io::Write;
 use std::path::PathBuf;
 
 use clap::{App, Arg};
@@ -10,23 +11,43 @@ use toml_tokenizer::{parse::Parse, TomlTokenizer};
 
 //Takes a file path and reads its contents in as plain text
 fn load_file_contents(path: &str) -> String {
-    fs::read_to_string(path).unwrap_or_else(|_| {
+    read_to_string(path).unwrap_or_else(|_| {
         let msg = format!("{} No file found at: {}", "ERROR:".red(), path);
         eprintln!("{}", msg);
         std::process::exit(1);
     })
 }
 
-fn load_toml_file(path: &str) -> Option<String> {
+fn load_toml_file(path: &PathBuf) -> Option<String> {
     //Check if a valid .toml filepath
+    let path = path.to_str().unwrap_or_else(|| {
+        let msg = format!("{} path could not be represented as str", "ERROR:".red());
+        eprintln!("{}", msg);
+        std::process::exit(1);
+    });
     if !path.contains(".toml") {
         eprintln!(
             "{}",
-            &format!("{} invalid path to .toml file:\n{}", "ERROR:".red(), path)
+            &format!("{} invalid path to .toml file: {}", "ERROR:".red(), path)
         );
         return None;
     }
     Some(load_file_contents(path))
+}
+
+// it would be nice to be able to check if the file had been saved recently
+// or check if uncommited changes were present
+fn write_file(mut path: PathBuf, tt: &TomlTokenizer) -> std::io::Result<()> {
+    path.pop();
+    path.push("test.toml");
+
+    let mut fd = OpenOptions::new()
+        .write(true)
+        .create(true)
+        .truncate(true)
+        .open(path)?;
+
+    write!(fd, "{}", tt)
 }
 
 fn main() -> std::io::Result<()> {
@@ -49,27 +70,30 @@ fn main() -> std::io::Result<()> {
         )
         .arg(
             Arg::with_name("write")
+                .short("w")
                 .long("write")
                 .help("rewrites Cargo.toml file so it is lexically sorted"),
         )
         .get_matches();
 
-    let cwd = env::current_dir().expect(&format!("{} could not get cwd", "ERROR:".red()));
-    // either default cwd or user selected
+    let cwd = env::current_dir().unwrap_or_else(|e| {
+        let msg = format!("{} No file found at: {}", "ERROR:".red(), e);
+        eprintln!("{}", msg);
+        std::process::exit(1);
+    });
+    // either default cwd or from user
     let mut path = matches
         .value_of("cwd")
         .map_or(cwd, |s| PathBuf::from(s.to_owned()));
-    match path.extension() {
-        None => {
-            path.push("Cargo.toml");
-        }
-        _ => {}
+
+    if path.extension().is_none() {
+        path.push("Cargo.toml");
     }
 
     // TODO make write to file
     let write_flag = matches.is_present("write");
 
-    let toml_raw = match load_toml_file(path.to_str().unwrap()) {
+    let toml_raw = match load_toml_file(&path) {
         Some(t) => t,
         None => std::process::exit(1),
     };
@@ -90,6 +114,13 @@ fn main() -> std::io::Result<()> {
     }
 
     println!("{}", tt);
+    if write_flag {
+        write_file(path, &tt).unwrap_or_else(|e| {
+            let msg = format!("{} Failed to rewrite file: {}", "ERROR:".red(), e);
+            eprintln!("{}", msg);
+            std::process::exit(1);
+        });
+    }
 
     if !tt.was_sorted() {
         println!(
