@@ -22,10 +22,23 @@ cargo install cargo-sort-ck
 ```
 
 # Run
-Defaults to current dir but any path can be passed in 
+Defaults to current dir but any path can be passed in.
 ```bash
-cargo-sort-ck [cwd]
-cargo-sort-ck [path/to/dir | ./path/to/dir | path/to/Cargo.toml]
+cargo-sort-ck 
+Devin R <devin.ragotzy@gmail.com>
+Helps ensure Cargo.toml dependency list is sorted.
+
+USAGE:
+    cargo-sort-ck [FLAGS] [CWD]
+
+FLAGS:
+    -h, --help       Prints help information
+    -p, --print      prints Cargo.toml, lexically sorted, to the screen
+    -V, --version    Prints version information
+    -w, --write      rewrites Cargo.toml file so it is lexically sorted
+
+ARGS:
+    <CWD>    Sets cwd, must contain Cargo.toml
 ```
 
 # Examples

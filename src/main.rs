@@ -56,9 +56,10 @@ fn main() -> std::io::Result<()> {
         "workspace.exclude",
     ];
 
-    let matches = App::new("cargo-dep-sort")
+    let matches = App::new("Cargo Sort Check")
         .author("Devin R <devin.ragotzy@gmail.com>")
-        .about("Helps ensure Cargo.toml dependency list is sorted.")
+        .about("Ensure Cargo.toml dependency tables are sorted.")
+        .usage("cargo-sort-ck [FLAGS] [CWD]")
         .arg(
             Arg::with_name("cwd")
                 .value_name("CWD")
@@ -69,6 +70,12 @@ fn main() -> std::io::Result<()> {
                 .short("w")
                 .long("write")
                 .help("rewrites Cargo.toml file so it is lexically sorted"),
+        )
+        .arg(
+            Arg::with_name("print")
+                .short("p")
+                .long("print")
+                .help("prints Cargo.toml, lexically sorted, to the screen"),
         )
         .get_matches();
 
@@ -85,8 +92,6 @@ fn main() -> std::io::Result<()> {
     if path.extension().is_none() {
         path.push("Cargo.toml");
     }
-
-    let write_flag = matches.is_present("write");
 
     let toml_raw = match load_toml_file(&path) {
         Some(t) => t,
@@ -106,7 +111,19 @@ fn main() -> std::io::Result<()> {
         tt.sort_nested(header);
     }
 
-    if write_flag {
+    if matches.is_present("print") {
+        print!(
+            "{}:{}{}",
+            "Dependencies".bold().bright_green(),
+            toml_tokenizer::EOL,
+            tt
+        );
+        if !matches.is_present("write") {
+            std::process::exit(0)
+        }
+    }
+
+    if matches.is_present("write") {
         write_file(path, &tt).unwrap_or_else(|e| {
             let msg = format!("{} Failed to rewrite file: {}", "ERROR:".red(), e);
             eprintln!("{}", msg);
@@ -116,7 +133,7 @@ fn main() -> std::io::Result<()> {
             "{} dependencies are sorted!",
             "Success".bold().bright_green()
         );
-        std::process::exit(0);
+        std::process::exit(0)
     }
 
     if !tt.was_sorted() {
@@ -124,9 +141,9 @@ fn main() -> std::io::Result<()> {
             "{} dependencies are sorted!",
             "Success".bold().bright_green()
         );
-        std::process::exit(0);
+        std::process::exit(0)
     } else {
         eprintln!("{} dependencies are not sorted", "Failure".bold().red());
-        std::process::exit(1);
+        std::process::exit(1)
     }
 }
