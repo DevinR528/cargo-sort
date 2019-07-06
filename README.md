@@ -41,6 +41,12 @@ ARGS:
     <CWD>    Sets cwd, must contain Cargo.toml
 ```
 
+Wildcard expansion is supported so you can do this
+```bash
+cargo-sort-ck [FLAGS] [path/to/*/Cargo.toml | path/to/*]
+```
+or any other pattern that is supported by your terminal.
+
 # Examples
 ```toml
 [dependencies]
