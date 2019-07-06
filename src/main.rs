@@ -37,10 +37,7 @@ fn load_toml_file(path: &PathBuf) -> Option<String> {
 
 // it would be nice to be able to check if the file had been saved recently
 // or check if uncommited changes were present
-fn write_file(mut path: PathBuf, tt: &TomlTokenizer) -> std::io::Result<()> {
-    path.pop();
-    path.push("test.toml");
-
+fn write_file(path: PathBuf, tt: &TomlTokenizer) -> std::io::Result<()> {
     let mut fd = OpenOptions::new()
         .write(true)
         .create(true)
@@ -86,8 +83,7 @@ fn main() -> std::io::Result<()> {
         .map_or(cwd, |s| PathBuf::from(s.to_owned()));
 
     if path.extension().is_none() {
-        path.push("examp/test.toml");
-        //path.push("Cargo.toml");
+        path.push("Cargo.toml");
     }
 
     let write_flag = matches.is_present("write");

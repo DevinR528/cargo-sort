@@ -31,22 +31,18 @@ impl Ord for TomlKVPair {
 
 fn split_once(s: &str) -> (Option<String>, Option<String>) {
     let pair: Vec<&str> = s.split('=').collect();
-    println!("{:?}", pair);
     let mut all = pair.iter().take(pair.len());
-    println!("{:?}", all);
-    let first = *all.next().unwrap();
-    println!("{:?}", first);
-    let mut second = String::default();
 
+    let first = *all.next().unwrap();
+
+    let mut second = String::default();
     for (i, kv) in all.enumerate() {
-        println!("{}{}", i, kv);
         if i == 0 {
             second.push_str(kv);
         } else {
             second.push_str(&format!("={}", kv))
         }
     }
-    //println!("{}", second);
     (Some(first.into()), Some(second))
 }
 
@@ -251,7 +247,6 @@ mod tests {
         let item = r#"hello="{ why = yes, oh = no }""#;
 
         let kv = TomlKVPair::parse(item).unwrap();
-        println!("{:#?}", kv);
 
         assert_eq!(kv.key.unwrap(), "hello".to_string());
         assert_eq!(kv.val.unwrap(), "\"{ why = yes, oh = no }\"".to_string());
