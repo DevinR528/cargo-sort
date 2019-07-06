@@ -165,7 +165,7 @@ impl Parse<&str> for TomlTokenizer {
     fn parse(s: &str) -> Result<Self::Item, Self::Error> {
         // cleans input
         let temp: Vec<&str> = s.split(&format!("{}{}{}", EOL, EOL, EOL)).collect();
-        let mut cleaned: Vec<String> = temp
+        let cleaned: Vec<String> = temp
             .join(&format!("{}{}", EOL, EOL))
             .lines()
             // mostly for tests, removes whitespace from lines
@@ -512,10 +512,10 @@ a="0"
 
 #comment
 
-"#.to_string();
+"#;
 
-        let cmp = item.clone();
-        let th = TomlTokenizer::parse(&item).unwrap();
+        let cmp = item.to_string().clone();
+        let th = TomlTokenizer::parse(item).unwrap();
         println!("{:#?}", th);
 
         assert_eq!(th.to_string(), cmp);

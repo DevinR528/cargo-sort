@@ -91,7 +91,6 @@ fn main() -> std::io::Result<()> {
         //path.push("Cargo.toml");
     }
 
-    // TODO make write to file
     let write_flag = matches.is_present("write");
 
     let toml_raw = match load_toml_file(&path) {
@@ -106,16 +105,11 @@ fn main() -> std::io::Result<()> {
         std::process::exit(1);
     });
 
-    //println!("{}", tt);
-    println!("{}", toml_raw);
-
     //Check if appropriate tables in file are sorted
     for header in included_headers.iter() {
         tt.sort_items(header);
         tt.sort_nested(header);
     }
-
-    print!("{}", tt);
 
     if write_flag {
         write_file(path, &tt).unwrap_or_else(|e| {

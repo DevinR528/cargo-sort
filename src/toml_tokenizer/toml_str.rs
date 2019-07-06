@@ -7,7 +7,6 @@ use super::err::{ParseTomlError, TomlErrorKind};
 use super::parse::Parse;
 use super::toml_ty::{TomlHeader, TomlItems};
 
-
 #[derive(Debug, Clone)]
 pub struct TomlString {
     chunks: VecDeque<String>,
