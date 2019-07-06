@@ -65,8 +65,7 @@ fn main() -> std::io::Result<()> {
         .arg(
             Arg::with_name("cwd")
                 .value_name("CWD")
-                .help("Sets cwd, must contain Cargo.toml")
-                //.index(1),
+                .help("Sets cwd, must contain Cargo.toml"),
         )
         .arg(
             Arg::with_name("write")
@@ -87,7 +86,7 @@ fn main() -> std::io::Result<()> {
         .map_or(cwd, |s| PathBuf::from(s.to_owned()));
 
     if path.extension().is_none() {
-        path.push("examp/ftop.toml");
+        path.push("examp/test.toml");
         //path.push("Cargo.toml");
     }
 
@@ -100,7 +99,7 @@ fn main() -> std::io::Result<()> {
 
     // parses/to_token the toml for sort checking
     let mut tt = TomlTokenizer::parse(&toml_raw).unwrap_or_else(|e| {
-        let msg = format!("{} No file found at: {}", "ERROR:".red(), e);
+        let msg = format!("{} TOML parse error: {}", "ERROR:".red(), e);
         eprintln!("{}", msg);
         std::process::exit(1);
     });

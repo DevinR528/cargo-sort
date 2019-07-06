@@ -24,12 +24,12 @@ termcolor = "1.0"
 toml = "0.5"
 toolchain_find = "0.1"
 
-[dependencies.alpha]
+[dependencies.beta]
 version = "0.15"
 default-features = false
 features = ["full", "parsing", "printing", "visit-mut"]
 
-[dependencies.beta]
+[dependencies.alpha]
 version = "0.15"
 default-features = false
 features = ["full", "parsing", "printing", "visit-mut"]

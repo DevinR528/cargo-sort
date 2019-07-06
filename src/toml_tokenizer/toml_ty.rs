@@ -31,16 +31,19 @@ impl Ord for TomlKVPair {
 
 fn split_once(s: &str) -> (Option<String>, Option<String>) {
     let pair: Vec<&str> = s.split('=').collect();
+    println!("{:?}", pair);
     let mut all = pair.iter().take(pair.len());
-
+    println!("{:?}", all);
     let first = *all.next().unwrap();
+    println!("{:?}", first);
     let mut second = String::default();
 
-    for (c, kv) in all.enumerate() {
-        if c % 2 == 0 {
+    for (i, kv) in all.enumerate() {
+        println!("{}{}", i, kv);
+        if i == 0 {
             second.push_str(kv);
         } else {
-            second.push_str(&format!(" = {}", kv))
+            second.push_str(&format!("={}", kv))
         }
     }
     //println!("{}", second);
@@ -241,15 +244,16 @@ impl Ord for TomlTable {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use pretty_assertions::assert_eq;
 
     #[test]
     fn test_items_parse() {
-        let item = r#"hello="{ why=yes }""#;
+        let item = r#"hello="{ why = yes, oh = no }""#;
 
         let kv = TomlKVPair::parse(item).unwrap();
-        //println!("{:#?}", kv);
+        println!("{:#?}", kv);
 
         assert_eq!(kv.key.unwrap(), "hello".to_string());
-        assert_eq!(kv.val.unwrap(), "\"{ why = yes }\"".to_string());
+        assert_eq!(kv.val.unwrap(), "\"{ why = yes, oh = no }\"".to_string());
     }
 }

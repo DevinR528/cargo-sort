@@ -10,11 +10,11 @@ y="9"
 #comm
 z="3"
 
-#comm
-[build-dependencies.def]
+[build-dependencies.abc]
 version="0"
 
-[build-dependencies.abc]
+#comm
+[build-dependencies.def]
 version="0"
 
 [dependencies.alpha]

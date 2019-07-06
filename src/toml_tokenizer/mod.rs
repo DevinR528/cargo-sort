@@ -324,7 +324,8 @@ mod tests {
             "workspace.exclude",
         ];
 
-        let f = std::fs::read_to_string("examp/right.toml").expect("no file found");
+        // any /examp/ file but right.toml thats sorted
+        let f = std::fs::read_to_string("examp/fend.toml").expect("no file found");
         //println!("{}", f);
         let mut tt = TomlTokenizer::parse(&f).unwrap();
         //println!("{:#?}", tt);
