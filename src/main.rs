@@ -18,21 +18,19 @@ fn load_file_contents(path: &str) -> String {
     })
 }
 
-fn load_toml_file(path: &PathBuf) -> Option<String> {
+fn load_toml_file(path: &PathBuf) -> String {
     //Check if a valid .toml filepath
     let path = path.to_str().unwrap_or_else(|| {
         let msg = format!("{} path could not be represented as str", "ERROR:".red());
         eprintln!("{}", msg);
-        std::process::exit(1);
+        std::process::exit(1)
     });
     if !path.contains(".toml") {
-        eprintln!(
-            "{}",
-            &format!("{} invalid path to .toml file: {}", "ERROR:".red(), path)
-        );
-        return None;
+        let msg = format!("{} invalid path to .toml file: {}", "ERROR:".red(), path);
+        eprintln!("{}", msg);
+        std::process::exit(1)
     }
-    Some(load_file_contents(path))
+    load_file_contents(path)
 }
 
 // it would be nice to be able to check if the file had been saved recently
@@ -93,10 +91,7 @@ fn main() -> std::io::Result<()> {
         path.push("Cargo.toml");
     }
 
-    let toml_raw = match load_toml_file(&path) {
-        Some(t) => t,
-        None => std::process::exit(1),
-    };
+    let toml_raw = load_toml_file(&path);
 
     // parses/to_token the toml for sort checking
     let mut tt = TomlTokenizer::parse(&toml_raw).unwrap_or_else(|e| {
@@ -112,12 +107,7 @@ fn main() -> std::io::Result<()> {
     }
 
     if matches.is_present("print") {
-        print!(
-            "{}:{}{}",
-            "Dependencies".bold().bright_green(),
-            toml_tokenizer::EOL,
-            tt
-        );
+        print!("{}", tt);
         if !matches.is_present("write") {
             std::process::exit(0)
         }
