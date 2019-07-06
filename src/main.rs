@@ -66,7 +66,7 @@ fn main() -> std::io::Result<()> {
             Arg::with_name("cwd")
                 .value_name("CWD")
                 .help("Sets cwd, must contain Cargo.toml")
-                .index(1),
+                //.index(1),
         )
         .arg(
             Arg::with_name("write")
@@ -87,7 +87,8 @@ fn main() -> std::io::Result<()> {
         .map_or(cwd, |s| PathBuf::from(s.to_owned()));
 
     if path.extension().is_none() {
-        path.push("Cargo.toml");
+        path.push("examp/ftop.toml");
+        //path.push("Cargo.toml");
     }
 
     // TODO make write to file
@@ -105,7 +106,8 @@ fn main() -> std::io::Result<()> {
         std::process::exit(1);
     });
 
-    println!("{}", tt);
+    //println!("{}", tt);
+    println!("{}", toml_raw);
 
     //Check if appropriate tables in file are sorted
     for header in included_headers.iter() {
@@ -113,13 +115,19 @@ fn main() -> std::io::Result<()> {
         tt.sort_nested(header);
     }
 
-    println!("{}", tt);
+    print!("{}", tt);
+
     if write_flag {
         write_file(path, &tt).unwrap_or_else(|e| {
             let msg = format!("{} Failed to rewrite file: {}", "ERROR:".red(), e);
             eprintln!("{}", msg);
             std::process::exit(1);
         });
+        println!(
+            "{} dependencies are sorted!",
+            "Success".bold().bright_green()
+        );
+        std::process::exit(0);
     }
 
     if !tt.was_sorted() {

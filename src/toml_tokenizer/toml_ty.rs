@@ -36,14 +36,12 @@ fn split_once(s: &str) -> (Option<String>, Option<String>) {
     let first = *all.next().unwrap();
     let mut second = String::default();
 
-    let mut c = 0;
-    for kv in all {
+    for (c, kv) in all.enumerate() {
         if c % 2 == 0 {
             second.push_str(kv);
         } else {
             second.push_str(&format!(" = {}", kv))
         }
-        c += 1;
     }
     //println!("{}", second);
     (Some(first.into()), Some(second))
@@ -53,7 +51,7 @@ impl Parse<&str> for TomlKVPair {
     type Item = TomlKVPair;
     type Error = ParseTomlError;
     fn parse(s: &str) -> Result<Self::Item, Self::Error> {
-        if s.starts_with("#") {
+        if s.starts_with('#') {
             Ok(TomlKVPair {
                 key: None,
                 val: None,
@@ -84,10 +82,8 @@ impl std::fmt::Display for TomlItems {
                 } else {
                     write!(f, "{}{}", k, super::EOL)?;
                 }
-            } else {
-                if let Some(com) = &item.comment {
-                    write!(f, "{}{}", com, super::EOL)?;
-                }
+            } else if let Some(com) = &item.comment {
+                write!(f, "{}{}", com, super::EOL)?;
             }
         }
         write!(f, "{}", super::EOL)
@@ -128,13 +124,13 @@ impl<'p> Parse<String> for TomlHeader {
     type Error = ParseTomlError;
 
     fn parse(header: String) -> Result<Self::Item, Self::Error> {
-        if header.contains(".") {
+        if header.contains('.') {
             let segmented = header.trim_matches(|c| c == '[' || c == ']');
-            let seg = segmented.split(".").map(|s| s.to_owned()).collect();
+            let seg = segmented.split('.').map(|s| s.to_owned()).collect();
             // println!("SEG {:#?}", seg);
             return Ok(TomlHeader {
-                inner: header.into(),
-                seg: seg,
+                inner: header,
+                seg,
                 extended: true,
             });
         }
@@ -142,7 +138,7 @@ impl<'p> Parse<String> for TomlHeader {
         // if not just a single element vec
         let seg: Vec<String> = header
             .trim_matches(|c| c == '[' || c == ']')
-            .split(".")
+            .split('.')
             .map(Into::into)
             .collect();
 
@@ -156,7 +152,7 @@ impl<'p> Parse<String> for TomlHeader {
             ));
         }
         Ok(TomlHeader {
-            inner: header.into(),
+            inner: header,
             seg,
             extended: false,
         })

@@ -11,9 +11,9 @@ mod toml_str;
 use toml_str::TomlString;
 
 #[cfg(windows)]
-pub const EOL: &'static str = "\r\n";
+pub const EOL: &str = "\r\n";
 #[cfg(not(windows))]
-pub const EOL: &'static str = "\n";
+pub const EOL: &str = "\n";
 
 #[derive(Debug, Clone)]
 pub struct TomlTokenizer {
@@ -171,9 +171,6 @@ impl Parse<&str> for TomlTokenizer {
             // mostly for tests, removes whitespace from lines
             .map(|s| s.trim().to_owned())
             .collect();
-        // Im probably dumb but somewhere an extra \n is
-        // being split and adds 3 to the end of every string
-        cleaned.pop();
 
         let mut tokenizer = TomlTokenizer {
             was_sorted: false,
@@ -219,7 +216,7 @@ impl std::fmt::Display for TomlTokenizer {
         for t in self.tables.iter() {
             write!(f, "{}", t)?;
         }
-        write!(f, "")
+        Ok(())
     }
 }
 
@@ -431,7 +428,6 @@ f="0"
         c = "0"
 
         #the end
-
         "#;
 
         let sorted = r#"#this is a comment
@@ -507,6 +503,22 @@ that = "this"
         println!("{}", tt);
         assert_ne!(tt.tables[1], control[1]);
         assert_eq!(tt.to_string(), sorted);
+    }
+
+    #[test]
+    fn test_table_display() {
+        let item = r#"[foo]
+a="0"
+
+#comment
+
+"#.to_string();
+
+        let cmp = item.clone();
+        let th = TomlTokenizer::parse(&item).unwrap();
+        println!("{:#?}", th);
+
+        assert_eq!(th.to_string(), cmp);
     }
 
 }

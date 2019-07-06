@@ -7,10 +7,6 @@ use super::err::{ParseTomlError, TomlErrorKind};
 use super::parse::Parse;
 use super::toml_ty::{TomlHeader, TomlItems};
 
-#[cfg(windows)]
-const EOL: &'static str = "\r\n";
-#[cfg(not(windows))]
-const EOL: &'static str = "\n";
 
 #[derive(Debug, Clone)]
 pub struct TomlString {
@@ -36,9 +32,9 @@ impl TomlString {
 
     pub fn has_more(&self) -> bool {
         if let Some(c) = self.chunks.front() {
-            if c.len() > 0 {
+            if !c.is_empty() {
                 match self.chunks.front() {
-                    Some(line) => line.contains("[") || line.contains("#"),
+                    Some(line) => line.contains('[') || line.contains('#'),
                     None => false,
                 }
             } else {
@@ -66,7 +62,7 @@ impl TomlString {
         };
 
         let mut end = false;
-        if line.starts_with("#") {
+        if line.starts_with('#') {
             let mut comment = self.chunks.pop_front().unwrap();
             comment.push_str(super::EOL);
 
@@ -80,7 +76,7 @@ impl TomlString {
                 };
 
                 //println!("next l: {}", next_l);
-                if next_l.starts_with("#") {
+                if next_l.starts_with('#') {
                     let comm = self.chunks.pop_front().unwrap();
                     comment.push_str(&format!("{}{}", comm, super::EOL));
                 } else if next_l.is_empty() && !end {
@@ -105,7 +101,7 @@ impl TomlString {
                 ));
             }
         };
-        if line.starts_with("[") {
+        if line.starts_with('[') {
             let header = self.chunks.pop_front().unwrap();
 
             let t_header = TomlHeader::parse(header)?;
@@ -131,7 +127,7 @@ impl TomlString {
                 }
             };
 
-            if line.is_empty() || line.starts_with("\r") {
+            if line.is_empty() || line.starts_with('\r') {
                 if !end {
                     self.chunks.pop_front().unwrap();
                 }
