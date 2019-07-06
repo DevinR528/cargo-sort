@@ -9,6 +9,14 @@ use colored::Colorize;
 mod toml_tokenizer;
 use toml_tokenizer::{parse::Parse, TomlTokenizer};
 
+const HEADERS: [&str; 5] = [
+    "dependencies",
+    "dev-dependencies",
+    "build-dependencies",
+    "workspace.members",
+    "workspace.exclude",
+];
+
 //Takes a file path and reads its contents in as plain text
 fn load_file_contents(path: &str) -> String {
     read_to_string(path).unwrap_or_else(|_| {
@@ -35,7 +43,7 @@ fn load_toml_file(path: &PathBuf) -> String {
 
 // it would be nice to be able to check if the file had been saved recently
 // or check if uncommited changes were present
-fn write_file(path: PathBuf, tt: &TomlTokenizer) -> std::io::Result<()> {
+fn write_file(path: &PathBuf, tt: &TomlTokenizer) -> std::io::Result<()> {
     let mut fd = OpenOptions::new()
         .write(true)
         .create(true)
@@ -45,15 +53,65 @@ fn write_file(path: PathBuf, tt: &TomlTokenizer) -> std::io::Result<()> {
     write!(fd, "{}", tt)
 }
 
-fn main() -> std::io::Result<()> {
-    let included_headers: Vec<&str> = vec![
-        "dependencies",
-        "dev-dependencies",
-        "build-dependencies",
-        "workspace.members",
-        "workspace.exclude",
-    ];
+fn check_toml(path: &str, matches: &clap::ArgMatches) -> bool {
+    let mut path = PathBuf::from(path);
+    if path.extension().is_none() {
+        path.push("Cargo.toml");
+    }
 
+    let toml_raw = load_toml_file(&path);
+
+    // parses/to_token the toml for sort checking
+    let mut tt = TomlTokenizer::parse(&toml_raw).unwrap_or_else(|e| {
+        let msg = format!("{} TOML parse error: {}", "ERROR:".red(), e);
+        eprintln!("{}", msg);
+        std::process::exit(1);
+    });
+
+    //Check if appropriate tables in file are sorted
+    for header in HEADERS.iter() {
+        tt.sort_items(header);
+        tt.sort_nested(header);
+    }
+
+    if matches.is_present("print") {
+        print!("{}", tt);
+        if !matches.is_present("write") {
+            return true;
+        }
+    }
+
+    if matches.is_present("write") {
+        write_file(&path, &tt).unwrap_or_else(|e| {
+            let msg = format!("{} Failed to rewrite file: {:?}", "ERROR:".red(), e);
+            eprintln!("{}", msg);
+        });
+        println!(
+            "{} dependencies are sorted for {:?}",
+            "Success".bold().bright_green(),
+            path
+        );
+        return true;
+    }
+
+    if !tt.was_sorted() {
+        println!(
+            "{} dependencies are sorted for {:?}",
+            "Success".bold().bright_green(),
+            path
+        );
+        true
+    } else {
+        eprintln!(
+            "{} dependencies are not sorted for {:?}",
+            "Failure".bold().red(),
+            path
+        );
+        false
+    }
+}
+
+fn main() -> std::io::Result<()> {
     let matches = App::new("Cargo Sort Check")
         .author("Devin R <devin.ragotzy@gmail.com>")
         .about("Ensure Cargo.toml dependency tables are sorted.")
@@ -61,6 +119,7 @@ fn main() -> std::io::Result<()> {
         .arg(
             Arg::with_name("cwd")
                 .value_name("CWD")
+                .multiple(true)
                 .help("Sets cwd, must contain Cargo.toml"),
         )
         .arg(
@@ -83,57 +142,80 @@ fn main() -> std::io::Result<()> {
         std::process::exit(1);
     });
     // either default cwd or from user
-    let mut path = matches
-        .value_of("cwd")
-        .map_or(cwd, |s| PathBuf::from(s.to_owned()));
-
-    if path.extension().is_none() {
-        path.push("Cargo.toml");
-    }
-
-    let toml_raw = load_toml_file(&path);
-
-    // parses/to_token the toml for sort checking
-    let mut tt = TomlTokenizer::parse(&toml_raw).unwrap_or_else(|e| {
-        let msg = format!("{} TOML parse error: {}", "ERROR:".red(), e);
-        eprintln!("{}", msg);
-        std::process::exit(1);
+    let path = matches.values_of("cwd").map_or(cwd, |s| {
+        let dirs: Vec<&str> = s.collect();
+        if dirs.len() == 1 {
+            PathBuf::from(dirs[0])
+        } else {
+            let mut flag = true;
+            dirs.iter()
+                .map(|path| check_toml(path, &matches))
+                .for_each(|sorted| {
+                    if !sorted {
+                        flag = false;
+                    }
+                });
+            if flag {
+                std::process::exit(0)
+            } else {
+                std::process::exit(1)
+            }
+        }
     });
 
-    //Check if appropriate tables in file are sorted
-    for header in included_headers.iter() {
-        tt.sort_items(header);
-        tt.sort_nested(header);
-    }
-
-    if matches.is_present("print") {
-        print!("{}", tt);
-        if !matches.is_present("write") {
-            std::process::exit(0)
-        }
-    }
-
-    if matches.is_present("write") {
-        write_file(path, &tt).unwrap_or_else(|e| {
-            let msg = format!("{} Failed to rewrite file: {}", "ERROR:".red(), e);
-            eprintln!("{}", msg);
-            std::process::exit(1);
-        });
-        println!(
-            "{} dependencies are sorted!",
-            "Success".bold().bright_green()
-        );
-        std::process::exit(0)
-    }
-
-    if !tt.was_sorted() {
-        println!(
-            "{} dependencies are sorted!",
-            "Success".bold().bright_green()
-        );
+    if check_toml(path.to_str().unwrap(), &matches) {
         std::process::exit(0)
     } else {
-        eprintln!("{} dependencies are not sorted", "Failure".bold().red());
         std::process::exit(1)
     }
+
+    // if path.extension().is_none() {
+    //     path.push("Cargo.toml");
+    // }
+
+    // let toml_raw = load_toml_file(&path);
+
+    // // parses/to_token the toml for sort checking
+    // let mut tt = TomlTokenizer::parse(&toml_raw).unwrap_or_else(|e| {
+    //     let msg = format!("{} TOML parse error: {}", "ERROR:".red(), e);
+    //     eprintln!("{}", msg);
+    //     std::process::exit(1);
+    // });
+
+    // //Check if appropriate tables in file are sorted
+    // for header in HEADERS.iter() {
+    //     tt.sort_items(header);
+    //     tt.sort_nested(header);
+    // }
+
+    // if matches.is_present("print") {
+    //     print!("{}", tt);
+    //     if !matches.is_present("write") {
+    //         std::process::exit(0)
+    //     }
+    // }
+
+    // if matches.is_present("write") {
+    //     write_file(&path, &tt).unwrap_or_else(|e| {
+    //         let msg = format!("{} Failed to rewrite file: {}", "ERROR:".red(), e);
+    //         eprintln!("{}", msg);
+    //         std::process::exit(1);
+    //     });
+    //     println!(
+    //         "{} dependencies are sorted!",
+    //         "Success".bold().bright_green()
+    //     );
+    //     std::process::exit(0)
+    // }
+
+    // if !tt.was_sorted() {
+    //     println!(
+    //         "{} dependencies are sorted!",
+    //         "Success".bold().bright_green()
+    //     );
+    //     std::process::exit(0)
+    // } else {
+    //     eprintln!("{} dependencies are not sorted", "Failure".bold().red());
+    //     std::process::exit(1)
+    // }
 }
