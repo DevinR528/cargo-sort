@@ -41,7 +41,6 @@ impl std::convert::From<ParseTomlError> for io::Error {
 
 impl std::error::Error for ParseTomlError {
     fn description(&self) -> &str {
-        // TODO add enum string?
         self.info.as_str()
     }
 }
