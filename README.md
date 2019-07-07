@@ -45,7 +45,13 @@ Wildcard expansion is supported so you can do this
 ```bash
 cargo-sort-ck [FLAGS] [path/to/*/Cargo.toml | path/to/*]
 ```
-or any other pattern that is supported by your terminal.
+or any other pattern that is supported by your terminal. This also means multiple
+paths work.
+```bash
+cargo-sort-ck [FLAGS] path/to/a path/to/b path/to/c/Cargo.toml
+```
+These are all valid, file name and extension can be used on some of the paths, if
+left off the default is still Cargo.toml.
 
 # Examples
 ```toml
