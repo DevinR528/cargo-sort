@@ -10,10 +10,12 @@ use toml_ty::TomlTable;
 mod toml_str;
 use toml_str::TomlString;
 
-#[cfg(windows)]
-pub const EOL: &str = "\r\n";
-#[cfg(not(windows))]
+// this does not seem needed
+// #[cfg(windows)]
+// pub const EOL: &str = "\r\n";
+// #[cfg(not(windows))]
 pub const EOL: &str = "\n";
+
 
 #[derive(Debug, Clone)]
 pub struct TomlTokenizer {
@@ -366,7 +368,8 @@ mod tests {
 
         "#;
 
-        let sorted = r#"a="0"
+        let sorted =
+r#"a="0"
 c="0"
 f="0"
 
@@ -405,7 +408,6 @@ f="0"
         let control = tt.clone_tables();
         tt.sort_items("dev-dependencies");
         let tt_sort = tt.tables[0].items.as_ref().unwrap().to_string();
-        println!("{}", tt);
         assert_ne!(tt.tables[0], control[0]);
         assert_eq!(&tt_sort, sorted);
     }
@@ -441,7 +443,6 @@ f = "0"
         //println!("{:#?}", tt);
         let control = tt.clone_tables();
         tt.sort_items("dev-dependencies");
-        println!("{}", tt);
         assert_ne!(tt.tables[0], control[0]);
         assert_eq!(&tt.to_string(), sorted);
     }
@@ -494,7 +495,6 @@ that = "this"
         //println!("{:#?}", tt);
         let control = tt.clone_tables();
         tt.sort_nested("dependencies");
-        println!("{}", tt);
         assert_ne!(tt.tables[1], control[1]);
         assert_eq!(tt.to_string(), sorted);
     }
@@ -510,7 +510,6 @@ a="0"
 
         let cmp = item.to_string().clone();
         let tt = TomlTokenizer::parse(item).unwrap();
-        println!("{:#?}", tt);
 
         assert_eq!(tt.to_string(), cmp);
     }

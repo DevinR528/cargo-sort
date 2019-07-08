@@ -5,6 +5,7 @@ use std::path::PathBuf;
 
 use clap::{App, Arg};
 use colored::Colorize;
+use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
 
 mod toml_tokenizer;
 use toml_tokenizer::{parse::Parse, TomlTokenizer};
@@ -20,8 +21,12 @@ const HEADERS: [&str; 5] = [
 //Takes a file path and reads its contents in as plain text
 fn load_file_contents(path: &str) -> String {
     read_to_string(path).unwrap_or_else(|_| {
-        let msg = format!("{} No file found at: {}", "ERROR:".red(), path);
-        eprintln!("{}", msg);
+        let mut stderr = StandardStream::stderr(ColorChoice::Always);
+        stderr.set_color(ColorSpec::new().set_fg(Some(Color::Red))).unwrap();
+        let msg = format!("No file found at: {}", path);
+        write!(stderr, "ERROR: ").unwrap();
+        stderr.reset().unwrap();
+        write!(stderr, "{}", msg).unwrap();
         std::process::exit(1);
     })
 }
