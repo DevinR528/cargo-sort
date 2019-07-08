@@ -1,5 +1,4 @@
 /target
 **/*.rs.bk
-test_data
 
 .vscode
