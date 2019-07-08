@@ -1,14 +1,16 @@
 use std::error::Error;
 use std::io;
 
+#[derive(PartialEq)]
 pub enum TomlErrorKind {
     UnexpectedToken(String),
     InternalParseError(String),
 }
 
+#[derive(PartialEq)]
 pub struct ParseTomlError {
-    kind: TomlErrorKind,
-    info: String,
+    pub(super) kind: TomlErrorKind,
+    pub(super) info: String,
 }
 
 impl ParseTomlError {
@@ -57,6 +59,6 @@ impl std::fmt::Display for ParseTomlError {
             TomlErrorKind::InternalParseError(ref span) => span,
             TomlErrorKind::UnexpectedToken(ref span) => span,
         };
-        write!(f, "{}, found '{}'", self.info, span)
+        write!(f, "{}, found {:?}", self.info, span)
     }
 }

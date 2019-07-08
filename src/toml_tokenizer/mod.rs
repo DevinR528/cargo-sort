@@ -73,7 +73,7 @@ impl TomlTokenizer {
                 false
             }
         })
-        .iter_with_pos()
+        .index_iter()
         .collect()
     }
 
@@ -124,7 +124,7 @@ impl TomlTokenizer {
                     false
                 }
             })
-            .iter_with_pos()
+            .index_iter()
             .collect();
 
         tables.iter_mut().for_each(|t| {
@@ -181,19 +181,13 @@ impl Parse<&str> for TomlTokenizer {
         while tokenizer.inner.has_more() {
             let (comment, end) = tokenizer.inner.check_comment()?;
             if !end {
-                let header = match tokenizer.inner.parse_header() {
-                    Ok(h) => Some(h),
-                    Err(e) => return Err(e),
-                };
+                let header = tokenizer.inner.parse_header()?;
 
-                let items = match tokenizer.inner.parse_itmes() {
-                    Ok(i) => Some(i),
-                    Err(e) => return Err(e),
-                };
+                let items = tokenizer.inner.parse_itmes()?;
 
                 let table = TomlTable {
-                    header,
-                    items,
+                    header: Some(header),
+                    items: Some(items),
                     comment,
                 };
                 tokenizer.tables.push(table);
@@ -281,7 +275,7 @@ impl<'a, P> FilterTake<'a, P> {
         }
     }
 
-    fn iter_with_pos(mut self) -> Self
+    fn index_iter(mut self) -> Self
     where
         P: Fn(&TomlTable) -> bool,
     {
@@ -354,10 +348,9 @@ mod tests {
         "#;
 
         let mut tt = TomlTokenizer::parse(toml).unwrap();
-        // we get to test this too
         let (pos, taken) = tt
             .drain_filter(|table| table.header.as_ref().unwrap().inner == "[foo]")
-            .iter_with_pos()
+            .index_iter()
             .collect();
 
         assert_eq!(taken.len(), 1);
@@ -516,10 +509,33 @@ a="0"
 "#;
 
         let cmp = item.to_string().clone();
-        let th = TomlTokenizer::parse(item).unwrap();
-        println!("{:#?}", th);
+        let tt = TomlTokenizer::parse(item).unwrap();
+        println!("{:#?}", tt);
 
-        assert_eq!(th.to_string(), cmp);
+        assert_eq!(tt.to_string(), cmp);
+    }
+
+    #[test]
+    fn test_item_newline() {
+        let toml = r#"[dev-dependencies]
+        a="0"
+        f="0"
+
+        c="0"
+
+        "#;
+
+        let tt = TomlTokenizer::parse(toml);
+
+        let err_val = ParseTomlError {
+            info: "Invalid token in table".into(),
+            kind: err::TomlErrorKind::UnexpectedToken(EOL.into()),
+        };
+
+        match tt {
+            Ok(_) => assert_eq!(0, 1),
+            Err(e) => assert_eq!(e, err_val),
+        }
     }
 
 }

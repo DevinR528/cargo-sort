@@ -119,7 +119,37 @@ impl TomlString {
         let mut end = false;
         loop {
             let line = match self.chunks.iter().next() {
-                Some(l) => l,
+                Some(line) => {
+                    // to check for empty line in items vec, this is illegal
+                    if line.is_empty() {
+                        if let Some(next_line) = self.chunks.get(1) {
+                            let c = self.chunks.clone();
+                            let mut chunk_iter = c.iter();
+                            // if we are at eof we dont care how many eol
+                            let eof = loop {
+                                if let Some(peek_lines) = chunk_iter.next() {
+                                    if peek_lines.is_empty() {
+                                        continue;
+                                    } else {
+                                        break false;
+                                    }
+                                } else {
+                                    break true;
+                                }
+                            };
+                            // if we are not at the end
+                            if !(eof || next_line.contains('[') || next_line.contains('#')) {
+                                return Err(ParseTomlError::new(
+                                    "Invalid token in table".into(),
+                                    TomlErrorKind::UnexpectedToken(
+                                        crate::toml_tokenizer::EOL.into(),
+                                    ),
+                                ));
+                            }
+                        }
+                    }
+                    line
+                }
                 None => {
                     end = true;
                     ""

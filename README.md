@@ -59,6 +59,8 @@ left off the default is still Cargo.toml.
 a="0.1.1"
 # comments will stay with the item
 c="0.1.1"
+
+# ILLEGAL no newline in table items
 b="0.1.1"
 
 [dependencies.alpha]

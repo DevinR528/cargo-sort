@@ -72,6 +72,22 @@ pub struct TomlItems {
     pub items: Vec<TomlKVPair>,
 }
 
+impl<'p> Parse<Vec<String>> for TomlItems {
+    type Item = TomlItems;
+    type Error = ParseTomlError;
+
+    fn parse(lines: Vec<String>) -> Result<Self::Item, Self::Error> {
+        let mut toml_items = TomlItems {
+            items: Vec::default(),
+        };
+        for line in lines.iter() {
+            let item = TomlKVPair::parse(line)?;
+            toml_items.items.push(item);
+        }
+        Ok(toml_items)
+    }
+}
+
 impl std::fmt::Display for TomlItems {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> Result<(), std::fmt::Error> {
         for item in self.items.iter() {
@@ -86,22 +102,6 @@ impl std::fmt::Display for TomlItems {
             }
         }
         write!(f, "{}", super::EOL)
-    }
-}
-
-impl<'p> Parse<Vec<String>> for TomlItems {
-    type Item = TomlItems;
-    type Error = ParseTomlError;
-
-    fn parse(lines: Vec<String>) -> Result<Self::Item, Self::Error> {
-        let mut toml_items = TomlItems {
-            items: Vec::default(),
-        };
-        for line in lines.iter() {
-            let item = TomlKVPair::parse(line)?;
-            toml_items.items.push(item);
-        }
-        Ok(toml_items)
     }
 }
 
