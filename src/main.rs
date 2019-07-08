@@ -4,7 +4,6 @@ use std::io::Write;
 use std::path::PathBuf;
 
 use clap::{App, Arg};
-use colored::Colorize;
 use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
 
 mod toml_tokenizer;
@@ -18,15 +17,27 @@ const HEADERS: [&str; 5] = [
     "workspace.exclude",
 ];
 
+fn write_err(msg: &str) -> std::io::Result<()> {
+    let mut stderr = StandardStream::stderr(ColorChoice::Auto);
+    stderr.set_color(ColorSpec::new().set_fg(Some(Color::Red)))?;
+    write!(stderr, "ERROR: ")?;
+    stderr.reset()?;
+    writeln!(stderr, "{}", msg)
+}
+
+fn write_succ(msg: &str) -> std::io::Result<()> {
+    let mut stdout = StandardStream::stdout(ColorChoice::Auto);
+    stdout.set_color(ColorSpec::new().set_fg(Some(Color::Green)))?;
+    write!(stdout, "Success: ")?;
+    stdout.reset()?;
+    writeln!(stdout, "{}", msg)
+}
+
 //Takes a file path and reads its contents in as plain text
 fn load_file_contents(path: &str) -> String {
     read_to_string(path).unwrap_or_else(|_| {
-        let mut stderr = StandardStream::stderr(ColorChoice::Always);
-        stderr.set_color(ColorSpec::new().set_fg(Some(Color::Red))).unwrap();
         let msg = format!("No file found at: {}", path);
-        write!(stderr, "ERROR: ").unwrap();
-        stderr.reset().unwrap();
-        write!(stderr, "{}", msg).unwrap();
+        write_err(&msg).unwrap();
         std::process::exit(1);
     })
 }
@@ -34,13 +45,12 @@ fn load_file_contents(path: &str) -> String {
 fn load_toml_file(path: &PathBuf) -> String {
     //Check if a valid .toml filepath
     let path = path.to_str().unwrap_or_else(|| {
-        let msg = format!("{} path could not be represented as str", "ERROR:".red());
-        eprintln!("{}", msg);
+        write_err("path could not be represented as str").unwrap();
         std::process::exit(1)
     });
     if !path.contains(".toml") {
-        let msg = format!("{} invalid path to .toml file: {}", "ERROR:".red(), path);
-        eprintln!("{}", msg);
+        let msg = format!("invalid path to .toml file: {}", path);
+        write_err(&msg).unwrap();
         std::process::exit(1)
     }
     load_file_contents(path)
@@ -68,8 +78,8 @@ fn check_toml(path: &str, matches: &clap::ArgMatches) -> bool {
 
     // parses/to_token the toml for sort checking
     let mut tt = TomlTokenizer::parse(&toml_raw).unwrap_or_else(|e| {
-        let msg = format!("{} TOML parse error: {}", "ERROR:".red(), e);
-        eprintln!("{}", msg);
+        let msg = format!("TOML parse error: {}", e);
+        write_err(&msg).unwrap();
         std::process::exit(1);
     });
 
@@ -88,30 +98,31 @@ fn check_toml(path: &str, matches: &clap::ArgMatches) -> bool {
 
     if matches.is_present("write") {
         write_file(&path, &tt).unwrap_or_else(|e| {
-            let msg = format!("{} Failed to rewrite file: {:?}", "ERROR:".red(), e);
-            eprintln!("{}", msg);
+            let msg = format!("failed to rewrite file: {:?}", e);
+            write_err(&msg).unwrap();
         });
-        println!(
-            "{} dependencies are sorted for {:?}",
-            "Success".bold().bright_green(),
-            path
-        );
+        let msg = format!("dependencies are sorted for {:?}", path);
+        write_succ(&msg).unwrap();
+        // println!(
+        //     "{} dependencies are sorted for {:?}",
+        //     "Success".bold().bright_green(),
+        //     path
+        // );
         return true;
     }
 
     if !tt.was_sorted() {
-        println!(
-            "{} dependencies are sorted for {:?}",
-            "Success".bold().bright_green(),
-            path
-        );
+        let msg = format!("dependencies are sorted for {:?}", path);
+        write_succ(&msg).unwrap();
+        // println!(
+        //     "{} dependencies are sorted for {:?}",
+        //     "Success".bold().bright_green(),
+        //     path
+        // );
         true
     } else {
-        eprintln!(
-            "{} dependencies are not sorted for {:?}",
-            "Failure".bold().red(),
-            path
-        );
+        let msg = format!("dependencies are not sorted for {:?}", path);
+        write_err(&msg).unwrap();
         false
     }
 }
@@ -142,8 +153,8 @@ fn main() -> std::io::Result<()> {
         .get_matches();
 
     let cwd = env::current_dir().unwrap_or_else(|e| {
-        let msg = format!("{} No file found at: {}", "ERROR:".red(), e);
-        eprintln!("{}", msg);
+        let msg = format!("No file found at: {}", e);
+        write_err(&msg).unwrap();
         std::process::exit(1);
     });
     // either default cwd or from user

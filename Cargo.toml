@@ -13,7 +13,6 @@ exclude = [ "examp" ]
 
 [dependencies]
 clap = "2.33"
-colored="1.8"
 termcolor="1.0"
 
 [dev-dependencies]

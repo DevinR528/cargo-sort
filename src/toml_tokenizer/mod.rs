@@ -16,7 +16,6 @@ use toml_str::TomlString;
 // #[cfg(not(windows))]
 pub const EOL: &str = "\n";
 
-
 #[derive(Debug, Clone)]
 pub struct TomlTokenizer {
     was_sorted: bool,
@@ -368,8 +367,7 @@ mod tests {
 
         "#;
 
-        let sorted =
-r#"a="0"
+        let sorted = r#"a="0"
 c="0"
 f="0"
 
