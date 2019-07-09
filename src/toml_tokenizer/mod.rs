@@ -48,8 +48,8 @@ impl TomlTokenizer {
         FilterTake::new(self, pred)
     }
 
-    /// Returns taken tables from tokenizer with headers that match key
-    /// filter_take removes items from self
+    /// Returns owned tables from tokenizer with headers that match key
+    /// drain_filter removes items from self
     ///
     /// # Arguments
     /// * `key`: compared with .contains() and formatted "[{key}."
@@ -85,6 +85,7 @@ impl TomlTokenizer {
         // println!("UNSORTED {:#?}", nested);
         nested.sort();
 
+        // compares vec to vec so spacing differences will not fail it
         if unsorted != nested {
             self.was_sorted = true
         }
@@ -118,7 +119,6 @@ impl TomlTokenizer {
     pub fn sort_items(&mut self, key: &str) {
         let (start, mut tables) = self
             .drain_filter(|t| {
-                // unwrap?
                 if let Some(header) = &t.header {
                     header.inner == format!("[{}]", key)
                 } else {
@@ -132,6 +132,7 @@ impl TomlTokenizer {
             let unsorted = t.clone();
             t.items.as_mut().unwrap().items.sort();
 
+            // compares vec to vec so spacing differences will not fail it
             if &unsorted != t {
                 self.was_sorted = true
             }

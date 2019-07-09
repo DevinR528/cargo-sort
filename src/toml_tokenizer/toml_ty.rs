@@ -125,7 +125,7 @@ impl<'p> Parse<String> for TomlHeader {
     fn parse(header: String) -> Result<Self::Item, Self::Error> {
         if header.contains('.') {
             let segmented = header.trim_matches(|c| c == '[' || c == ']');
-            let seg = segmented.split('.').map(|s| s.to_owned()).collect();
+            let seg = segmented.split('.').map(Into::into).collect();
             // println!("SEG {:#?}", seg);
             return Ok(TomlHeader {
                 inner: header,

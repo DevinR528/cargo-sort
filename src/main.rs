@@ -56,6 +56,7 @@ fn load_toml_file(path: &PathBuf) -> String {
     load_file_contents(path)
 }
 
+// TODO:
 // it would be nice to be able to check if the file had been saved recently
 // or check if uncommited changes were present
 fn write_file(path: &PathBuf, tt: &TomlTokenizer) -> std::io::Result<()> {
@@ -76,14 +77,14 @@ fn check_toml(path: &str, matches: &clap::ArgMatches) -> bool {
 
     let toml_raw = load_toml_file(&path);
 
-    // parses/to_token the toml for sort checking
+    // parses/to_tokens the toml file for sort checking
     let mut tt = TomlTokenizer::parse(&toml_raw).unwrap_or_else(|e| {
         let msg = format!("TOML parse error: {}", e);
         write_err(&msg).unwrap();
         std::process::exit(1);
     });
 
-    //Check if appropriate tables in file are sorted
+    // check if appropriate tables in file are sorted
     for header in HEADERS.iter() {
         tt.sort_items(header);
         tt.sort_nested(header);
@@ -103,22 +104,12 @@ fn check_toml(path: &str, matches: &clap::ArgMatches) -> bool {
         });
         let msg = format!("dependencies are sorted for {:?}", path);
         write_succ(&msg).unwrap();
-        // println!(
-        //     "{} dependencies are sorted for {:?}",
-        //     "Success".bold().bright_green(),
-        //     path
-        // );
         return true;
     }
 
     if !tt.was_sorted() {
         let msg = format!("dependencies are sorted for {:?}", path);
         write_succ(&msg).unwrap();
-        // println!(
-        //     "{} dependencies are sorted for {:?}",
-        //     "Success".bold().bright_green(),
-        //     path
-        // );
         true
     } else {
         let msg = format!("dependencies are not sorted for {:?}", path);

@@ -1,6 +1,6 @@
 [package]
 name = "cargo-sort-ck"
-version = "0.3.2"
+version = "0.3.3"
 authors = ["Devin R <devin.ragotzy@gmail.com>"]
 license = "MIT/Apache-2.0"
 description = "Check Cargo.toml for sorted dependencies"
