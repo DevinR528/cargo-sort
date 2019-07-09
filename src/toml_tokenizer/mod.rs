@@ -143,6 +143,7 @@ impl TomlTokenizer {
         }
     }
 
+    // if true the toml file needed sorting
     pub fn was_sorted(&self) -> bool {
         self.was_sorted
     }
