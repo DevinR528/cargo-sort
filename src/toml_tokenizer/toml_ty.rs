@@ -114,7 +114,7 @@ pub struct TomlHeader {
 
 impl std::fmt::Display for TomlHeader {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> Result<(), std::fmt::Error> {
-        write!(f, "{}{}", self.inner, super::EOL)
+        writeln!(f, "{}", self.inner)
     }
 }
 
