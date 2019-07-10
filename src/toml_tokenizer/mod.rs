@@ -10,7 +10,7 @@ use toml_ty::TomlTable;
 mod toml_str;
 use toml_str::TomlString;
 
-// this does not seem needed
+// this does not seem needed can someone tell me why?
 // #[cfg(windows)]
 // pub const EOL: &str = "\r\n";
 // #[cfg(not(windows))]

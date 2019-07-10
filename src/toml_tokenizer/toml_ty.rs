@@ -93,15 +93,15 @@ impl std::fmt::Display for TomlItems {
         for item in self.items.iter() {
             if let Some(k) = &item.key {
                 if let Some(v) = &item.val {
-                    write!(f, "{}={}{}", k, v, super::EOL)?;
+                    writeln!(f, "{}={}", k, v)?;
                 } else {
-                    write!(f, "{}{}", k, super::EOL)?;
+                    writeln!(f, "{}", k)?;
                 }
             } else if let Some(com) = &item.comment {
-                write!(f, "{}{}", com, super::EOL)?;
+                writeln!(f, "{}", com)?;
             }
         }
-        write!(f, "{}", super::EOL)
+        writeln!(f, "")
     }
 }
 
