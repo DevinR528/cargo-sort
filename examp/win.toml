@@ -1,0 +1,14 @@
+[dependencies]
+a = "1"
+c = "3"
+b = "2"
+d = "4"
+
+[dependencies-alpha]
+version = "1"
+
+[dependencies-gama]
+version = "3"
+
+[dependencies-beta]
+version = "2"

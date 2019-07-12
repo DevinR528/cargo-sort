@@ -68,17 +68,19 @@ impl Parse<&str> for TomlKVPair {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct TomlItems {
+pub struct TomlItems<'s> {
     pub items: Vec<TomlKVPair>,
+    eol: &'s str,
 }
 
-impl<'p> Parse<Vec<String>> for TomlItems {
-    type Item = TomlItems;
+impl<'p> Parse<Vec<String>> for TomlItems<'p> {
+    type Item = TomlItems<'p>;
     type Error = ParseTomlError;
 
     fn parse(lines: Vec<String>) -> Result<Self::Item, Self::Error> {
         let mut toml_items = TomlItems {
             items: Vec::default(),
+            eol: "\n",
         };
         for line in lines.iter() {
             let item = TomlKVPair::parse(line)?;
@@ -88,49 +90,50 @@ impl<'p> Parse<Vec<String>> for TomlItems {
     }
 }
 
-impl std::fmt::Display for TomlItems {
+impl<'s> std::fmt::Display for TomlItems<'s> {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> Result<(), std::fmt::Error> {
         for item in self.items.iter() {
             if let Some(k) = &item.key {
                 if let Some(v) = &item.val {
-                    writeln!(f, "{}={}", k, v)?;
+                    write!(f, "{}={}{}", k, v, self.eol)?;
                 } else {
-                    writeln!(f, "{}", k)?;
+                    write!(f, "{}{}", k, self.eol)?;
                 }
             } else if let Some(com) = &item.comment {
-                writeln!(f, "{}", com)?;
+                write!(f, "{}{}", com, self.eol)?;
             }
         }
-        writeln!(f, "")
+        write!(f, "{}", self.eol)
     }
 }
 
 #[derive(Debug, Clone)]
-pub struct TomlHeader {
+pub struct TomlHeader<'s> {
     pub extended: bool,
     pub inner: String,
     pub seg: Vec<String>,
+    eol: &'s str,
 }
 
-impl std::fmt::Display for TomlHeader {
+impl<'s> std::fmt::Display for TomlHeader<'s> {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> Result<(), std::fmt::Error> {
-        writeln!(f, "{}", self.inner)
+        write!(f, "{}{}", self.inner, self.eol)
     }
 }
 
-impl<'p> Parse<String> for TomlHeader {
-    type Item = TomlHeader;
+impl<'s> Parse<String> for TomlHeader<'s> {
+    type Item = TomlHeader<'s>;
     type Error = ParseTomlError;
 
     fn parse(header: String) -> Result<Self::Item, Self::Error> {
         if header.contains('.') {
             let segmented = header.trim_matches(|c| c == '[' || c == ']');
             let seg = segmented.split('.').map(Into::into).collect();
-            // println!("SEG {:#?}", seg);
             return Ok(TomlHeader {
                 inner: header,
                 seg,
                 extended: true,
+                eol: "\n",
             });
         }
 
@@ -154,24 +157,36 @@ impl<'p> Parse<String> for TomlHeader {
             inner: header,
             seg,
             extended: false,
+            eol: "\n",
         })
     }
 }
 
-impl PartialEq for TomlHeader {
+impl<'s> PartialEq for TomlHeader<'s> {
     fn eq(&self, other: &TomlHeader) -> bool {
         self.inner == other.inner
     }
 }
 
 #[derive(Debug, Clone)]
-pub struct TomlTable {
+pub struct TomlTable<'t> {
     pub comment: Option<String>,
-    pub header: Option<TomlHeader>,
-    pub items: Option<TomlItems>,
+    pub header: Option<TomlHeader<'t>>,
+    pub items: Option<TomlItems<'t>>,
 }
 
-impl TomlTable {
+impl<'s> TomlTable<'s> {
+
+    pub fn set_eol(&mut self, eol: &str) {
+        if let Some(h) = self.header {
+            h.eol = eol;
+        }
+
+        if let Some(i) = self.items {
+            i.eol = eol;
+        }
+    }
+
     pub fn sort_items(&mut self) {
         match &mut self.items {
             Some(i) => i.items.sort(),
@@ -180,7 +195,7 @@ impl TomlTable {
     }
 }
 
-impl std::fmt::Display for TomlTable {
+impl<'s> std::fmt::Display for TomlTable<'s> {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> Result<(), std::fmt::Error> {
         match self {
             TomlTable {
@@ -213,21 +228,21 @@ impl std::fmt::Display for TomlTable {
     }
 }
 
-impl PartialEq for TomlTable {
+impl<'t> PartialEq for TomlTable<'t> {
     fn eq(&self, other: &TomlTable) -> bool {
         self.header == other.header && self.items == other.items
     }
 }
 
-impl Eq for TomlTable {}
+impl<'t> Eq for TomlTable<'t> {}
 
-impl PartialOrd for TomlTable {
+impl<'t> PartialOrd for TomlTable<'t> {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
         Some(self.cmp(other))
     }
 }
 
-impl Ord for TomlTable {
+impl<'t> Ord for TomlTable<'t> {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
         self.header
             .as_ref()

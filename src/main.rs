@@ -90,8 +90,12 @@ fn check_toml(path: &str, matches: &clap::ArgMatches) -> bool {
         tt.sort_nested(header);
     }
 
+    if matches.is_present("CRLF") {
+        tt.set_eol("\r\n");
+    }
+
     if matches.is_present("print") {
-        print!("{}", tt);
+        print!("{:?}", tt.to_string());
         if !matches.is_present("write") {
             return true;
         }
@@ -140,6 +144,11 @@ fn main() -> std::io::Result<()> {
                 .short("p")
                 .long("print")
                 .help("prints Cargo.toml, lexically sorted, to the screen"),
+        )
+        .arg(
+            Arg::with_name("CRLF")
+                .long("wineol")
+                .help("output uses windows style '\\r\\n' line endings"),
         )
         .get_matches();
 

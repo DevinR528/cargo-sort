@@ -1,3 +1,4 @@
+// TODO: make this mod its own crate then remove
 #![allow(dead_code)]
 use std::result::Result;
 
@@ -10,23 +11,24 @@ use toml_ty::TomlTable;
 mod toml_str;
 use toml_str::TomlString;
 
-// this does not seem needed can someone tell me why?
-// #[cfg(windows)]
-// pub const EOL: &str = "\r\n";
-// #[cfg(not(windows))]
+#[cfg(windows)]
+pub const EOL: &str = "\r\n";
+#[cfg(not(windows))]
 pub const EOL: &str = "\n";
 
 #[derive(Debug, Clone)]
-pub struct TomlTokenizer {
+pub struct TomlTokenizer<'s> {
+    eol: &'s str, 
     was_sorted: bool,
-    pub tables: Vec<TomlTable>,
+    pub tables: Vec<TomlTable<'s>>,
     inner: TomlString,
 }
 
 /// Toml Tokenizer
-impl TomlTokenizer {
+impl<'s> TomlTokenizer<'s> {
     fn new() -> Self {
         Self {
+            eol: "\n",
             was_sorted: false,
             tables: Vec::default(),
             inner: TomlString::default(),
@@ -38,10 +40,14 @@ impl TomlTokenizer {
         self.tables.clone()
     }
 
+    pub fn set_eol(&mut self, eol: &'s str) {
+        self.eol = eol;
+    }
+
     // TODO Remove when drain_filter is stable
     /// Destructivly removes and returns elements from vec
     /// based on P: predicate.
-    fn drain_filter<P>(&mut self, pred: P) -> FilterTake<'_, P>
+    fn drain_filter<P>(&mut self, pred: P) -> FilterTake<'_, 's, P>
     where
         P: Fn(&TomlTable) -> bool,
     {
@@ -155,27 +161,25 @@ impl TomlTokenizer {
             idx: 0,
         }
     }
-
-    pub fn iter_mut(&mut self) -> impl Iterator<Item = &mut TomlTable> {
-        self.tables.iter_mut()
-    }
 }
 
-impl Parse<&str> for TomlTokenizer {
-    type Item = TomlTokenizer;
+impl<'s> Parse<&str> for TomlTokenizer<'s> {
+    type Item = TomlTokenizer<'s>;
     type Error = ParseTomlError;
 
     fn parse(s: &str) -> Result<Self::Item, Self::Error> {
-        // cleans input
+        // cleans input removes windows line endings and limits number of lines between
+        // to make parsing easier
         let temp: Vec<&str> = s.split(&format!("{}{}{}", EOL, EOL, EOL)).collect();
         let cleaned: Vec<String> = temp
             .join(&format!("{}{}", EOL, EOL))
             .lines()
             // mostly for tests, removes whitespace from lines
-            .map(|s| s.trim().to_owned())
+            .map(|s| s.to_owned())
             .collect();
 
         let mut tokenizer = TomlTokenizer {
+            eol: "\n",
             was_sorted: false,
             tables: Vec::default(),
             inner: TomlString::from(cleaned),
@@ -208,16 +212,17 @@ impl Parse<&str> for TomlTokenizer {
     }
 }
 
-impl std::fmt::Display for TomlTokenizer {
+impl<'d> std::fmt::Display for TomlTokenizer<'d> {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> Result<(), std::fmt::Error> {
-        for t in self.tables.iter() {
+        for t in self.tables.iter_mut() {
+            t.set_eol(self.eol);
             write!(f, "{}", t)?;
         }
         Ok(())
     }
 }
 
-impl PartialEq for TomlTokenizer {
+impl<'p> PartialEq for TomlTokenizer<'p> {
     fn eq(&self, other: &TomlTokenizer) -> bool {
         let mut flag = true;
         for (i, table) in self.tables.iter().enumerate() {
@@ -230,8 +235,8 @@ impl PartialEq for TomlTokenizer {
     }
 }
 
-impl IntoIterator for TomlTokenizer {
-    type Item = TomlTable;
+impl<'i> IntoIterator for TomlTokenizer<'i> {
+    type Item = TomlTable<'i>;
     type IntoIter = std::vec::IntoIter<Self::Item>;
 
     fn into_iter(self) -> Self::IntoIter {
@@ -240,12 +245,12 @@ impl IntoIterator for TomlTokenizer {
 }
 
 pub struct TokenIter<'t> {
-    inner: &'t TomlTokenizer,
+    inner: &'t TomlTokenizer<'t>,
     idx: usize,
 }
 
 impl<'t> Iterator for TokenIter<'t> {
-    type Item = &'t TomlTable;
+    type Item = &'t TomlTable<'t>;
 
     fn next(&mut self) -> Option<Self::Item> {
         self.idx += 1;
@@ -253,18 +258,18 @@ impl<'t> Iterator for TokenIter<'t> {
     }
 }
 
-pub struct FilterTake<'a, P> {
+pub struct FilterTake<'a, 'b: 'a, P> { 
     predicate: P,
     idx: usize,
     steal_idx: usize,
     old_len: usize,
     first_found_idx: usize,
-    tokens: &'a mut TomlTokenizer,
-    taken: Vec<TomlTable>,
+    tokens: &'a mut TomlTokenizer<'b>,
+    taken: Vec<TomlTable<'b>>,
 }
 
-impl<'a, P> FilterTake<'a, P> {
-    pub(super) fn new(tokens: &'a mut TomlTokenizer, predicate: P) -> FilterTake<'a, P> {
+impl<'a, 'b, P> FilterTake<'a, 'b, P> {
+    pub(super) fn new(tokens: &'a mut TomlTokenizer<'b>, predicate: P) -> FilterTake<'a, 'b, P> {
         // println!("{:#?}", tokens.tables);
         let old_len = tokens.tables.len();
         FilterTake {
@@ -301,7 +306,7 @@ impl<'a, P> FilterTake<'a, P> {
         self
     }
 
-    fn collect(self) -> (usize, Vec<TomlTable>) {
+    fn collect(self) -> (usize, Vec<TomlTable<'b>>) {
         (self.first_found_idx, self.taken.into_iter().collect())
     }
 }
@@ -331,6 +336,28 @@ mod tests {
             tt.sort_nested(header);
         }
         assert_ne!(unsorted, tt.tables)
+    }
+
+    #[test]
+    fn parse_for_windows() {
+        let included_headers: Vec<&str> = vec![
+            "dependencies",
+            "dev-dependencies",
+            "build-dependencies",
+            "workspace.members",
+            "workspace.exclude",
+        ];
+
+        // any /examp/ file but right.toml thats sorted
+        let f = std::fs::read_to_string("examp/win.toml").expect("no file found");
+        println!("{:?}", f);
+        let mut tt = TomlTokenizer::parse(&f).unwrap();
+        //println!("{:#?}", tt);
+        // let unsorted = tt.clone_tables();
+        // for header in included_headers {
+        //     tt.sort_nested(header);
+        // }
+        // assert_ne!(unsorted, tt.tables)
     }
 
     #[test]
