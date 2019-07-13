@@ -75,6 +75,7 @@ impl TomlString {
                 };
 
                 //println!("next l: {}", next_l);
+                // at start of comment
                 if next_l.starts_with('#') {
                     let comm = self.chunks.pop_front().unwrap();
                     comment.push_str(&format!("{}{}", comm, super::EOL));

@@ -1,12 +1,20 @@
 use super::err::{ParseTomlError, TomlErrorKind};
 use super::parse::Parse;
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone)]
 pub struct TomlKVPair {
     comment: Option<String>,
     key: Option<String>,
     val: Option<String>,
 }
+
+impl PartialEq for TomlKVPair {
+    fn eq(&self, other: &Self) -> bool {
+        self.key == other.key && self.comment == other.comment
+    }
+}
+
+impl Eq for TomlKVPair {}
 
 impl PartialOrd for TomlKVPair {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
@@ -24,7 +32,7 @@ impl Ord for TomlKVPair {
                 std::cmp::Ordering::Equal
             }
         } else {
-            std::cmp::Ordering::Equal
+            std::cmp::Ordering::Less
         }
     }
 }
@@ -46,29 +54,45 @@ fn split_once(s: &str) -> (Option<String>, Option<String>) {
     (Some(first.into()), Some(second))
 }
 
-impl Parse<&str> for TomlKVPair {
-    type Item = TomlKVPair;
+impl Parse<Vec<String>> for TomlKVPair {
+    type Item = TomlItems;
     type Error = ParseTomlError;
-    fn parse(s: &str) -> Result<Self::Item, Self::Error> {
-        if s.starts_with('#') {
-            Ok(TomlKVPair {
-                key: None,
-                val: None,
-                comment: Some(s.into()),
-            })
-        } else {
-            let (key, val) = split_once(&s);
-            Ok(TomlKVPair {
-                key,
-                val,
-                comment: None,
-            })
+    fn parse(lines: Vec<String>) -> Result<Self::Item, Self::Error> {
+        let mut toml_items = TomlItems {
+            items: Vec::default(),
+            eol: "\n".into(),
+        };
+
+        let lc = lines.clone();
+        let lines_clone = lc.iter();
+        for (i, line) in lines_clone.enumerate() {
+            if line.starts_with('#') {
+                if let Some(after_comm) = lines.get(i + 1) {
+                    let (key, val) = split_once(after_comm);
+                    let ti = TomlKVPair {
+                        key,
+                        val,
+                        comment: Some(line.into()),
+                    };
+                    toml_items.items.push(ti);
+                }
+            } else {
+                let (key, val) = split_once(&line);
+                let ti = TomlKVPair {
+                    key,
+                    val,
+                    comment: None,
+                };
+                toml_items.items.push(ti);
+            }
         }
+        Ok(toml_items)
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone)]
 pub struct TomlItems {
+    eol: String,
     pub items: Vec<TomlKVPair>,
 }
 
@@ -77,14 +101,33 @@ impl<'p> Parse<Vec<String>> for TomlItems {
     type Error = ParseTomlError;
 
     fn parse(lines: Vec<String>) -> Result<Self::Item, Self::Error> {
-        let mut toml_items = TomlItems {
-            items: Vec::default(),
-        };
-        for line in lines.iter() {
-            let item = TomlKVPair::parse(line)?;
-            toml_items.items.push(item);
+        let items = TomlKVPair::parse(lines)?;
+        Ok(items)
+    }
+}
+
+impl PartialEq for TomlItems {
+    fn eq(&self, other: &TomlItems) -> bool {
+        for (i, item) in self.items.iter().enumerate() {
+            if item != &other.items[i] {
+                return false
+            }
         }
-        Ok(toml_items)
+        true
+    }
+}
+
+impl Eq for TomlItems {}
+
+impl PartialOrd for TomlItems {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for TomlItems {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.items.cmp(&other.items)
     }
 }
 
@@ -93,20 +136,21 @@ impl std::fmt::Display for TomlItems {
         for item in self.items.iter() {
             if let Some(k) = &item.key {
                 if let Some(v) = &item.val {
-                    writeln!(f, "{}={}", k, v)?;
+                    write!(f, "{}={}{}", k, v, self.eol)?;
                 } else {
-                    writeln!(f, "{}", k)?;
+                    write!(f, "{}{}", k, self.eol)?;
                 }
             } else if let Some(com) = &item.comment {
-                writeln!(f, "{}", com)?;
+                write!(f, "{}{}", com, self.eol)?;
             }
         }
-        writeln!(f, "")
+        write!(f, "{}", self.eol)
     }
 }
 
 #[derive(Debug, Clone)]
 pub struct TomlHeader {
+    eol: String,
     pub extended: bool,
     pub inner: String,
     pub seg: Vec<String>,
@@ -114,7 +158,7 @@ pub struct TomlHeader {
 
 impl std::fmt::Display for TomlHeader {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> Result<(), std::fmt::Error> {
-        writeln!(f, "{}", self.inner)
+        write!(f, "{}{}", self.inner, self.eol)
     }
 }
 
@@ -128,6 +172,7 @@ impl<'p> Parse<String> for TomlHeader {
             let seg = segmented.split('.').map(Into::into).collect();
             // println!("SEG {:#?}", seg);
             return Ok(TomlHeader {
+                eol: "\n".into(),
                 inner: header,
                 seg,
                 extended: true,
@@ -151,6 +196,7 @@ impl<'p> Parse<String> for TomlHeader {
             ));
         }
         Ok(TomlHeader {
+            eol: "\n".into(),
             inner: header,
             seg,
             extended: false,
@@ -166,6 +212,7 @@ impl PartialEq for TomlHeader {
 
 #[derive(Debug, Clone)]
 pub struct TomlTable {
+    pub eol: String,
     pub comment: Option<String>,
     pub header: Option<TomlHeader>,
     pub items: Option<TomlItems>,
@@ -178,37 +225,69 @@ impl TomlTable {
             None => {}
         }
     }
+
+    pub fn set_eol(&mut self, eol: &str) {
+        self.eol = eol.into();
+        if let Some(h) = &mut self.header {
+            h.eol = eol.into();
+        }
+
+        if let Some(i) = &mut self.items {
+            i.eol = eol.into();
+        }
+    }
 }
 
 impl std::fmt::Display for TomlTable {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> Result<(), std::fmt::Error> {
-        match self {
+        match &self {
             TomlTable {
                 items: Some(items),
                 header: Some(header),
-                comment: Some(comment),
-            } => write!(f, "{}{}{}", comment, header, items,),
+                comment: Some(comm),
+                ..
+            } => {
+                let mut cmt = comm.clone();
+                while cmt.ends_with('\n') && self.eol == "\r\n" {
+                    cmt.pop();
+                }
+                cmt.push_str(&self.eol);
+
+                write!(f, "{}{}{}", cmt, header, items)
+            }
             TomlTable {
                 items: Some(items),
                 header: Some(header),
+                comment: None,
                 ..
             } => write!(f, "{}{}", header, items),
             TomlTable {
-                comment: Some(comment),
+                comment: Some(comm),
+                items: None,
+                header: None,
                 ..
-            } => write!(f, "{}", comment),
+            } => {
+                let mut cmt = comm.clone();
+                while cmt.ends_with('\n') && self.eol == "\r\n" {
+                    cmt.pop();
+                }
+                cmt.push_str(&self.eol);
+
+                write!(f, "{}", cmt)
+            }
             TomlTable {
                 header: Some(header),
+                items: None,
+                comment: None,
                 ..
             } => write!(f, "{}", header),
             TomlTable {
-                items: Some(items), ..
-            } => write!(f, "{}", items),
-            TomlTable {
-                comment: None,
+                items: Some(items),
                 header: None,
-                items: None,
-            } => write!(f, "nothing"),
+                comment: None,
+                ..
+            } => write!(f, "{}", items),
+            _ => unreachable!("should have failed to parse report bug"),
         }
     }
 }
