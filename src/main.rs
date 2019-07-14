@@ -20,7 +20,7 @@ const HEADERS: [&str; 5] = [
 fn write_err(msg: &str) -> std::io::Result<()> {
     let mut stderr = StandardStream::stderr(ColorChoice::Auto);
     stderr.set_color(ColorSpec::new().set_fg(Some(Color::Red)))?;
-    write!(stderr, "ERROR: ")?;
+    write!(stderr, "Failure: ")?;
     stderr.reset()?;
     writeln!(stderr, "{}", msg)
 }
@@ -90,6 +90,10 @@ fn check_toml(path: &str, matches: &clap::ArgMatches) -> bool {
         tt.sort_nested(header);
     }
 
+    if matches.is_present("CRLF") {
+        tt.set_eol("\r\n");
+    }
+
     if matches.is_present("print") {
         print!("{}", tt);
         if !matches.is_present("write") {
@@ -140,6 +144,11 @@ fn main() -> std::io::Result<()> {
                 .short("p")
                 .long("print")
                 .help("prints Cargo.toml, lexically sorted, to the screen"),
+        )
+        .arg(
+            Arg::with_name("CRLF")
+                .long("crlf")
+                .help("output uses windows style line endings"),
         )
         .get_matches();
 

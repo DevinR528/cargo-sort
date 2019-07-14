@@ -10,10 +10,9 @@ use toml_ty::TomlTable;
 mod toml_str;
 use toml_str::TomlString;
 
-// this does not seem needed can someone tell me why?
-// #[cfg(windows)]
-// pub const EOL: &str = "\r\n";
-// #[cfg(not(windows))]
+#[cfg(windows)]
+pub const EOL: &str = "\r\n";
+#[cfg(not(windows))]
 pub const EOL: &str = "\n";
 
 #[derive(Debug, Clone)]
@@ -36,6 +35,10 @@ impl TomlTokenizer {
     /// Clone only the tables
     pub fn clone_tables(&self) -> Vec<TomlTable> {
         self.tables.clone()
+    }
+
+    pub fn set_eol(&mut self, eol: &str) {
+        self.tables.iter_mut().for_each(|t| t.set_eol(eol))
     }
 
     // TODO Remove when drain_filter is stable
@@ -78,18 +81,16 @@ impl TomlTokenizer {
         .collect()
     }
 
-    /// Sorts the whole file by nested headers
-    pub fn sort_nested(&mut self, field: &str) {
-        let (start, mut nested) = self.take_nested_sel(field);
+    /// Sorts the all of .toml file by nested headers with 'key'
+    pub fn sort_nested(&mut self, key: &str) {
+        let (start, mut nested) = self.take_nested_sel(key);
         let unsorted = nested.clone();
-        // println!("UNSORTED {:#?}", nested);
         nested.sort();
 
         // compares vec to vec so spacing differences will not fail it
         if unsorted != nested {
             self.was_sorted = true
         }
-        // println!("PRE {}:  {:#?}", field, nested);
         nested.reverse();
         for table in nested {
             self.tables.insert(start, table);
@@ -131,7 +132,6 @@ impl TomlTokenizer {
         tables.iter_mut().for_each(|t| {
             let unsorted = t.clone();
             t.items.as_mut().unwrap().items.sort();
-
             // compares vec to vec so spacing differences will not fail it
             if &unsorted != t {
                 self.was_sorted = true
@@ -166,10 +166,11 @@ impl Parse<&str> for TomlTokenizer {
     type Error = ParseTomlError;
 
     fn parse(s: &str) -> Result<Self::Item, Self::Error> {
+        let eol = if s.contains("\r\n") { "\r\n" } else { "\n" };
         // cleans input
-        let temp: Vec<&str> = s.split(&format!("{}{}{}", EOL, EOL, EOL)).collect();
+        let temp: Vec<&str> = s.split(&format!("{}{}{}", eol, eol, eol)).collect();
         let cleaned: Vec<String> = temp
-            .join(&format!("{}{}", EOL, EOL))
+            .join(&format!("{}{}", eol, eol))
             .lines()
             // mostly for tests, removes whitespace from lines
             .map(|s| s.trim().to_owned())
@@ -192,14 +193,15 @@ impl Parse<&str> for TomlTokenizer {
                     header: Some(header),
                     items: Some(items),
                     comment,
+                    eol: "\n".into(),
                 };
                 tokenizer.tables.push(table);
-            // println!("{:#?}", items);
             } else {
                 let table = TomlTable {
                     header: None,
                     items: None,
                     comment,
+                    eol: "\n".into(),
                 };
                 tokenizer.tables.push(table);
             }
@@ -265,7 +267,6 @@ pub struct FilterTake<'a, P> {
 
 impl<'a, P> FilterTake<'a, P> {
     pub(super) fn new(tokens: &'a mut TomlTokenizer, predicate: P) -> FilterTake<'a, P> {
-        // println!("{:#?}", tokens.tables);
         let old_len = tokens.tables.len();
         FilterTake {
             predicate,
@@ -528,7 +529,7 @@ a="0"
 
         let err_val = ParseTomlError {
             info: "Invalid token in table".into(),
-            kind: err::TomlErrorKind::UnexpectedToken(EOL.into()),
+            kind: err::TomlErrorKind::UnexpectedToken("'\\n' or '\\r\\n'".to_string()),
         };
 
         match tt {
