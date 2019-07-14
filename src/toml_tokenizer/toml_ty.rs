@@ -324,7 +324,6 @@ impl PartialOrd for TomlTable {
 }
 impl Ord for TomlTable {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        println!("from ORD");
         self.header.as_ref().unwrap().cmp(&other.header.as_ref().unwrap())
     }
 }
