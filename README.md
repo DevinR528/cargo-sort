@@ -9,9 +9,9 @@ A tool to check that your Cargo.toml dependencies are sorted alphabetically. Pro
 
 ## Use
 There are three modes cargo-sort-ck can be used in:
- **1. default** - no flags set cargo-sort-ck will pass (exit 0) if .toml is sorted or fail if not      (exit 1).
- **2. -p or --print** - will print the *__sorted toml__* file to stdout.
- **3. -w or --write** - will rewrite the toml file, I would like to eventually add some kind of check like cargo fix to warn if file is uncommitted.
+ * **default** - no flags set cargo-sort-ck will pass (exit 0) if .toml is sorted or fail if not (exit 1).
+ * **-p or --print** - will print the *__sorted toml__* file to stdout.
+ * **-w or --write** - will rewrite the toml file, I would like to eventually add some kind of check like cargo fix to warn if file is uncommitted/unsaved?.
 
 [toml]: https://github.com/toml-lang/toml
 included in sort check is:
@@ -33,21 +33,22 @@ cargo install cargo-sort-ck
 # Run
 Defaults to current dir but any path can be passed in.
 ```bash
-cargo-sort-ck 
+Cargo Sort Check 
 Devin R <devin.ragotzy@gmail.com>
-Helps ensure Cargo.toml dependency list is sorted.
+Ensure Cargo.toml dependency tables are sorted.
 
 USAGE:
     cargo-sort-ck [FLAGS] [CWD]
 
 FLAGS:
+        --crlf       output uses windows style line endings (\\r\\n)
     -h, --help       Prints help information
     -p, --print      prints Cargo.toml, lexically sorted, to the screen
     -V, --version    Prints version information
     -w, --write      rewrites Cargo.toml file so it is lexically sorted
 
 ARGS:
-    <CWD>    Sets cwd, must contain Cargo.toml
+    <CWD>...    Sets cwd, must contain Cargo.toml
 ```
 
 Wildcard expansion is supported so you can do this

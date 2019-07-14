@@ -25,16 +25,6 @@ impl PartialOrd for TomlKVPair {
 impl Ord for TomlKVPair {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
         self.key.as_ref().unwrap().cmp(other.key.as_ref().unwrap())
-        // if let Some(key) = &self.key {
-        //     if let Some(other_k) = &other.key {
-        //         key.cmp(&other_k)
-        //     // else we have a parsing problem
-        //     } else {
-        //         unreachable!("parse error")
-        //     }
-        // } else {
-        //     unreachable!("parse error")
-        // }
     }
 }
 
@@ -324,6 +314,9 @@ impl PartialOrd for TomlTable {
 }
 impl Ord for TomlTable {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        self.header.as_ref().unwrap().cmp(&other.header.as_ref().unwrap())
+        self.header
+            .as_ref()
+            .unwrap()
+            .cmp(&other.header.as_ref().unwrap())
     }
 }

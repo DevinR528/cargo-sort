@@ -148,7 +148,7 @@ fn main() -> std::io::Result<()> {
         .arg(
             Arg::with_name("CRLF")
                 .long("crlf")
-                .help("output uses windows style line endings"),
+                .help("output uses windows style line endings (\\r\\n)"),
         )
         .get_matches();
 
