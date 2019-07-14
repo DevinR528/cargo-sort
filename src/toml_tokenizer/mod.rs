@@ -84,7 +84,6 @@ impl TomlTokenizer {
     /// Sorts the all of .toml file by nested headers with 'key'
     pub fn sort_nested(&mut self, key: &str) {
         let (start, mut nested) = self.take_nested_sel(key);
-        println!("{:#?}", nested);
         let unsorted = nested.clone();
         nested.sort();
 

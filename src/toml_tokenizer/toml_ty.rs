@@ -315,7 +315,6 @@ impl PartialEq for TomlTable {
         self.header == other.header && self.items == other.items
     }
 }
-
 impl Eq for TomlTable {}
 
 impl PartialOrd for TomlTable {
@@ -323,10 +322,9 @@ impl PartialOrd for TomlTable {
         Some(self.cmp(other))
     }
 }
-
 impl Ord for TomlTable {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
         println!("from ORD");
-        self.header.as_ref().unwrap().inner.cmp(&other.header.as_ref().unwrap().inner)
+        self.header.as_ref().unwrap().cmp(&other.header.as_ref().unwrap())
     }
 }

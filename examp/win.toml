@@ -5,12 +5,12 @@ c = "3"
 b = "2"
 d = "4"
 
-[dependencies-alpha]
+[dependencies.alpha]
 version = "1"
 
-#com
-[dependencies-gama]
+# it's a comment
+[dependencies.chi]
 version = "3"
 
-[dependencies-beta]
+[dependencies.beta]
 version = "2"
