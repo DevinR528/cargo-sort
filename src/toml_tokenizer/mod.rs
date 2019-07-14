@@ -10,7 +10,6 @@ use toml_ty::TomlTable;
 mod toml_str;
 use toml_str::TomlString;
 
-// this does not seem needed can someone tell me why?
 #[cfg(windows)]
 pub const EOL: &str = "\r\n";
 #[cfg(not(windows))]
@@ -82,18 +81,17 @@ impl TomlTokenizer {
         .collect()
     }
 
-    /// Sorts the whole file by nested headers
-    pub fn sort_nested(&mut self, field: &str) {
-        let (start, mut nested) = self.take_nested_sel(field);
+    /// Sorts the all of .toml file by nested headers with 'key'
+    pub fn sort_nested(&mut self, key: &str) {
+        let (start, mut nested) = self.take_nested_sel(key);
+        println!("{:#?}", nested);
         let unsorted = nested.clone();
-        // println!("UNSORTED {:#?}", nested);
         nested.sort();
 
         // compares vec to vec so spacing differences will not fail it
         if unsorted != nested {
             self.was_sorted = true
         }
-        // println!("PRE {}:  {:#?}", field, nested);
         nested.reverse();
         for table in nested {
             self.tables.insert(start, table);
@@ -134,9 +132,7 @@ impl TomlTokenizer {
 
         tables.iter_mut().for_each(|t| {
             let unsorted = t.clone();
-            println!("UN {:#?}", unsorted);
             t.items.as_mut().unwrap().items.sort();
-            println!("SORTED {:#?}", t);
             // compares vec to vec so spacing differences will not fail it
             if &unsorted != t {
                 self.was_sorted = true
@@ -171,12 +167,7 @@ impl Parse<&str> for TomlTokenizer {
     type Error = ParseTomlError;
 
     fn parse(s: &str) -> Result<Self::Item, Self::Error> {
-
-        let eol = if s.contains("\r\n") {
-            "\r\n"
-        } else {
-            "\n"
-        };
+        let eol = if s.contains("\r\n") { "\r\n" } else { "\n" };
         // cleans input
         let temp: Vec<&str> = s.split(&format!("{}{}{}", eol, eol, eol)).collect();
         let cleaned: Vec<String> = temp
@@ -198,7 +189,6 @@ impl Parse<&str> for TomlTokenizer {
                 let header = tokenizer.inner.parse_header()?;
 
                 let items = tokenizer.inner.parse_itmes()?;
-                println!("{:#?}", items);
 
                 let table = TomlTable {
                     header: Some(header),
@@ -207,7 +197,6 @@ impl Parse<&str> for TomlTokenizer {
                     eol: "\n".into(),
                 };
                 tokenizer.tables.push(table);
-            // println!("{:#?}", items);
             } else {
                 let table = TomlTable {
                     header: None,
@@ -279,7 +268,6 @@ pub struct FilterTake<'a, P> {
 
 impl<'a, P> FilterTake<'a, P> {
     pub(super) fn new(tokens: &'a mut TomlTokenizer, predicate: P) -> FilterTake<'a, P> {
-        // println!("{:#?}", tokens.tables);
         let old_len = tokens.tables.len();
         FilterTake {
             predicate,
@@ -542,7 +530,7 @@ a="0"
 
         let err_val = ParseTomlError {
             info: "Invalid token in table".into(),
-            kind: err::TomlErrorKind::UnexpectedToken(eol.into()),
+            kind: err::TomlErrorKind::UnexpectedToken("'\\n' or '\\r\\n'".to_string()),
         };
 
         match tt {

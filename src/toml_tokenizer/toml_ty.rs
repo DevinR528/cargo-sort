@@ -24,16 +24,17 @@ impl PartialOrd for TomlKVPair {
 
 impl Ord for TomlKVPair {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        if let Some(key) = &self.key {
-            if let Some(other_k) = &other.key {
-                key.cmp(&other_k)
-            // else we have key and comment
-            } else {
-                std::cmp::Ordering::Equal
-            }
-        } else {
-            std::cmp::Ordering::Less
-        }
+        self.key.as_ref().unwrap().cmp(other.key.as_ref().unwrap())
+        // if let Some(key) = &self.key {
+        //     if let Some(other_k) = &other.key {
+        //         key.cmp(&other_k)
+        //     // else we have a parsing problem
+        //     } else {
+        //         unreachable!("parse error")
+        //     }
+        // } else {
+        //     unreachable!("parse error")
+        // }
     }
 }
 
@@ -63,29 +64,34 @@ impl Parse<Vec<String>> for TomlKVPair {
             eol: "\n".into(),
         };
 
+        let mut lines = lines;
         let lc = lines.clone();
         let lines_clone = lc.iter();
-        for (i, line) in lines_clone.enumerate() {
+        let mut i = 0;
+        for line in lines_clone {
             if line.starts_with('#') {
                 if let Some(after_comm) = lines.get(i + 1) {
                     let (key, val) = split_once(after_comm);
                     let ti = TomlKVPair {
                         key,
                         val,
-                        comment: Some(line.into()),
+                        comment: Some(line.to_string()),
                     };
                     toml_items.items.push(ti);
+                    lines.drain(i..i + 2);
                 }
-            } else {
-                let (key, val) = split_once(&line);
+            } else if let Some(line) = lines.get(i) {
+                let (key, val) = split_once(line);
                 let ti = TomlKVPair {
                     key,
                     val,
                     comment: None,
                 };
+                i += 1;
                 toml_items.items.push(ti);
             }
         }
+
         Ok(toml_items)
     }
 }
@@ -110,7 +116,7 @@ impl PartialEq for TomlItems {
     fn eq(&self, other: &TomlItems) -> bool {
         for (i, item) in self.items.iter().enumerate() {
             if item != &other.items[i] {
-                return false
+                return false;
             }
         }
         true
@@ -136,12 +142,26 @@ impl std::fmt::Display for TomlItems {
         for item in self.items.iter() {
             if let Some(k) = &item.key {
                 if let Some(v) = &item.val {
-                    write!(f, "{}={}{}", k, v, self.eol)?;
+                    if let Some(c) = &item.comment {
+                        let res = match c.find('\n') {
+                            Some(idx) => {
+                                let (f, l) = c.split_at(idx);
+                                let res = format!("{}{}", f, l.replace("\n", &self.eol));
+                                res
+                            }
+                            None => {
+                                let res = format!("{}{}", c, &self.eol);
+                                res
+                            }
+                        };
+                        write!(f, "{}{}={}{}", res, k, v, self.eol)?;
+                    } else {
+                        write!(f, "{}={}{}", k, v, self.eol)?;
+                    }
+                // this is illegal
                 } else {
                     write!(f, "{}{}", k, self.eol)?;
                 }
-            } else if let Some(com) = &item.comment {
-                write!(f, "{}{}", com, self.eol)?;
             }
         }
         write!(f, "{}", self.eol)
@@ -204,11 +224,25 @@ impl<'p> Parse<String> for TomlHeader {
     }
 }
 
+impl PartialOrd for TomlHeader {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for TomlHeader {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.inner.cmp(&other.inner)
+    }
+}
+
 impl PartialEq for TomlHeader {
     fn eq(&self, other: &TomlHeader) -> bool {
         self.inner == other.inner
     }
 }
+
+impl Eq for TomlHeader {}
 
 #[derive(Debug, Clone)]
 pub struct TomlTable {
@@ -246,15 +280,7 @@ impl std::fmt::Display for TomlTable {
                 header: Some(header),
                 comment: Some(comm),
                 ..
-            } => {
-                let mut cmt = comm.clone();
-                while cmt.ends_with('\n') && self.eol == "\r\n" {
-                    cmt.pop();
-                }
-                cmt.push_str(&self.eol);
-
-                write!(f, "{}{}{}", cmt, header, items)
-            }
+            } => write!(f, "{}{}{}", comm, header, items),
             TomlTable {
                 items: Some(items),
                 header: Some(header),
@@ -266,15 +292,7 @@ impl std::fmt::Display for TomlTable {
                 items: None,
                 header: None,
                 ..
-            } => {
-                let mut cmt = comm.clone();
-                while cmt.ends_with('\n') && self.eol == "\r\n" {
-                    cmt.pop();
-                }
-                cmt.push_str(&self.eol);
-
-                write!(f, "{}", cmt)
-            }
+            } => write!(f, "{}", comm),
             TomlTable {
                 header: Some(header),
                 items: None,
@@ -287,7 +305,7 @@ impl std::fmt::Display for TomlTable {
                 comment: None,
                 ..
             } => write!(f, "{}", items),
-            _ => unreachable!("should have failed to parse report bug"),
+            _ => unreachable!("should have failed to parse, file a bug"),
         }
     }
 }
@@ -308,26 +326,7 @@ impl PartialOrd for TomlTable {
 
 impl Ord for TomlTable {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        self.header
-            .as_ref()
-            .unwrap()
-            .inner
-            .cmp(&other.header.as_ref().unwrap().inner)
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use pretty_assertions::assert_eq;
-
-    #[test]
-    fn test_items_parse() {
-        let item = r#"hello="{ why = yes, oh = no }""#;
-
-        let kv = TomlKVPair::parse(item).unwrap();
-
-        assert_eq!(kv.key.unwrap(), "hello".to_string());
-        assert_eq!(kv.val.unwrap(), "\"{ why = yes, oh = no }\"".to_string());
+        println!("from ORD");
+        self.header.as_ref().unwrap().inner.cmp(&other.header.as_ref().unwrap().inner)
     }
 }

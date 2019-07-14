@@ -12,6 +12,14 @@ pub struct TomlString {
     chunks: VecDeque<String>,
 }
 
+impl Default for TomlString {
+    fn default() -> Self {
+        TomlString {
+            chunks: VecDeque::default(),
+        }
+    }
+}
+
 impl TomlString {
     pub fn new(chunks: VecDeque<String>) -> Self {
         Self { chunks }
@@ -20,12 +28,6 @@ impl TomlString {
     pub fn from(v: Vec<String>) -> Self {
         Self {
             chunks: VecDeque::from(v),
-        }
-    }
-
-    pub fn default() -> Self {
-        TomlString {
-            chunks: VecDeque::default(),
         }
     }
 
@@ -63,8 +65,10 @@ impl TomlString {
         let mut end = false;
         if line.starts_with('#') {
             let mut comment = self.chunks.pop_front().unwrap();
-            comment.push_str(super::EOL);
+            // added to keep track of lines for uniformity
+            comment.push_str("\n");
 
+            // checks for end of file (if comment is last thing)
             loop {
                 let next_l = match chunk_iter.next() {
                     Some(l) => l,
@@ -74,14 +78,14 @@ impl TomlString {
                     }
                 };
 
-                //println!("next l: {}", next_l);
                 // at start of comment
                 if next_l.starts_with('#') {
                     let comm = self.chunks.pop_front().unwrap();
-                    comment.push_str(&format!("{}{}", comm, super::EOL));
+                    comment.push_str(&format!("{}{}", comm, "\n"));
+                // we find a new line after comment but before a valid next item
                 } else if next_l.is_empty() && !end {
                     self.chunks.pop_front().unwrap();
-                    comment.push_str(super::EOL);
+                    comment.push_str("\n");
                 } else {
                     return Ok((Some(comment), end));
                 }
@@ -142,9 +146,7 @@ impl TomlString {
                             if !(eof || next_line.contains('[') || next_line.contains('#')) {
                                 return Err(ParseTomlError::new(
                                     "Invalid token in table".into(),
-                                    TomlErrorKind::UnexpectedToken(
-                                        crate::toml_tokenizer::EOL.into(),
-                                    ),
+                                    TomlErrorKind::UnexpectedToken("'\\n' or '\\r\\n'".into()),
                                 ));
                             }
                         }
@@ -157,6 +159,7 @@ impl TomlString {
                 }
             };
 
+            // empty lines between tables
             if line.is_empty() || line.starts_with('\r') {
                 if !end {
                     self.chunks.pop_front().unwrap();

@@ -95,7 +95,7 @@ fn check_toml(path: &str, matches: &clap::ArgMatches) -> bool {
     }
 
     if matches.is_present("print") {
-        print!("{:?}", tt.to_string());
+        print!("{}", tt);
         if !matches.is_present("write") {
             return true;
         }
