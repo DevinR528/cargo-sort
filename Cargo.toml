@@ -1,6 +1,6 @@
 [package]
 name = "cargo-sort-ck"
-version = "1.0.0"
+version = "1.0.1"
 authors = ["Devin R <devin.ragotzy@gmail.com>"]
 license = "MIT/Apache-2.0"
 description = "Check if tables and items in a .toml file are lexically sorted"
@@ -17,6 +17,10 @@ termcolor="1.0"
 
 [dev-dependencies]
 pretty_assertions="0.6"
+
+[[bin]]
+name = "cargo-sort-ck"
+path = "src/main.rs"
 
 [badges]
 travis-ci = { repository = "DevinR528/cargo-sort-ck" }
