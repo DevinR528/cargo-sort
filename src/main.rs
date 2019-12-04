@@ -122,7 +122,7 @@ fn check_toml(path: &str, matches: &clap::ArgMatches) -> bool {
     }
 }
 
-fn main() -> std::io::Result<()> {
+fn main() {
     let matches = App::new("Cargo Sort Check")
         .author("Devin R <devin.ragotzy@gmail.com>")
         .about("Ensure Cargo.toml dependency tables are sorted.")
@@ -152,34 +152,39 @@ fn main() -> std::io::Result<()> {
         )
         .get_matches();
 
-    let cwd = env::current_dir().unwrap_or_else(|e| {
-        let msg = format!("No file found at: {}", e);
-        write_err(&msg).unwrap();
-        std::process::exit(1);
-    });
-    // either default cwd or from user
-    let path = matches.values_of("cwd").map_or(cwd, |s| {
-        let dirs: Vec<&str> = s.collect();
-        if dirs.len() == 1 {
-            PathBuf::from(dirs[0])
+    let cwd = env::current_dir()
+        .unwrap_or_else(|e| {
+            let msg = format!("no current directory found: {}", e);
+            write_err(&msg).unwrap();
+            std::process::exit(1);
+        });
+    let dir = cwd.to_str()
+        .unwrap_or_else(|| {
+            let msg = format!("could not represent path as string");
+            write_err(&msg).unwrap();
+            std::process::exit(1);
+        });
+
+    // remove "sort-ck" when invoked `cargo sort-ck` sort-ck is the first arg
+    // https://github.com/rust-lang/cargo/issues/7653
+    let filtered_matches = matches.values_of("cwd").map_or(vec![dir], |s| {
+        let args = s.filter(|it| *it != "sort-ck").collect::<Vec<&str>>();
+        if args.is_empty() {
+            vec![dir]
         } else {
-            let mut flag = true;
-            dirs.iter()
-                .map(|path| check_toml(path, &matches))
-                .for_each(|sorted| {
-                    if !sorted {
-                        flag = false;
-                    }
-                });
-            if flag {
-                std::process::exit(0)
-            } else {
-                std::process::exit(1)
-            }
+            args
         }
     });
 
-    if check_toml(path.to_str().unwrap(), &matches) {
+    let mut flag = true;
+    filtered_matches.iter()
+        .map(|path| check_toml(path, &matches))
+        .for_each(|sorted| {
+            if !sorted {
+                flag = false;
+            }
+        });
+    if flag {
         std::process::exit(0)
     } else {
         std::process::exit(1)
