@@ -1,4 +1,3 @@
-use std::error::Error;
 use std::io;
 
 #[derive(PartialEq)]
@@ -24,7 +23,7 @@ impl ParseTomlError {
 
 impl std::convert::From<io::Error> for ParseTomlError {
     fn from(e: io::Error) -> ParseTomlError {
-        let msg = e.description().to_owned();
+        let msg = e.to_string();
         ParseTomlError::new(
             msg,
             TomlErrorKind::InternalParseError("? opperator returned error".to_owned()),
