@@ -5,17 +5,29 @@ use std::path::PathBuf;
 
 use clap::{App, Arg};
 use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
+use toml_parse::{parse_it, sort_toml_items, Matcher, Formatter, SyntaxNodeExtTrait, TomlKind};
 
 mod toml_tokenizer;
 use toml_tokenizer::{parse::Parse, TomlTokenizer};
 
-const HEADERS: [&str; 5] = [
+const HEADERS: [&str; 3] = [
     "dependencies",
     "dev-dependencies",
     "build-dependencies",
-    "workspace.members",
-    "workspace.exclude",
 ];
+
+const HEADER_SEG: [&str; 3] = [
+    "dependencies.",
+    "dev-dependencies.",
+    "build-dependencies.",
+];
+
+const HEADER: Matcher<'_> = Matcher {
+    heading: &HEADERS,
+    segmented: &HEADER_SEG,
+    heading_key: &[("[workspace]", "members"), ("[workspace]", "exclude")],
+    value: TomlKind::Array,
+};
 
 fn write_err(msg: &str) -> std::io::Result<()> {
     let mut stderr = StandardStream::stderr(ColorChoice::Auto);
@@ -78,7 +90,7 @@ fn check_toml(path: &str, matches: &clap::ArgMatches) -> bool {
     let toml_raw = load_toml_file(&path);
 
     // parses/to_tokens the toml file for sort checking
-    let mut tt = TomlTokenizer::parse(&toml_raw).unwrap_or_else(|e| {
+    let mut tt = parse_it(&toml_raw).unwrap_or_else(|e| {
         let msg = format!("TOML parse error: {}", e);
         write_err(&msg).unwrap();
         std::process::exit(1);
