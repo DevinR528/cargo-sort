@@ -5,7 +5,7 @@ use std::path::PathBuf;
 
 use clap::{App, Arg};
 use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
-use toml_parse::{parse_it, sort_toml_items, Matcher, Formatter, SyntaxNodeExtTrait};
+use toml_parse::{parse_it, sort_toml_items, Formatter, Matcher, SyntaxNodeExtTrait};
 
 const HEADERS: [&str; 3] = [
     "[dependencies]",
@@ -13,11 +13,7 @@ const HEADERS: [&str; 3] = [
     "[build-dependencies]",
 ];
 
-const HEADER_SEG: [&str; 3] = [
-    "dependencies.",
-    "dev-dependencies.",
-    "build-dependencies.",
-];
+const HEADER_SEG: [&str; 3] = ["dependencies.", "dev-dependencies.", "build-dependencies."];
 
 const MATCHER: Matcher<'_> = Matcher {
     heading: &HEADERS,
@@ -86,11 +82,13 @@ fn check_toml(path: &str, matches: &clap::ArgMatches) -> bool {
     let toml_raw = load_toml_file(&path);
 
     // parses the toml file for sort checking
-    let tkn_tree = parse_it(&toml_raw).unwrap_or_else(|e| {
-        let msg = format!("toml parse error: {}", e);
-        write_err(&msg).unwrap();
-        std::process::exit(1);
-    }).syntax();
+    let tkn_tree = parse_it(&toml_raw)
+        .unwrap_or_else(|e| {
+            let msg = format!("toml parse error: {}", e);
+            write_err(&msg).unwrap();
+            std::process::exit(1);
+        })
+        .syntax();
 
     // check if appropriate tables in file are sorted
     let sorted = sort_toml_items(&tkn_tree, &MATCHER);
@@ -156,18 +154,16 @@ fn main() {
         )
         .get_matches();
 
-    let cwd = env::current_dir()
-        .unwrap_or_else(|e| {
-            let msg = format!("no current directory found: {}", e);
-            write_err(&msg).unwrap();
-            std::process::exit(1);
-        });
-    let dir = cwd.to_str()
-        .unwrap_or_else(|| {
-            let msg = format!("could not represent path as string");
-            write_err(&msg).unwrap();
-            std::process::exit(1);
-        });
+    let cwd = env::current_dir().unwrap_or_else(|e| {
+        let msg = format!("no current directory found: {}", e);
+        write_err(&msg).unwrap();
+        std::process::exit(1);
+    });
+    let dir = cwd.to_str().unwrap_or_else(|| {
+        let msg = "could not represent path as string";
+        write_err(msg).unwrap();
+        std::process::exit(1);
+    });
 
     // remove "sort-ck" when invoked `cargo sort-ck` sort-ck is the first arg
     // https://github.com/rust-lang/cargo/issues/7653
@@ -181,7 +177,8 @@ fn main() {
     });
 
     let mut flag = true;
-    filtered_matches.iter()
+    filtered_matches
+        .iter()
         .map(|path| check_toml(path, &matches))
         .for_each(|sorted| {
             if !sorted {
