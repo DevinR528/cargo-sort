@@ -5,15 +5,12 @@ use std::path::PathBuf;
 
 use clap::{App, Arg};
 use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
-use toml_parse::{parse_it, sort_toml_items, Matcher, Formatter, SyntaxNodeExtTrait, TomlKind};
-
-mod toml_tokenizer;
-use toml_tokenizer::{parse::Parse, TomlTokenizer};
+use toml_parse::{parse_it, sort_toml_items, Matcher, Formatter, SyntaxNodeExtTrait};
 
 const HEADERS: [&str; 3] = [
-    "dependencies",
-    "dev-dependencies",
-    "build-dependencies",
+    "[dependencies]",
+    "[dev-dependencies]",
+    "[build-dependencies]",
 ];
 
 const HEADER_SEG: [&str; 3] = [
@@ -22,11 +19,10 @@ const HEADER_SEG: [&str; 3] = [
     "build-dependencies.",
 ];
 
-const HEADER: Matcher<'_> = Matcher {
+const MATCHER: Matcher<'_> = Matcher {
     heading: &HEADERS,
     segmented: &HEADER_SEG,
     heading_key: &[("[workspace]", "members"), ("[workspace]", "exclude")],
-    value: TomlKind::Array,
 };
 
 fn write_err(msg: &str) -> std::io::Result<()> {
@@ -71,14 +67,14 @@ fn load_toml_file(path: &PathBuf) -> String {
 // TODO:
 // it would be nice to be able to check if the file had been saved recently
 // or check if uncommited changes were present
-fn write_file(path: &PathBuf, tt: &TomlTokenizer) -> std::io::Result<()> {
+fn write_file(path: &PathBuf, toml: &str) -> std::io::Result<()> {
     let mut fd = OpenOptions::new()
         .write(true)
         .create(true)
         .truncate(true)
         .open(path)?;
 
-    write!(fd, "{}", tt)
+    write!(fd, "{}", toml)
 }
 
 fn check_toml(path: &str, matches: &clap::ArgMatches) -> bool {
@@ -89,48 +85,44 @@ fn check_toml(path: &str, matches: &clap::ArgMatches) -> bool {
 
     let toml_raw = load_toml_file(&path);
 
-    // parses/to_tokens the toml file for sort checking
-    let mut tt = parse_it(&toml_raw).unwrap_or_else(|e| {
-        let msg = format!("TOML parse error: {}", e);
+    // parses the toml file for sort checking
+    let tt = parse_it(&toml_raw).unwrap_or_else(|e| {
+        let msg = format!("toml parse error: {}", e);
         write_err(&msg).unwrap();
         std::process::exit(1);
-    });
+    }).syntax();
 
     // check if appropriate tables in file are sorted
-    for header in HEADERS.iter() {
-        tt.sort_items(header);
-        tt.sort_nested(header);
-    }
+    let sorted = sort_toml_items(&tt, &MATCHER);
+    let was_sorted = !sorted.deep_eq(&tt);
 
-    if matches.is_present("CRLF") {
-        tt.set_eol("\r\n");
-    }
+    let fmted = Formatter::new(&sorted).format().to_string();
 
     if matches.is_present("print") {
-        print!("{}", tt);
+        print!("{}", fmted);
         if !matches.is_present("write") {
             return true;
         }
     }
 
     if matches.is_present("write") {
-        write_file(&path, &tt).unwrap_or_else(|e| {
+        write_file(&path, &fmted).unwrap_or_else(|e| {
             let msg = format!("failed to rewrite file: {:?}", e);
             write_err(&msg).unwrap();
         });
-        let msg = format!("dependencies are sorted for {:?}", path);
+        let msg = format!("dependencies are now sorted for {:?}", path);
         write_succ(&msg).unwrap();
         return true;
     }
 
-    if !tt.was_sorted() {
-        let msg = format!("dependencies are sorted for {:?}", path);
-        write_succ(&msg).unwrap();
-        true
-    } else {
+    if was_sorted {
         let msg = format!("dependencies are not sorted for {:?}", path);
         write_err(&msg).unwrap();
         false
+    } else {
+        let msg = format!("dependencies are sorted for {:?}", path);
+        write_succ(&msg).unwrap();
+        true
     }
 }
 

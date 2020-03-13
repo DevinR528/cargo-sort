@@ -14,7 +14,7 @@ exclude = [ "examp" ]
 [dependencies]
 clap = "2.33"
 termcolor="1.1"
-toml-parse = "0.1"
+toml-parse = "0.2"
 
 [dev-dependencies]
 pretty_assertions="0.6"
