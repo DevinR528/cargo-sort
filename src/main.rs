@@ -86,15 +86,15 @@ fn check_toml(path: &str, matches: &clap::ArgMatches) -> bool {
     let toml_raw = load_toml_file(&path);
 
     // parses the toml file for sort checking
-    let tt = parse_it(&toml_raw).unwrap_or_else(|e| {
+    let tkn_tree = parse_it(&toml_raw).unwrap_or_else(|e| {
         let msg = format!("toml parse error: {}", e);
         write_err(&msg).unwrap();
         std::process::exit(1);
     }).syntax();
 
     // check if appropriate tables in file are sorted
-    let sorted = sort_toml_items(&tt, &MATCHER);
-    let was_sorted = !sorted.deep_eq(&tt);
+    let sorted = sort_toml_items(&tkn_tree, &MATCHER);
+    let was_sorted = !sorted.deep_eq(&tkn_tree);
 
     let fmted = Formatter::new(&sorted).format().to_string();
 

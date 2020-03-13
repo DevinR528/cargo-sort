@@ -3,8 +3,7 @@
 [![Build Status](https://travis-ci.com/DevinR528/cargo-sort-ck.svg?branch=master)](https://travis-ci.com/DevinR528/cargo-sort-ck)
 [![Latest Version](https://img.shields.io/crates/v/cargo-sort-ck.svg)](https://crates.io/crates/cargo-sort-ck)
 
-A tool to check that your Cargo.toml dependencies are sorted alphabetically. Project inspired by
-[jpoles1](https://github.com/jpoles1) as a solution to @dtolnay's [request for implementation #29](https://github.com/dtolnay/request-for-implementation/issues/29).  Cross platform implementation, windows compatible.  Terminal coloring works on both cmd.exe and powershell.  Checks/sorts by key in tables and also nested table headers (does not sort the items in a nested header, sorts the table itself). 
+A tool to check that your Cargo.toml dependencies are sorted alphabetically. Project created as a solution to @dtolnay's [request for implementation #29](https://github.com/dtolnay/request-for-implementation/issues/29).  Cross platform implementation, windows compatible.  Terminal coloring works on both cmd.exe and powershell.  Checks/sorts by key in tables and also nested table headers (does not sort the items in a nested header, sorts the table itself). `cargo sort-ck` uses [toml-parse](https://github.com/DevinR528/toml-parse) to turn the toml file into a [rowan](https://github.com/rust-analyzer/rowan) syntax tree, it then sorts tokens keeping whitespace and comments intact. If the `print` or `write` options are used the tree is _lightly_ formatted, fixing only formatting issues the sorting causes.
 
 
 ## Use
@@ -66,8 +65,8 @@ paths work.
 ```bash
 cargo-sort-ck [FLAGS] path/to/a path/to/b path/to/c/Cargo.toml
 ```
-These are all valid, file name and extension can be used on some of the paths, if
-left off the default is still Cargo.toml.
+These are all valid, file name and extension can be used on some of the paths but not others, if
+left off the defaults to Cargo.toml.
 
 # Examples
 ```toml
@@ -76,7 +75,8 @@ a="0.1.1"
 # comments will stay with the item
 c="0.1.1"
 
-# ILLEGAL no newline in table items
+# if this key value is moved the whitespace before and after will stick
+# unless it is at the end of a table then it is formatted.
 b="0.1.1"
 
 [dependencies.alpha]
@@ -102,6 +102,9 @@ Will sort to, or fail until organized like so
 ```toml
 [dependencies]
 a="0.1.1"
+
+# if this key value is moved the whitespace before and after will stick
+# unless it is at the end of a table then it is formatted.
 b="0.1.1"
 # comments will stay with the item
 c="0.1.1"
@@ -125,3 +128,18 @@ bar="0"
 foo="0"
 
 ```
+
+#### License
+
+<sup>
+Licensed under either of <a href="LICENSE-APACHE">Apache License, Version
+2.0</a> or <a href="LICENSE-MIT">MIT license</a> at your option.
+</sup>
+
+<br>
+
+<sub>
+Unless you explicitly state otherwise, any contribution intentionally submitted
+for inclusion in this project by you, as defined in the Apache-2.0 license,
+shall be dual licensed as above, without any additional terms or conditions.
+</sub>
