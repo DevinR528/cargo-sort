@@ -5,6 +5,7 @@
 
 A tool to check that your Cargo.toml dependencies are sorted alphabetically. Project created as a solution to @dtolnay's [request for implementation #29](https://github.com/dtolnay/request-for-implementation/issues/29).  Cross platform implementation, windows compatible.  Terminal coloring works on both cmd.exe and powershell.  Checks/sorts by key in tables and also nested table headers (does not sort the items in a nested header, sorts the table itself). `cargo sort-ck` uses [toml-parse](https://github.com/DevinR528/toml-parse) to turn the toml file into a [rowan](https://github.com/rust-analyzer/rowan) syntax tree, it then sorts tokens keeping whitespace and comments intact. If the `print` or `write` options are used the tree is _lightly_ formatted, fixing only formatting issues the sorting causes.
 
+The print and write options may result in improperly formatted toml please file an issue.
 
 ## Use
 There are three modes cargo-sort-ck can be used in:

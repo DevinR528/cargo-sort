@@ -35,7 +35,7 @@ dependencies = [
  "clap 2.33.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "pretty_assertions 0.6.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "termcolor 1.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "toml-parse 0.2.5 (registry+https://github.com/rust-lang/crates.io-index)",
+ "toml-parse 0.2.7 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -241,7 +241,7 @@ dependencies = [
 
 [[package]]
 name = "toml-parse"
-version = "0.2.5"
+version = "0.2.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "chrono 0.4.11 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -322,7 +322,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 "checksum textwrap 0.11.0 (registry+https://github.com/rust-lang/crates.io-index)" = "d326610f408c7a4eb6f51c37c330e496b08506c9457c9d34287ecc38809fb060"
 "checksum thin-dst 1.0.0 (registry+https://github.com/rust-lang/crates.io-index)" = "c52fd98a9e4913c466d83381a59245691875d2f3e04611fca57f964bd8aa96e1"
 "checksum time 0.1.42 (registry+https://github.com/rust-lang/crates.io-index)" = "db8dcfca086c1143c9270ac42a2bbd8a7ee477b78ac8e45b19abfb0cbede4b6f"
-"checksum toml-parse 0.2.5 (registry+https://github.com/rust-lang/crates.io-index)" = "d911b42e0ecf604090ac054555566c79a3f5b7afe547a5ffd00cbd093b9b129c"
+"checksum toml-parse 0.2.7 (registry+https://github.com/rust-lang/crates.io-index)" = "7b67c24cb48284f23013ef45b9c289662ef5b3315de230ea87e3cf81c3fa3704"
 "checksum unicode-width 0.1.5 (registry+https://github.com/rust-lang/crates.io-index)" = "882386231c45df4700b275c7ff55b6f3698780a650026380e72dabe76fa46526"
 "checksum unicode-xid 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)" = "fc72304796d0818e357ead4e000d19c9c174ab23dc11093ac919054d20a6a7fc"
 "checksum vec_map 0.8.1 (registry+https://github.com/rust-lang/crates.io-index)" = "05c78687fb1a80548ae3250346c3db86a80a7cdd77bda190189f2d0a0987c81a"
