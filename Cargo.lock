@@ -34,7 +34,7 @@ checksum = "3d155346769a6855b86399e9bc3814ab343cd3d62c7e985113d46a0ec3c281fd"
 
 [[package]]
 name = "cargo-sort-ck"
-version = "2.1.0"
+version = "2.1.1"
 dependencies = [
  "clap",
  "pretty_assertions",
@@ -271,9 +271,9 @@ dependencies = [
 
 [[package]]
 name = "toml-parse"
-version = "0.2.9"
+version = "0.2.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cb13c29a630dde882ff1bf46f921ac00db7fb4837839a07cbdc135b5bfcbefd0"
+checksum = "51591d75ca7976f9d8c65a5abdf45f7c645ab62c73e89fe4b643d61019f42c6c"
 dependencies = [
  "chrono",
  "muncher",
