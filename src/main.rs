@@ -1,7 +1,9 @@
-use std::env;
-use std::fs::{read_to_string, OpenOptions};
-use std::io::Write;
-use std::path::PathBuf;
+use std::{
+    env,
+    fs::{read_to_string, OpenOptions},
+    io::Write,
+    path::{Path, PathBuf},
+};
 
 use clap::{App, Arg};
 use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
@@ -40,21 +42,19 @@ fn write_succ(msg: &str) -> std::io::Result<()> {
 //Takes a file path and reads its contents in as plain text
 fn load_file_contents(path: &str) -> String {
     read_to_string(path).unwrap_or_else(|_| {
-        let msg = format!("No file found at: {}", path);
-        write_err(&msg).unwrap();
+        write_err(&format!("No file found at: {}", path)).unwrap();
         std::process::exit(1);
     })
 }
 
-fn load_toml_file(path: &PathBuf) -> String {
+fn load_toml_file(path: &Path) -> String {
     //Check if a valid .toml filepath
     let path = path.to_str().unwrap_or_else(|| {
         write_err("path could not be represented as str").unwrap();
         std::process::exit(1)
     });
     if !path.contains(".toml") {
-        let msg = format!("invalid path to .toml file: {}", path);
-        write_err(&msg).unwrap();
+        write_err(&format!("invalid path to .toml file: {}", path)).unwrap();
         std::process::exit(1)
     }
     load_file_contents(path)
@@ -63,7 +63,7 @@ fn load_toml_file(path: &PathBuf) -> String {
 // TODO:
 // it would be nice to be able to check if the file had been saved recently
 // or check if uncommited changes were present
-fn write_file(path: &PathBuf, toml: &str) -> std::io::Result<()> {
+fn write_file(path: &Path, toml: &str) -> std::io::Result<()> {
     let mut fd = OpenOptions::new()
         .write(true)
         .create(true)
@@ -84,8 +84,7 @@ fn check_toml(path: &str, matches: &clap::ArgMatches) -> bool {
     // parses the toml file for sort checking
     let tkn_tree = parse_it(&toml_raw)
         .unwrap_or_else(|e| {
-            let msg = format!("toml parse error: {}", e);
-            write_err(&msg).unwrap();
+            write_err(&format!("toml parse error: {}", e)).unwrap();
             std::process::exit(1);
         })
         .syntax();
@@ -105,21 +104,17 @@ fn check_toml(path: &str, matches: &clap::ArgMatches) -> bool {
 
     if matches.is_present("write") {
         write_file(&path, &fmted).unwrap_or_else(|e| {
-            let msg = format!("failed to rewrite file: {:?}", e);
-            write_err(&msg).unwrap();
+            write_err(&format!("failed to rewrite file: {:?}", e)).unwrap();
         });
-        let msg = format!("dependencies are now sorted for {:?}", path);
-        write_succ(&msg).unwrap();
+        write_succ(&format!("dependencies are now sorted for {:?}", path)).unwrap();
         return true;
     }
 
     if was_sorted {
-        let msg = format!("dependencies are not sorted for {:?}", path);
-        write_err(&msg).unwrap();
+        write_err(&format!("dependencies are not sorted for {:?}", path)).unwrap();
         false
     } else {
-        let msg = format!("dependencies are sorted for {:?}", path);
-        write_succ(&msg).unwrap();
+        write_succ(&format!("dependencies are sorted for {:?}", path)).unwrap();
         true
     }
 }
@@ -155,13 +150,11 @@ fn main() {
         .get_matches();
 
     let cwd = env::current_dir().unwrap_or_else(|e| {
-        let msg = format!("no current directory found: {}", e);
-        write_err(&msg).unwrap();
+        write_err(&format!("no current directory found: {}", e)).unwrap();
         std::process::exit(1);
     });
     let dir = cwd.to_str().unwrap_or_else(|| {
-        let msg = "could not represent path as string";
-        write_err(msg).unwrap();
+        write_err("could not represent path as string").unwrap();
         std::process::exit(1);
     });
 
