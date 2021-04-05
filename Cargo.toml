@@ -13,7 +13,7 @@ exclude = [ "examp" ]
 
 [dependencies]
 clap = "2.33"
-termcolor="1.1"
+termcolor = "1.1"
 toml-parse = "0.2.11"
 
 [[bin]]
