@@ -14,7 +14,8 @@ exclude = [ "examp" ]
 [dependencies]
 clap = "2.33"
 termcolor = "1.1"
-toml-parse = "0.2.11"
+toml_edit = {path = "../__forks__/toml_edit"}
+glob = "0.3.0"
 
 [[bin]]
 name = "cargo-sort-ck"
