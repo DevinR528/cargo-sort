@@ -1,4 +1,5 @@
 use std::{
+    borrow::Cow,
     env,
     fs::{read_to_string, OpenOptions},
     io::Write,
@@ -7,20 +8,25 @@ use std::{
 
 use clap::{App, Arg};
 use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
-use toml_parse::{parse_it, sort_toml_items, Formatter, Matcher, SyntaxNodeExtTrait};
+use toml_edit::{Document, Item};
 
-const HEADERS: [&str; 3] = [
-    "[dependencies]",
-    "[dev-dependencies]",
-    "[build-dependencies]",
-];
+mod sort;
 
-const HEADER_SEG: [&str; 3] = ["dependencies.", "dev-dependencies.", "build-dependencies."];
+/// Each `Matcher` field when matched to a heading or key token
+/// will be matched with `.contains()`.
+pub struct Matcher<'a> {
+    /// Toml headings with braces `[heading]`.
+    pub heading: &'a [&'a str],
+    /// Toml heading with braces `[heading]` and the key
+    /// of the array to sort.
+    pub heading_key: &'a [(&'a str, &'a str)],
+}
+
+const HEADERS: [&str; 3] = ["dependencies", "dev-dependencies", "build-dependencies"];
 
 const MATCHER: Matcher<'_> = Matcher {
     heading: &HEADERS,
-    segmented: &HEADER_SEG,
-    heading_key: &[("[workspace]", "members"), ("[workspace]", "exclude")],
+    heading_key: &[("workspace", "members"), ("workspace", "exclude")],
 };
 
 fn write_err(msg: &str) -> std::io::Result<()> {
@@ -39,37 +45,11 @@ fn write_succ(msg: &str) -> std::io::Result<()> {
     writeln!(stdout, "{}", msg)
 }
 
-//Takes a file path and reads its contents in as plain text
-fn load_file_contents(path: &str) -> String {
-    read_to_string(path).unwrap_or_else(|_| {
-        write_err(&format!("No file found at: {}", path)).unwrap();
-        std::process::exit(1);
-    })
-}
-
-fn load_toml_file(path: &Path) -> String {
-    //Check if a valid .toml filepath
-    let path = path.to_str().unwrap_or_else(|| {
-        write_err("path could not be represented as str").unwrap();
-        std::process::exit(1)
-    });
-    if !path.contains(".toml") {
-        write_err(&format!("invalid path to .toml file: {}", path)).unwrap();
-        std::process::exit(1)
-    }
-    load_file_contents(path)
-}
-
 // TODO:
 // it would be nice to be able to check if the file had been saved recently
-// or check if uncommited changes were present
-fn write_file(path: &Path, toml: &str) -> std::io::Result<()> {
-    let mut fd = OpenOptions::new()
-        .write(true)
-        .create(true)
-        .truncate(true)
-        .open(path)?;
-
+// or check if uncommitted changes were present
+fn write_file<P: AsRef<Path>>(path: P, toml: &str) -> std::io::Result<()> {
+    let mut fd = OpenOptions::new().write(true).create(true).truncate(true).open(path)?;
     write!(fd, "{}", toml)
 }
 
@@ -79,44 +59,43 @@ fn check_toml(path: &str, matches: &clap::ArgMatches) -> bool {
         path.push("Cargo.toml");
     }
 
-    let toml_raw = load_toml_file(&path);
+    let toml_raw = read_to_string(&path).unwrap_or_else(|_| {
+        write_err(&format!("No file found at: {}", path.display())).unwrap();
+        std::process::exit(1);
+    });
 
-    // parses the toml file for sort checking
-    let tkn_tree = parse_it(&toml_raw)
-        .unwrap_or_else(|e| {
-            write_err(&format!("toml parse error: {}", e)).unwrap();
-            std::process::exit(1);
-        })
-        .syntax();
+    let fmted = sort::sort_toml(&toml_raw, MATCHER);
+    let mut fmted_str = fmted.to_string_in_original_order();
 
-    // check if appropriate tables in file are sorted
-    let sorted = sort_toml_items(&tkn_tree, &MATCHER);
-    let was_sorted = !sorted.deep_eq(&tkn_tree);
-
-    let fmted = Formatter::new(&sorted).format().to_string();
+    let is_sorted = toml_raw == fmted_str;
 
     if matches.is_present("print") {
-        print!("{}", fmted);
+        if matches.is_present("crlf") {
+            fmted_str = fmted_str.replace("\n", "\r\n")
+        }
+        print!("{}", fmted_str);
         if !matches.is_present("write") {
             return true;
         }
     }
 
     if matches.is_present("write") {
-        write_file(&path, &fmted).unwrap_or_else(|e| {
+        if matches.is_present("crlf") {
+            fmted_str = fmted_str.replace("\n", "\r\n")
+        }
+        write_file(&path, &fmted_str).unwrap_or_else(|e| {
             write_err(&format!("failed to rewrite file: {:?}", e)).unwrap();
         });
         write_succ(&format!("dependencies are now sorted for {:?}", path)).unwrap();
         return true;
     }
 
-    if was_sorted {
-        write_err(&format!("dependencies are not sorted for {:?}", path)).unwrap();
-        false
-    } else {
+    if is_sorted {
         write_succ(&format!("dependencies are sorted for {:?}", path)).unwrap();
-        true
-    }
+    } else {
+        write_err(&format!("dependencies are not sorted for {:?}", path)).unwrap();
+    };
+    is_sorted
 }
 
 fn main() {
@@ -147,40 +126,76 @@ fn main() {
                 .long("crlf")
                 .help("output uses windows style line endings (\\r\\n)"),
         )
+        .arg(
+            Arg::with_name("workspace")
+                .short("s")
+                .long("workspace")
+                .help("checks every crate in a workspace"),
+        )
         .get_matches();
 
     let cwd = env::current_dir().unwrap_or_else(|e| {
         write_err(&format!("no current directory found: {}", e)).unwrap();
         std::process::exit(1);
     });
-    let dir = cwd.to_str().unwrap_or_else(|| {
-        write_err("could not represent path as string").unwrap();
-        std::process::exit(1);
-    });
+    let dir = cwd.to_string_lossy();
 
     // remove "sort-ck" when invoked `cargo sort-ck` sort-ck is the first arg
     // https://github.com/rust-lang/cargo/issues/7653
-    let filtered_matches = matches.values_of("cwd").map_or(vec![dir], |s| {
-        let args = s.filter(|it| *it != "sort-ck").collect::<Vec<&str>>();
-        if args.is_empty() {
-            vec![dir]
-        } else {
-            args
+    let (is_posible_workspace, mut filtered_matches) =
+        matches.values_of("cwd").map_or((true, vec![dir.clone()]), |s| {
+            let args =
+                s.filter(|it| *it != "sort-ck").map(Into::into).collect::<Vec<_>>();
+            if args.is_empty() { (true, vec![dir]) } else { (args.len() == 1, args) }
+        });
+
+    if matches.is_present("workspace") && is_posible_workspace {
+        let dir = filtered_matches[0].clone();
+        let mut path = PathBuf::from(dir.as_ref());
+        if path.extension().is_none() {
+            path.push("Cargo.toml");
         }
-    });
+
+        let raw_toml = read_to_string(&path).unwrap_or_else(|_| {
+            write_err(&format!("No file found at: {}", path.display())).unwrap();
+            std::process::exit(1);
+        });
+        let toml = raw_toml.parse::<Document>().unwrap_or_else(|e| {
+            write_err(&e.to_string()).unwrap();
+            std::process::exit(1);
+        });
+        let workspace = &toml["workspace"];
+        if let Item::Table(ws) = workspace {
+            for member in ws["members"]
+                .as_array()
+                .into_iter()
+                .flat_map(|arr| arr.iter())
+                .flat_map(|s| s.as_str())
+            {
+                // TODO: a better test wether to glob?
+                if member.contains('*') || member.contains('?') {
+                    for entry in glob::glob(&format!("{}{}", dir, member))
+                        .expect("Failed to read glob pattern")
+                    {
+                        match entry {
+                            Ok(path) => filtered_matches
+                                .push(Cow::Owned(path.display().to_string())),
+                            Err(e) => println!("{:?}", e),
+                        }
+                    }
+                } else {
+                    filtered_matches.push(Cow::Owned(format!("{}{}", dir, member)));
+                }
+            }
+        }
+    }
 
     let mut flag = true;
-    filtered_matches
-        .iter()
-        .map(|path| check_toml(path, &matches))
-        .for_each(|sorted| {
-            if !sorted {
-                flag = false;
-            }
-        });
-    if flag {
-        std::process::exit(0)
-    } else {
-        std::process::exit(1)
+    for sorted in filtered_matches.iter().map(|path| check_toml(path, &matches)) {
+        if !sorted {
+            flag = false;
+        }
     }
+
+    if flag { std::process::exit(0) } else { std::process::exit(1) }
 }
