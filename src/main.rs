@@ -7,9 +7,11 @@ use std::{
 };
 
 use clap::{App, Arg};
+use fmt::Config;
 use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
 use toml_edit::{Document, Item};
 
+mod fmt;
 mod sort;
 
 /// Each `Matcher` field when matched to a heading or key token
@@ -53,7 +55,7 @@ fn write_file<P: AsRef<Path>>(path: P, toml: &str) -> std::io::Result<()> {
     write!(fd, "{}", toml)
 }
 
-fn check_toml(path: &str, matches: &clap::ArgMatches) -> bool {
+fn check_toml(path: &str, matches: &clap::ArgMatches, config: &Config) -> bool {
     let mut path = PathBuf::from(path);
     if path.extension().is_none() {
         path.push("Cargo.toml");
@@ -64,7 +66,13 @@ fn check_toml(path: &str, matches: &clap::ArgMatches) -> bool {
         std::process::exit(1);
     });
 
-    let fmted = sort::sort_toml(&toml_raw, MATCHER);
+    let fmted = sort::sort_toml(
+        &toml_raw,
+        MATCHER,
+        config,
+        matches.is_present("grouped"),
+        matches.is_present("format"),
+    );
     let mut fmted_str = fmted.to_string_in_original_order();
 
     let is_sorted = toml_raw == fmted_str;
@@ -122,15 +130,24 @@ fn main() {
                 .help("prints Cargo.toml, lexically sorted, to the screen"),
         )
         .arg(
-            Arg::with_name("CRLF")
-                .long("crlf")
-                .help("output uses windows style line endings (\\r\\n)"),
+            Arg::with_name("format")
+                .short("f")
+                .long("format")
+                .help("formats the given Cargo.toml according to tomlfmt.toml"),
         )
         .arg(
             Arg::with_name("workspace")
                 .short("s")
                 .long("workspace")
                 .help("checks every crate in a workspace"),
+        )
+        .arg(Arg::with_name("grouped").short("g").long("grouped").help(
+            "when sorting groups of key value pairs seperated by newlines are sorted ",
+        ))
+        .arg(
+            Arg::with_name("CRLF")
+                .long("crlf")
+                .help("output uses windows style line endings (\\r\\n)"),
         )
         .get_matches();
 
@@ -140,12 +157,11 @@ fn main() {
     });
     let dir = cwd.to_string_lossy();
 
-    // remove "sort-ck" when invoked `cargo sort-ck` sort-ck is the first arg
+    // remove "sort" when invoked `cargo sort` sort is the first arg
     // https://github.com/rust-lang/cargo/issues/7653
     let (is_posible_workspace, mut filtered_matches) =
         matches.values_of("cwd").map_or((true, vec![dir.clone()]), |s| {
-            let args =
-                s.filter(|it| *it != "sort-ck").map(Into::into).collect::<Vec<_>>();
+            let args = s.filter(|it| *it != "sort").map(Into::into).collect::<Vec<_>>();
             if args.is_empty() { (true, vec![dir]) } else { (args.len() == 1, args) }
         });
 
@@ -190,8 +206,16 @@ fn main() {
         }
     }
 
+    let mut cwd = cwd.clone();
+    cwd.push("tomlfmt.toml");
+    let config =
+        read_to_string(&cwd).unwrap_or_default().parse::<Config>().unwrap_or_else(|e| {
+            write_err(&e.to_string()).unwrap();
+            std::process::exit(1);
+        });
     let mut flag = true;
-    for sorted in filtered_matches.iter().map(|path| check_toml(path, &matches)) {
+    for sorted in filtered_matches.iter().map(|path| check_toml(path, &matches, &config))
+    {
         if !sorted {
             flag = false;
         }

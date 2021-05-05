@@ -1,6 +1,6 @@
 [package]
-name = "cargo-sort-ck"
-version = "2.1.1"
+name = "cargo-sort"
+version = "3.0.0"
 authors = ["Devin R <devin.ragotzy@gmail.com>"]
 license = "MIT/Apache-2.0"
 description = "Check if tables and items in a .toml file are lexically sorted"
@@ -18,7 +18,7 @@ toml_edit = {path = "../__forks__/toml_edit"}
 glob = "0.3.0"
 
 [[bin]]
-name = "cargo-sort-ck"
+name = "cargo-sort"
 path = "src/main.rs"
 
 [badges]
