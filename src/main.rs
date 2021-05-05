@@ -13,6 +13,7 @@ use toml_edit::{Document, Item};
 
 mod fmt;
 mod sort;
+mod toml_edit;
 
 /// Each `Matcher` field when matched to a heading or key token
 /// will be matched with `.contains()`.
