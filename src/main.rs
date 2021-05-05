@@ -78,7 +78,7 @@ fn check_toml(path: &str, matches: &clap::ArgMatches, config: &Config) -> bool {
     let is_sorted = toml_raw == fmted_str;
 
     if matches.is_present("print") {
-        if matches.is_present("crlf") {
+        if config.crlf {
             fmted_str = fmted_str.replace("\n", "\r\n")
         }
         print!("{}", fmted_str);
@@ -88,7 +88,7 @@ fn check_toml(path: &str, matches: &clap::ArgMatches, config: &Config) -> bool {
     }
 
     if matches.is_present("write") {
-        if matches.is_present("crlf") {
+        if config.crlf {
             fmted_str = fmted_str.replace("\n", "\r\n")
         }
         write_file(&path, &fmted_str).unwrap_or_else(|e| {
@@ -144,11 +144,6 @@ fn main() {
         .arg(Arg::with_name("grouped").short("g").long("grouped").help(
             "when sorting groups of key value pairs seperated by newlines are sorted ",
         ))
-        .arg(
-            Arg::with_name("CRLF")
-                .long("crlf")
-                .help("output uses windows style line endings (\\r\\n)"),
-        )
         .get_matches();
 
     let cwd = env::current_dir().unwrap_or_else(|e| {
@@ -208,11 +203,19 @@ fn main() {
 
     let mut cwd = cwd.clone();
     cwd.push("tomlfmt.toml");
-    let config =
-        read_to_string(&cwd).unwrap_or_default().parse::<Config>().unwrap_or_else(|e| {
+    let config = read_to_string(&cwd)
+        .or_else(|_err| {
+            cwd.pop();
+            cwd.push(".tomlfmt.toml");
+            read_to_string(&cwd)
+        })
+        .unwrap_or_default()
+        .parse::<Config>()
+        .unwrap_or_else(|e| {
             write_err(&e.to_string()).unwrap();
             std::process::exit(1);
         });
+
     let mut flag = true;
     for sorted in filtered_matches.iter().map(|path| check_toml(path, &matches, &config))
     {

@@ -132,6 +132,11 @@ pub fn fmt_toml(toml: &mut Document, config: &Config) {
             Item::None => {}
         }
     }
+    if config.trailing_newline {
+        toml.trailing = "\n".to_string();
+    } else {
+        toml.trailing.clear();
+    }
 }
 
 #[cfg(test)]

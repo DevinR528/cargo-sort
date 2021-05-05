@@ -1,7 +1,7 @@
 use std::collections::BTreeMap;
 
 use fmt::Config;
-use toml_edit::{Array, Document, Item, Table, Value};
+use toml_edit::{Document, Item, Table, Value};
 
 use crate::{fmt, Matcher};
 
@@ -54,8 +54,6 @@ fn gather_headings(table: &Table, keys: &mut Vec<Heading>) {
         }
     }
 }
-
-fn sort_arr(arr: &mut Array) {}
 
 fn sort_by_group(table: &mut Table) {
     let table_clone = table.clone();

@@ -1,0 +1,8 @@
+trailing_comma = false
+space_around_eq = true
+compact_arrays = false
+compact_inline_tables = false
+trailing_newline = true
+key_value_newlines = true
+allowed_blank_lines = 1
+crlf = false
