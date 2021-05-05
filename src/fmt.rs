@@ -1,6 +1,6 @@
 use std::str::FromStr;
 
-use toml_edit::{Document, Item, Table, Value};
+use crate::toml_edit::{Document, Item, Table, Value};
 
 /// The config file for formatting toml after sorting.
 ///
@@ -143,9 +143,7 @@ pub fn fmt_toml(toml: &mut Document, config: &Config) {
 mod test {
     use std::fs;
 
-    use toml_edit::Document;
-
-    use super::{fmt_toml, Config};
+    use super::{fmt_toml, Config, Document};
 
     const CONFIG: Config = Config {
         trailing_comma: false,

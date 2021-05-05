@@ -1,9 +1,12 @@
 use std::collections::BTreeMap;
 
 use fmt::Config;
-use toml_edit::{Document, Item, Table, Value};
 
-use crate::{fmt, Matcher};
+use crate::{
+    fmt,
+    toml_edit::{Document, Item, Table, Value},
+    Matcher,
+};
 
 /// A state machine to track collection of headings.
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
