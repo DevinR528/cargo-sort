@@ -1,9 +1,6 @@
 use std::collections::BTreeMap;
 
-use fmt::Config;
-
 use crate::{
-    fmt,
     toml_edit::{Document, Item, Table, Value},
     Matcher,
 };
@@ -92,13 +89,7 @@ fn sort_by_group(table: &mut Table) {
 }
 
 /// Returns a sorted toml `Document`.
-pub fn sort_toml(
-    input: &str,
-    matcher: Matcher,
-    config: &Config,
-    group: bool,
-    format: bool,
-) -> Document {
+pub fn sort_toml(input: &str, matcher: Matcher, group: bool) -> Document {
     let mut toml = input.parse::<Document>().unwrap();
     // This takes care of `[workspace] members = [...]`
     for (heading, key) in matcher.heading_key {
@@ -162,10 +153,6 @@ pub fn sort_toml(
         }
     }
 
-    if format {
-        fmt::fmt_toml(&mut toml, config)
-    }
-
     toml
 }
 
@@ -173,7 +160,7 @@ pub fn sort_toml(
 mod test {
     use std::fs::{self};
 
-    use super::{fmt::Config, Matcher};
+    use super::Matcher;
 
     const HEADERS: [&str; 3] = ["dependencies", "dev-dependencies", "build-dependencies"];
 
@@ -182,29 +169,19 @@ mod test {
         heading_key: &[("workspace", "members"), ("workspace", "exclude")],
     };
 
-    const CONFIG: Config = Config {
-        trailing_comma: false,
-        space_around_eq: true,
-        compact_arrays: false,
-        compact_inline_tables: false,
-        trailing_newline: true,
-        key_value_newlines: true,
-        allowed_blank_lines: 1,
-        crlf: false,
-    };
-
     #[test]
     fn toml_edit_check() {
         let input = fs::read_to_string("examp/workspace.toml").unwrap();
-        let sorted = super::sort_toml(&input, MATCHER, &CONFIG, false, false);
+        let sorted = super::sort_toml(&input, MATCHER, false);
         assert_ne!(input, sorted.to_string_in_original_order());
-        println!("{}", sorted.to_string_in_original_order());
+        // println!("{}", sorted.to_string_in_original_order());
     }
 
     #[test]
     fn grouped_check() {
         let input = fs::read_to_string("examp/ruma.toml").unwrap();
-        let sorted = super::sort_toml(&input, MATCHER, &CONFIG, true, false);
-        println!("{}", sorted.to_string_in_original_order());
+        let sorted = super::sort_toml(&input, MATCHER, true);
+        assert_ne!(input, sorted.to_string_in_original_order());
+        // println!("{}", sorted.to_string_in_original_order());
     }
 }

@@ -84,5 +84,5 @@ pub use document::Document;
 pub use formatted::decorated;
 pub use key::Key;
 pub use parser::TomlError;
-pub use table::{array, table, value, Item, Table};
+pub use table::{value, Item, Table};
 pub use value::{Array, InlineTable, Value};

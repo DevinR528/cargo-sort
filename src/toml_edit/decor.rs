@@ -29,50 +29,24 @@ pub(crate) type InternalString = String;
 impl Decor {
     /// Creates a new decor from the given prefix and suffix.
     pub fn new<S: Into<InternalString>>(prefix: S, suffix: S) -> Self {
-        Self {
-            prefix: prefix.into(),
-            suffix: suffix.into(),
-        }
+        Self { prefix: prefix.into(), suffix: suffix.into() }
     }
 
     /// Get the prefix.
-    pub fn prefix(&self) -> &str {
-        &self.prefix
-    }
-
-    /// Get the suffix.
-    pub fn suffix(&self) -> &str {
-        &self.suffix
-    }
+    pub fn prefix(&self) -> &str { &self.prefix }
 }
 
 impl Repr {
     pub fn new<S: Into<InternalString>>(prefix: S, value: S, suffix: S) -> Self {
-        Repr {
-            decor: Decor::new(prefix, suffix),
-            raw_value: value.into(),
-        }
+        Repr { decor: Decor::new(prefix, suffix), raw_value: value.into() }
     }
 }
 
 impl<T> Formatted<T> {
-    pub fn raw(&self) -> &str {
-        &self.repr.raw_value
-    }
+    pub fn value(&self) -> &T { &self.value }
 
-    pub fn prefix(&self) -> &str {
-        &self.repr.decor.prefix
-    }
+    pub(crate) fn new(v: T, repr: Repr) -> Self { Self { value: v, repr } }
 
-    pub fn suffix(&self) -> &str {
-        &self.repr.decor.suffix
-    }
-
-    pub fn value(&self) -> &T {
-        &self.value
-    }
-
-    pub(crate) fn new(v: T, repr: Repr) -> Self {
-        Self { value: v, repr }
-    }
+    #[cfg(test)]
+    pub(crate) fn raw(&self) -> &str { &self.repr.raw_value }
 }

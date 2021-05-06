@@ -17,7 +17,6 @@ pub(crate) fn decorate_array(array: &mut Array, is_compact: bool) {
         .filter_map(Item::as_value)
         .any(|v| v.decor().prefix.contains('\n'));
     for (i, val) in array.values.iter_mut().filter_map(Item::as_value_mut).enumerate() {
-        println!("{:?}", val);
         if newlines {
             decorate(val, &val.decor().prefix.clone(), "");
         } else {

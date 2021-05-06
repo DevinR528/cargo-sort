@@ -3,6 +3,7 @@ use serde_json::{Map as JsonMap, Value as Json};
 
 use crate::toml_edit::{Document, Item, Value};
 
+#[cfg(test)]
 fn pair_to_json((key, value): (&str, Item)) -> (String, Json) {
     fn typed_json(s: &str, json: Json) -> Json {
         let mut map = JsonMap::new();
@@ -42,6 +43,8 @@ fn pair_to_json((key, value): (&str, Item)) -> (String, Json) {
     };
     (key.to_owned(), json)
 }
+
+#[cfg(test)]
 
 fn to_json<'a>(iter: impl Iterator<Item = (&'a str, &'a Item)>) -> Json {
     Json::Object(iter.map(|(k, v)| (k, v.clone())).map(pair_to_json).collect())

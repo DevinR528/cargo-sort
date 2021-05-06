@@ -8,12 +8,6 @@ macro_rules! parse {
     }};
 }
 
-macro_rules! parse_value {
-    ($s:expr) => {
-        parse!($s, Value)
-    };
-}
-
 macro_rules! test_key {
     ($s:expr, $expected:expr) => {{
         let key = parse!($s, Key);
@@ -51,46 +45,4 @@ fn test_key_from_str() {
     test_key!("'hello key'bla", "'hello key'bla");
     let wp = "C:\\Users\\appveyor\\AppData\\Local\\Temp\\1\\cargo-edit-test.YizxPxxElXn9";
     test_key!(wp, wp);
-}
-
-#[test]
-fn test_value_from_str() {
-    assert!(parse_value!("1979-05-27T00:32:00.999999-07:00").is_date_time());
-    assert!(parse_value!("1979-05-27T00:32:00.999999Z").is_date_time());
-    assert!(parse_value!("1979-05-27T00:32:00.999999").is_date_time());
-    assert!(parse_value!("1979-05-27T00:32:00").is_date_time());
-    assert!(parse_value!("1979-05-27").is_date_time());
-    assert!(parse_value!("00:32:00").is_date_time());
-    assert!(parse_value!("-239").is_integer());
-    assert!(parse_value!("1e200").is_float());
-    assert!(parse_value!("9_224_617.445_991_228_313").is_float());
-    assert!(parse_value!(r#""basic string\nJos\u00E9\n""#).is_str());
-    assert!(
-        parse_value!(
-            r#""""
-multiline basic string
-""""#
-        )
-        .is_str()
-    );
-    assert!(parse_value!(r#"'literal string\ \'"#).is_str());
-    assert!(
-        parse_value!(
-            r#"'''multiline
-literal \ \
-string'''"#
-        )
-        .is_str()
-    );
-    assert!(parse_value!(r#"{ hello = "world", a = 1}"#).is_inline_table());
-    assert!(
-        parse_value!(r#"[ { x = 1, a = "2" }, {a = "a",b = "b",     c =    "c"} ]"#)
-            .is_array()
-    );
-    let wp = "C:\\Users\\appveyor\\AppData\\Local\\Temp\\1\\cargo-edit-test.YizxPxxElXn9";
-    let lwp =
-        "'C:\\Users\\appveyor\\AppData\\Local\\Temp\\1\\cargo-edit-test.YizxPxxElXn9'";
-    assert_eq!(Value::from(wp).as_str(), parse_value!(lwp).as_str());
-    let basic = r#""\\\"\b\/\f\n\r\t\u00E9\U000A0000""#;
-    assert_eq!(Value::from(basic).as_str(), parse_value!(basic).as_str());
 }

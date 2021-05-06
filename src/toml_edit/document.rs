@@ -34,11 +34,6 @@ impl Document {
     pub fn as_table_mut(&mut self) -> &mut Table {
         self.root.as_table_mut().expect("root should always be a table")
     }
-
-    /// Returns an iterator over the root table.
-    pub fn iter(&self) -> impl Iterator<Item = (&str, &Item)> {
-        self.root.as_table().expect("root should always be a table").iter()
-    }
 }
 
 impl FromStr for Document {

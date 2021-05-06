@@ -21,11 +21,6 @@ impl ArrayOfTables {
         self.values.iter_mut().filter_map(Item::as_table_mut)
     }
 
-    /// Returns an optional reference to the table.
-    pub fn get(&self, index: usize) -> Option<&Table> {
-        self.values.get(index).and_then(Item::as_table)
-    }
-
     /// Returns an optional mutable reference to the table.
     pub fn get_mut(&mut self, index: usize) -> Option<&mut Table> {
         self.values.get_mut(index).and_then(Item::as_table_mut)
@@ -37,12 +32,6 @@ impl ArrayOfTables {
         let i = self.len() - 1;
         self.get_mut(i).unwrap()
     }
-
-    /// Removes a table with the given index.
-    pub fn remove(&mut self, index: usize) { self.values.remove(index); }
-
-    /// Removes all the tables.
-    pub fn clear(&mut self) { self.values.clear() }
 
     /// Returns the length of the underlying Vec.
     /// To get the actual number of items use `a.iter().count()`.
