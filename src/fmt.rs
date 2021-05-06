@@ -50,7 +50,7 @@ impl FromStr for Config {
             compact_inline_tables: toml["compact_inline_tables"]
                 .as_bool()
                 .unwrap_or_default(),
-            trailing_newline: toml["trailing_newline"].as_bool().unwrap_or_default(),
+            trailing_newline: toml["trailing_newline"].as_bool().unwrap_or(true),
             key_value_newlines: toml["key_value_newlines"].as_bool().unwrap_or_default(),
             allowed_blank_lines: toml["allowed_blank_lines"].as_integer().unwrap_or(1)
                 as usize,
