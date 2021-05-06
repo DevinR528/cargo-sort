@@ -15,6 +15,8 @@ mod fmt;
 mod sort;
 mod toml_edit;
 
+const VERSION: &str = &include_str!("../Cargo.toml");
+
 /// Each `Matcher` field when matched to a heading or key token
 /// will be matched with `.contains()`.
 pub struct Matcher<'a> {
@@ -81,46 +83,49 @@ fn check_toml(path: &str, matches: &clap::ArgMatches, config: &Config) -> bool {
             sorted_str = sorted_str.replace("\n", "\r\n")
         }
         print!("{}", sorted_str);
-        if !matches.is_present("write") {
+        if !matches.is_present("check") {
             return true;
         }
     }
 
-    if matches.is_present("write") {
-        if config.crlf {
-            sorted_str = sorted_str.replace("\n", "\r\n")
+    if matches.is_present("check") {
+        if is_sorted {
+            write_succ(&format!("dependencies are sorted for {:?}", path)).unwrap();
+        } else {
+            write_err(&format!("dependencies are not sorted for {:?}", path)).unwrap();
         }
-        write_file(&path, &sorted_str).unwrap_or_else(|e| {
-            write_err(&format!("failed to rewrite file: {:?}", e)).unwrap();
-        });
-        write_succ(&format!("dependencies are now sorted for {:?}", path)).unwrap();
-        return true;
+        return is_sorted;
     }
 
-    if is_sorted {
-        write_succ(&format!("dependencies are sorted for {:?}", path)).unwrap();
-    } else {
-        write_err(&format!("dependencies are not sorted for {:?}", path)).unwrap();
-    };
-    is_sorted
+    if config.crlf {
+        sorted_str = sorted_str.replace("\n", "\r\n")
+    }
+    write_file(&path, &sorted_str).unwrap_or_else(|e| {
+        write_err(&format!("failed to rewrite file: {:?}", e)).unwrap();
+    });
+    write_succ(&format!("dependencies are now sorted for {:?}", path)).unwrap();
+
+    true
 }
 
 fn main() {
-    let matches = App::new("Cargo Sort Check")
+    let matches = App::new("cargo sort")
         .author("Devin R <devin.ragotzy@gmail.com>")
+        .version(&VERSION[41..46])
         .about("Ensure Cargo.toml dependency tables are sorted.")
-        .usage("cargo-sort-ck [FLAGS] [CWD]")
+        .usage("cargo-sort [FLAGS] [CWD]")
         .arg(
             Arg::with_name("cwd")
                 .value_name("CWD")
                 .multiple(true)
-                .help("Sets cwd, must contain Cargo.toml"),
+                .help("sets cwd, must contain a Cargo.toml file"),
         )
         .arg(
-            Arg::with_name("write")
-                .short("w")
-                .long("write")
-                .help("rewrites Cargo.toml file so it is lexically sorted"),
+            Arg::with_name("check")
+                .short("c")
+                .long("check")
+                .overrides_with_all(&["print", "format", "grouped"])
+                .help("exit with non-zero if Cargo.toml is unsorted, overrides printing flags"),
         )
         .arg(
             Arg::with_name("print")
@@ -136,13 +141,16 @@ fn main() {
         )
         .arg(
             Arg::with_name("workspace")
-                .short("s")
+                .short("w")
                 .long("workspace")
                 .help("checks every crate in a workspace"),
         )
-        .arg(Arg::with_name("grouped").short("g").long("grouped").help(
-            "when sorting groups of key value pairs seperated by newlines are sorted ",
-        ))
+        .arg(
+            Arg::with_name("grouped")
+                .short("g")
+                .long("grouped")
+                .help("when sorting groups of key value pairs blank lines are kept"),
+        )
         .get_matches();
 
     let cwd = env::current_dir().unwrap_or_else(|e| {

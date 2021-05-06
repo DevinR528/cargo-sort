@@ -1,22 +1,49 @@
 # Cargo Sort Check
 
-[![Build Status](https://travis-ci.com/DevinR528/cargo-sort-ck.svg?branch=master)](https://travis-ci.com/DevinR528/cargo-sort-ck)
-[![Latest Version](https://img.shields.io/crates/v/cargo-sort-ck.svg)](https://crates.io/crates/cargo-sort-ck)
+[![Latest Version](https://img.shields.io/crates/v/cargo-sort.svg)](https://crates.io/crates/cargo-sort)
 
-A tool to check that your Cargo.toml dependencies are sorted alphabetically. Project created as a solution to @dtolnay's [request for implementation #29](https://github.com/dtolnay/request-for-implementation/issues/29).  Cross platform implementation, windows compatible.  Terminal coloring works on both cmd.exe and powershell.  Checks/sorts by key in tables and also nested table headers (does not sort the items in a nested header, sorts the table itself). `cargo sort-ck` uses [toml-parse](https://github.com/DevinR528/toml-parse) to turn the toml file into a [rowan](https://github.com/rust-analyzer/rowan) syntax tree, it then sorts tokens keeping whitespace and comments intact. If the `print` or `write` options are used the tree is _lightly_ formatted, fixing only formatting issues the sorting causes.
+A tool to check that your Cargo.toml dependencies are sorted alphabetically. Project created as a solution to @dtolnay's [request for implementation #29](https://github.com/dtolnay/request-for-implementation/issues/29).  Cross platform implementation, windows compatible.  Terminal coloring works on both cmd.exe and powershell.  Checks/sorts by key in tables and also nested table headers (does not sort the items in a nested header, sorts the table itself). `cargo sort` uses [toml-edit](https://github.com/ordian/toml_edit) to parse the toml file into something useful.
 
-The print and write options may result in improperly formatted toml please file an issue.
+The `--format` option may result in improperly formatted toml please file an issue.
 
 ## Use
-There are three modes cargo-sort-ck can be used in:
- * **default**
-    - no flags set cargo-sort-ck will pass (exit 0) if .toml is sorted or fail if not (exit 1).
- * **-p or --print**
-    - will print the *__sorted toml__* file to stdout.
- * **-w or --write**
-    - will rewrite the toml file, I would like to eventually add some kind of check like cargo fix to warn if file is uncommitted/unsaved?.
 
-[toml]: https://github.com/toml-lang/toml
+There are three modes cargo-sort can be used in:
+ * **default**
+    - No flags set cargo-sort will write the sorted result over the input Cargo.toml file.
+ * **-c or --check**
+    - Will fail with a non-zero exit code if the file is unsorted.
+ * **-f or --format**
+    - Will format the sorted toml. This option is available only if writing or printing out.
+ * **-g or --grouped**
+    - When sorting keep table key value spacing, so if you have dependency groups they will stick.
+* **-p or --print**
+    - Write the sorted toml file to stdout.
+* **-w or --workspace**
+    - Checks every crate in the workspace based on set flags
+
+### Config
+
+cargo sort uses a config file when formatting called `tomlfmt.toml`. This is optional, defaults will
+be used if not found in the current working dir.
+
+Here are the defaults when no `tomlfmt.toml` is found
+```toml
+# trailing comma in arrays
+trailing_comma = false
+space_around_eq = true
+# remove all the spacing inside the array
+compact_arrays = false
+# remove all the spacing inside the object
+compact_inline_tables = false
+trailing_newline = true
+# is it ok to have blank lines inside of a table
+key_value_newlines = false
+allowed_blank_lines = 1
+# windows style line endings
+crlf = false
+```
+
 included in sort check is:
 ```toml
 ["dependencies"]
@@ -25,49 +52,58 @@ included in sort check is:
 ["workspace.members"]
 ["workspace.exclude"]
 ```
+
 if you have a header to add open a PR's, they are welcomed.
 
 
 # Install
 ```bash
-cargo install cargo-sort-ck
+cargo install cargo-sort
 ```
 
 # Run
 Defaults to current dir but any path can be passed in.
 ```bash
-Cargo Sort Check 
+cargo sort 3.0.0
 Devin R <devin.ragotzy@gmail.com>
 Ensure Cargo.toml dependency tables are sorted.
 
 USAGE:
-    cargo-sort-ck [FLAGS] [CWD]
+    cargo-sort [FLAGS] [CWD]
 
 FLAGS:
-        --crlf       output uses windows style line endings (\\r\\n)
-    -h, --help       Prints help information
-    -p, --print      prints Cargo.toml, lexically sorted, to the screen
-    -V, --version    Prints version information
-    -w, --write      rewrites Cargo.toml file so it is lexically sorted
+    -c, --check        exit with non-zero if Cargo.toml is unsorted, overrides printing flags
+    -f, --format       formats the given Cargo.toml according to tomlfmt.toml
+    -g, --grouped      when sorting groups of key value pairs blank lines are kept
+    -h, --help         Prints help information
+    -p, --print        prints Cargo.toml, lexically sorted, to the screen
+    -V, --version      Prints version information
+    -w, --workspace    checks every crate in a workspace
 
 ARGS:
-    <CWD>...    Sets cwd, must contain Cargo.toml
+    <CWD>...    sets cwd, must contain a Cargo.toml file
 ```
 Thanks to [dspicher](https://github.com/dspicher) for [issue #4](https://github.com/DevinR528/cargo-sort-ck/issues/4) you can now invoke cargo sort check as a cargo subcommand
+
 ```bash
-cargo sort-ck [FLAGS] [path]
+cargo sort [FLAGS] [path]
 ```
 Wildcard expansion is supported so you can do this
 ```bash
-cargo-sort-ck [FLAGS] [path/to/*/Cargo.toml | path/to/*]
+cargo-sort [FLAGS] [path/to/*/Cargo.toml | path/to/*]
 ```
 or any other pattern that is supported by your terminal. This also means multiple
 paths work.
 ```bash
-cargo-sort-ck [FLAGS] path/to/a path/to/b path/to/c/Cargo.toml
+cargo-sort [FLAGS] path/to/a path/to/b path/to/c/Cargo.toml
 ```
-These are all valid, file name and extension can be used on some of the paths but not others, if
-left off the defaults to Cargo.toml.
+Finally cargo sort has the --workspace flag and will sort each Cargo.toml file in a workspace
+```bash
+cargo-sort -w/--workspace
+```
+
+These are all valid. File names and extensions can be used on some of the paths but not others, if
+left off the tool will default to Cargo.toml.
 
 # Examples
 ```toml
