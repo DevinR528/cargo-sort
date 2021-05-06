@@ -1,14 +1,14 @@
-use combine::char::{char, crlf, newline as lf};
-use combine::range::{recognize, take_while, take_while1};
-use combine::stream::RangeStream;
-use combine::*;
+use combine::{
+    char::{char, crlf, newline as lf},
+    range::{recognize, take_while, take_while1},
+    stream::RangeStream,
+    *,
+};
 
 // wschar = ( %x20 /              ; Space
 //            %x09 )              ; Horizontal tab
 #[inline]
-fn is_wschar(c: char) -> bool {
-    matches!(c, ' ' | '\t')
-}
+fn is_wschar(c: char) -> bool { matches!(c, ' ' | '\t') }
 
 // ws = *wschar
 parse!(ws() -> &'a str, {
@@ -17,9 +17,7 @@ parse!(ws() -> &'a str, {
 
 // non-eol = %x09 / %x20-10FFFF
 #[inline]
-fn is_non_eol(c: char) -> bool {
-    matches!(c, '\u{09}' | '\u{20}'..='\u{10FFFF}')
-}
+fn is_non_eol(c: char) -> bool { matches!(c, '\u{09}' | '\u{20}'..='\u{10FFFF}') }
 
 // comment-start-symbol = %x23 ; #
 const COMMENT_START_SYMBOL: char = '#';
