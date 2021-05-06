@@ -1,4 +1,4 @@
-use std::{mem, str::FromStr};
+use std::str::FromStr;
 
 use chrono::{self, FixedOffset};
 use combine::stream::state::State;
@@ -6,9 +6,7 @@ use linked_hash_map::LinkedHashMap;
 
 use super::{
     decor::{Decor, Formatted, InternalString},
-    decorated, formatted,
-    key::Key,
-    parser,
+    formatted, parser,
     table::{Item, KeyValuePairs, TableKeyValue},
 };
 
@@ -95,14 +93,6 @@ impl Array {
         self.values.iter().filter_map(Item::as_value)
     }
 
-    /// Appends a new value to the end of the array, applying default formatting to it.
-    ///
-    /// Returns an error if the value was of a different type than the values in the
-    /// array.
-    pub fn push<V: Into<Value>>(&mut self, v: V) -> Result<(), Value> {
-        self.value_op(v.into(), true, |items, value| items.push(Item::Value(value)))
-    }
-
     /// Sorts a `Value::String` array.
     ///
     /// It uses the `Value::as_str` method to compare and sort.
@@ -113,87 +103,6 @@ impl Array {
     /// Returns an error if the value was of a different type than the array.
     pub fn push_formatted(&mut self, v: Value) -> Result<(), Value> {
         self.value_op(v, false, |items, value| items.push(Item::Value(value)))
-    }
-
-    /// Inserts an element at the given position within the array, applying default
-    /// formatting to it and shifting all values after it to the right.
-    ///
-    /// Returns an error if the value was of a different type than the values in the
-    /// array.
-    ///
-    /// Panics if `index > len`.
-    pub fn insert<V: Into<Value>>(&mut self, index: usize, v: V) -> Result<(), Value> {
-        self.value_op(v.into(), true, |items, value| {
-            items.insert(index, Item::Value(value))
-        })
-    }
-
-    /// Inserts an already formatted value at the given position within the array,
-    /// shifting all values after it to the right.
-    ///
-    /// Returns an error if the value was of a different type than the values in the
-    /// array.
-    ///
-    /// Panics if `index > len`.
-    pub fn insert_formatted(&mut self, index: usize, v: Value) -> Result<(), Value> {
-        self.value_op(v, false, |items, value| items.insert(index, Item::Value(value)))
-    }
-
-    /// Replaces the element at the given position within the array, preserving existing
-    /// formatting.
-    ///
-    /// Returns an error if the replacement was of a different type than the values in the
-    /// array.
-    ///
-    /// Panics if `index >= len`.
-    pub fn replace<V: Into<Value>>(
-        &mut self,
-        index: usize,
-        v: V,
-    ) -> Result<Value, Value> {
-        // Read the existing value's decor and preserve it.
-        let existing_decor = self
-            .get(index)
-            .unwrap_or_else(|| {
-                panic!("index {} out of bounds (len = {})", index, self.len())
-            })
-            .decor();
-        let value = decorated(v.into(), existing_decor.prefix(), existing_decor.suffix());
-        self.replace_formatted(index, value)
-    }
-
-    /// Replaces the element at the given position within the array with an already
-    /// formatted value.
-    ///
-    /// Returns an error if the replacement was of a different type than the values in the
-    /// array.
-    ///
-    /// Panics if `index >= len`.
-    pub fn replace_formatted(&mut self, index: usize, v: Value) -> Result<Value, Value> {
-        self.value_op(v, false, |items, value| {
-            match mem::replace(&mut items[index], Item::Value(value)) {
-                Item::Value(old_value) => old_value,
-                x => panic!("non-value item {:?} in an array", x),
-            }
-        })
-    }
-
-    /// Returns a reference to the value at the given index, or `None` if the index is out
-    /// of bounds.
-    pub fn get(&self, index: usize) -> Option<&Value> {
-        self.values.get(index).and_then(Item::as_value)
-    }
-
-    /// Removes the value at the given index.
-    pub fn remove(&mut self, index: usize) -> Value {
-        let removed = self.values.remove(index);
-        if self.is_empty() {
-            self.trailing_comma = false;
-        }
-        match removed {
-            Item::Value(v) => v,
-            x => panic!("non-value item {:?} in an array", x),
-        }
     }
 
     /// Auto formats the array.
@@ -229,117 +138,29 @@ impl Array {
     }
 }
 
-/// An iterator type over key/value pairs of an inline table.
-pub type InlineTableIter<'a> = Box<dyn Iterator<Item = (&'a str, &'a Value)> + 'a>;
-
 impl InlineTable {
     /// Returns the number of key/value pairs.
     pub fn len(&self) -> usize { self.iter().count() }
 
-    /// Returns true iff the table is empty.
-    pub fn is_empty(&self) -> bool { self.len() == 0 }
-
     /// Returns an iterator over key/value pairs.
-    pub fn iter(&self) -> InlineTableIter<'_> {
-        Box::new(
-            self.items
-                .iter()
-                .filter(|&(_, kv)| kv.value.is_value())
-                .map(|(k, kv)| (&k[..], kv.value.as_value().unwrap())),
-        )
+    pub fn iter(&self) -> impl Iterator<Item = (&str, &Value)> {
+        self.items
+            .iter()
+            .filter(|&(_, kv)| kv.value.is_value())
+            .map(|(k, kv)| (&k[..], kv.value.as_value().unwrap()))
     }
-
-    /// Sorts the key/value pairs by key.
-    pub fn sort(&mut self) { sort_key_value_pairs(&mut self.items); }
 
     /// Returns true iff the table contains given key.
     pub fn contains_key(&self, key: &str) -> bool {
         if let Some(kv) = self.items.get(key) { !kv.value.is_none() } else { false }
     }
 
-    /// Merges the key/value pairs into the `other` table leaving
-    /// `self` empty.
-    pub fn merge_into(&mut self, other: &mut InlineTable) {
-        let items = mem::replace(&mut self.items, KeyValuePairs::new());
-        for (k, kv) in items {
-            other.items.insert(k, kv);
-        }
-    }
-
-    /// Inserts a key/value pair if the table does not contain the key.
-    /// Returns a mutable reference to the corresponding value.
-    pub fn get_or_insert<V: Into<Value>>(&mut self, key: &str, value: V) -> &mut Value {
-        let parsed = key.parse::<Key>().expect("invalid key");
-        self.items
-            .entry(parsed.get().to_owned())
-            .or_insert(formatted::to_key_value(key, value.into()))
-            .value
-            .as_value_mut()
-            .expect("non-value type in inline table")
-    }
-
     /// Auto formats the table.
     pub fn fmt(&mut self, is_compact: bool) {
         formatted::decorate_inline_table(self, is_compact);
     }
-
-    /// Removes a key/value pair given the key.
-    pub fn remove(&mut self, key: &str) -> Option<Value> {
-        self.items.remove(key).and_then(|kv| kv.value.as_value().cloned())
-    }
-
-    /// Return an optional reference to the value at the given the key.
-    pub fn get(&self, key: &str) -> Option<&Value> {
-        self.items.get(key).and_then(|kv| kv.value.as_value())
-    }
-
-    /// Return an optional mutable reference to the value at the given the key.
-    pub fn get_mut(&mut self, key: &str) -> Option<&mut Value> {
-        self.items.get_mut(key).and_then(|kv| kv.value.as_value_mut())
-    }
 }
 
-/// Downcasting
-impl DateTime {
-    /// Casts `self` to offset date-time.
-    pub fn as_offset_date_time(&self) -> Option<&chrono::DateTime<FixedOffset>> {
-        match *self {
-            DateTime::OffsetDateTime(ref dt) => Some(dt),
-            _ => None,
-        }
-    }
-    /// Casts `self` to local date-time.
-    pub fn as_local_date_time(&self) -> Option<&chrono::NaiveDateTime> {
-        match *self {
-            DateTime::LocalDateTime(ref dt) => Some(dt),
-            _ => None,
-        }
-    }
-    /// Casts `self` to local date.
-    pub fn as_local_date(&self) -> Option<&chrono::NaiveDate> {
-        match *self {
-            DateTime::LocalDate(ref d) => Some(d),
-            _ => None,
-        }
-    }
-    /// Casts `self` to local time.
-    pub fn as_local_time(&self) -> Option<&chrono::NaiveTime> {
-        match *self {
-            DateTime::LocalTime(ref t) => Some(t),
-            _ => None,
-        }
-    }
-    /// Returns true iff `self` is an offset date-time.
-    pub fn is_offset_date_time(&self) -> bool { self.as_offset_date_time().is_some() }
-    /// Returns true iff `self` is a local date-time.
-    pub fn is_local_date_time(&self) -> bool { self.as_local_date_time().is_some() }
-    /// Returns true iff `self` is a local date.
-    pub fn is_local_date(&self) -> bool { self.as_local_date().is_some() }
-    /// Returns true iff `self` is a local time.
-    pub fn is_local_time(&self) -> bool { self.as_local_time().is_some() }
-}
-
-/// Downcasting
 impl Value {
     /// Casts `self` to integer.
     pub fn as_integer(&self) -> Option<i64> {
@@ -349,20 +170,6 @@ impl Value {
         }
     }
 
-    /// Returns true iff `self` is an integer.
-    pub fn is_integer(&self) -> bool { self.as_integer().is_some() }
-
-    /// Casts `self` to float.
-    pub fn as_float(&self) -> Option<f64> {
-        match *self {
-            Value::Float(ref value) => Some(*value.value()),
-            _ => None,
-        }
-    }
-
-    /// Returns true iff `self` is a float.
-    pub fn is_float(&self) -> bool { self.as_float().is_some() }
-
     /// Casts `self` to boolean.
     pub fn as_bool(&self) -> Option<bool> {
         match *self {
@@ -371,9 +178,6 @@ impl Value {
         }
     }
 
-    /// Returns true iff `self` is a boolean.
-    pub fn is_bool(&self) -> bool { self.as_bool().is_some() }
-
     /// Casts `self` to str.
     pub fn as_str(&self) -> Option<&str> {
         match *self {
@@ -381,20 +185,6 @@ impl Value {
             _ => None,
         }
     }
-
-    /// Returns true iff `self` is a string.
-    pub fn is_str(&self) -> bool { self.as_str().is_some() }
-
-    /// Casts `self` to date-time.
-    pub fn as_date_time(&self) -> Option<&DateTime> {
-        match *self {
-            Value::DateTime(ref value) => Some(value.value()),
-            _ => None,
-        }
-    }
-
-    /// Returns true iff `self` is a date-time.
-    pub fn is_date_time(&self) -> bool { self.as_date_time().is_some() }
 
     /// Casts `self` to array.
     pub fn as_array(&self) -> Option<&Array> {

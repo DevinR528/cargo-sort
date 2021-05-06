@@ -67,22 +67,20 @@ fn check_toml(path: &str, matches: &clap::ArgMatches, config: &Config) -> bool {
         std::process::exit(1);
     });
 
-    let fmted = sort::sort_toml(
-        &toml_raw,
-        MATCHER,
-        config,
-        matches.is_present("grouped"),
-        matches.is_present("format"),
-    );
-    let mut fmted_str = fmted.to_string_in_original_order();
+    let mut sorted = sort::sort_toml(&toml_raw, MATCHER, matches.is_present("grouped"));
+    let mut sorted_str = sorted.to_string_in_original_order();
+    let is_sorted = toml_raw == sorted_str;
 
-    let is_sorted = toml_raw == fmted_str;
+    if matches.is_present("format") {
+        fmt::fmt_toml(&mut sorted, config);
+        sorted_str = sorted.to_string_in_original_order();
+    }
 
     if matches.is_present("print") {
         if config.crlf {
-            fmted_str = fmted_str.replace("\n", "\r\n")
+            sorted_str = sorted_str.replace("\n", "\r\n")
         }
-        print!("{}", fmted_str);
+        print!("{}", sorted_str);
         if !matches.is_present("write") {
             return true;
         }
@@ -90,9 +88,9 @@ fn check_toml(path: &str, matches: &clap::ArgMatches, config: &Config) -> bool {
 
     if matches.is_present("write") {
         if config.crlf {
-            fmted_str = fmted_str.replace("\n", "\r\n")
+            sorted_str = sorted_str.replace("\n", "\r\n")
         }
-        write_file(&path, &fmted_str).unwrap_or_else(|e| {
+        write_file(&path, &sorted_str).unwrap_or_else(|e| {
             write_err(&format!("failed to rewrite file: {:?}", e)).unwrap();
         });
         write_succ(&format!("dependencies are now sorted for {:?}", path)).unwrap();
@@ -186,13 +184,19 @@ fn main() {
             {
                 // TODO: a better test wether to glob?
                 if member.contains('*') || member.contains('?') {
-                    for entry in glob::glob(&format!("{}{}", dir, member))
-                        .expect("Failed to read glob pattern")
+                    for entry in
+                        glob::glob(&format!("{}{}", dir, member)).unwrap_or_else(|e| {
+                            write_err(&format!("Glob failed: {}", e)).unwrap();
+                            std::process::exit(1);
+                        })
                     {
                         match entry {
                             Ok(path) => filtered_matches
                                 .push(Cow::Owned(path.display().to_string())),
-                            Err(e) => println!("{:?}", e),
+                            Err(e) => {
+                                write_err(&format!("Glob failed: {}", e)).unwrap();
+                                std::process::exit(1);
+                            }
                         }
                     }
                 } else {

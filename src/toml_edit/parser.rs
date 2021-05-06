@@ -83,18 +83,6 @@ mod tests {
         };
     }
 
-    macro_rules! parsed_date_time_eq {
-        ($input:expr, $is:ident) => {{
-            let parsed = value::value().easy_parse(State::new(*$input));
-            assert!(parsed.is_ok());
-            let (v, rest) = parsed.unwrap();
-            assert_eq!(v.to_string(), *$input);
-            assert!(rest.input.is_empty());
-            assert!(v.is_date_time());
-            assert!(v.as_date_time().unwrap().$is());
-        }};
-    }
-
     #[test]
     fn integers() {
         let cases = [
@@ -239,42 +227,6 @@ trimmed in raw strings.
 '''"#;
         let parsed = strings::string().easy_parse(State::new(input));
         parsed_eq!(parsed, &input[4..input.len() - 3]);
-    }
-
-    #[test]
-    fn offset_date_time() {
-        let inputs = [
-            "1979-05-27T07:32:00Z",
-            "1979-05-27T00:32:00-07:00",
-            "1979-05-27T00:32:00.999999-07:00",
-        ];
-        for input in &inputs {
-            parsed_date_time_eq!(input, is_offset_date_time);
-        }
-    }
-
-    #[test]
-    fn local_date_time() {
-        let inputs = ["1979-05-27T07:32:00", "1979-05-27T00:32:00.999999"];
-        for input in &inputs {
-            parsed_date_time_eq!(input, is_local_date_time);
-        }
-    }
-
-    #[test]
-    fn local_date() {
-        let inputs = ["1979-05-27", "2017-07-20"];
-        for input in &inputs {
-            parsed_date_time_eq!(input, is_local_date);
-        }
-    }
-
-    #[test]
-    fn local_time() {
-        let inputs = ["07:32:00", "00:32:00.999999"];
-        for input in &inputs {
-            parsed_date_time_eq!(input, is_local_time);
-        }
     }
 
     #[test]

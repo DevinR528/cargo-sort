@@ -157,10 +157,11 @@ mod test {
     };
 
     #[test]
-    fn toml_edit_check() {
-        let mut input =
-            fs::read_to_string("examp/ruma.toml").unwrap().parse::<Document>().unwrap();
-        fmt_toml(&mut input, &CONFIG);
-        println!("{}", input.to_string_in_original_order());
+    fn toml_fmt_check() {
+        let input = fs::read_to_string("examp/ruma.toml").unwrap();
+        let mut toml = input.parse::<Document>().unwrap();
+        fmt_toml(&mut toml, &CONFIG);
+        assert_ne!(input, toml.to_string_in_original_order());
+        // println!("{}", input.to_string_in_original_order());
     }
 }

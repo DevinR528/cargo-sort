@@ -5,7 +5,7 @@ use super::{
     decor::{Decor, InternalString, Repr},
     formatted::{decorated, key_repr},
     key::Key,
-    value::{sort_key_value_pairs, Array, DateTime, InlineTable, Value},
+    value::{sort_key_value_pairs, Array, Value},
 };
 
 // TODO: add method to convert a table into inline table
@@ -61,9 +61,6 @@ impl TableKeyValue {
     pub fn decor_mut(&mut self) -> &mut Decor { &mut self.key.decor }
 
     /// Returns the `Item` that represents this value.
-    pub fn value(&self) -> &Item { &self.value }
-
-    /// Returns the `Item` that represents this value.
     pub fn value_mut(&mut self) -> &mut Item { &mut self.value }
 }
 
@@ -94,15 +91,6 @@ impl Table {
         if let Some(kv) = self.items.get(key) { kv.value.is_value() } else { false }
     }
 
-    /// Returns true iff the table contains an array of tables with the given key.
-    pub fn contains_array_of_tables(&self, key: &str) -> bool {
-        if let Some(kv) = self.items.get(key) {
-            kv.value.is_array_of_tables()
-        } else {
-            false
-        }
-    }
-
     /// Returns an iterator over all key/value pairs, including empty.
     pub fn iter(&self) -> impl Iterator<Item = (&str, &Item)> {
         self.items.iter().map(|(key, kv)| (&key[..], &kv.value))
@@ -118,27 +106,14 @@ impl Table {
         self.items.remove(key)
     }
 
-    /// Removes an item given the key.
-    pub fn remove(&mut self, key: &str) -> Option<Item> {
-        self.items.remove(key).map(|v| v.value)
-    }
-
     /// Sorts Key/Value Pairs of the table,
     /// doesn't affect subtables or subarrays.
     pub fn sort_values(&mut self) { sort_key_value_pairs(&mut self.items); }
-
-    /// Returns the number of non-empty items in the table.
-    pub fn len(&self) -> usize {
-        self.items.iter().filter(|i| !(i.1).value.is_none()).count()
-    }
 
     /// Returns the number of key/value pairs in the table.
     pub fn values_len(&self) -> usize {
         self.items.iter().filter(|i| (i.1).value.is_value()).count()
     }
-
-    /// Returns true iff the table is empty.
-    pub fn is_empty(&self) -> bool { self.len() == 0 }
 
     /// Given the `key`, return a mutable reference to the value.
     /// If there is no entry associated with the given key in the table,
@@ -180,22 +155,11 @@ impl Table {
     /// ```
     pub fn set_implicit(&mut self, implicit: bool) { self.implicit = implicit; }
 
-    /// Returns the decor associated with a given key of the table.
-    pub fn decor(&self, key: &str) -> Option<&Decor> {
-        self.items.get(key).map(|kv| &kv.key.decor)
-    }
-
     /// Sets the position of the `Table` within the `Document`.
     ///
     /// Setting the position of a table will only affect output when
     /// `Document::to_string_in_original_order` is used.
     pub fn set_position(&mut self, position: usize) { self.position = Some(position); }
-
-    /// The position of the `Table` within the `Document`.
-    ///
-    /// Returns `None` if the `Table` was created manually (i.e. not via parsing)
-    /// in which case its position is set automatically.
-    pub fn position(&self) -> Option<usize> { self.position }
 
     /// Returns the decor around the heading.
     pub fn header_decor(&self) -> &Decor { &self.decor }
@@ -237,13 +201,7 @@ impl Item {
             _ => None,
         }
     }
-    /// Casts `self` to array of tables.
-    pub fn as_array_of_tables(&self) -> Option<&ArrayOfTables> {
-        match *self {
-            Item::ArrayOfTables(ref a) => Some(a),
-            _ => None,
-        }
-    }
+
     /// Casts `self` to mutable value.
     pub fn as_value_mut(&mut self) -> Option<&mut Value> {
         match *self {
@@ -269,8 +227,6 @@ impl Item {
     pub fn is_value(&self) -> bool { self.as_value().is_some() }
     /// Returns true iff `self` is a table.
     pub fn is_table(&self) -> bool { self.as_table().is_some() }
-    /// Returns true iff `self` is an array of tables.
-    pub fn is_array_of_tables(&self) -> bool { self.as_array_of_tables().is_some() }
     /// Returns true iff `self` is `None`.
     pub fn is_none(&self) -> bool { matches!(*self, Item::None) }
 
@@ -281,58 +237,14 @@ impl Item {
         self.as_value().and_then(Value::as_integer)
     }
 
-    /// Returns true iff `self` is an integer.
-    pub fn is_integer(&self) -> bool { self.as_integer().is_some() }
-
-    /// Casts `self` to float.
-    pub fn as_float(&self) -> Option<f64> { self.as_value().and_then(Value::as_float) }
-
-    /// Returns true iff `self` is a float.
-    pub fn is_float(&self) -> bool { self.as_float().is_some() }
-
     /// Casts `self` to boolean.
     pub fn as_bool(&self) -> Option<bool> { self.as_value().and_then(Value::as_bool) }
-
-    /// Returns true iff `self` is a boolean.
-    pub fn is_bool(&self) -> bool { self.as_bool().is_some() }
 
     /// Casts `self` to str.
     pub fn as_str(&self) -> Option<&str> { self.as_value().and_then(Value::as_str) }
 
-    /// Returns true iff `self` is a string.
-    pub fn is_str(&self) -> bool { self.as_str().is_some() }
-
-    /// Casts `self` to date-time.
-    pub fn as_date_time(&self) -> Option<&DateTime> {
-        self.as_value().and_then(Value::as_date_time)
-    }
-
-    /// Returns true iff `self` is a date-time.
-    pub fn is_date_time(&self) -> bool { self.as_date_time().is_some() }
-
     /// Casts `self` to array.
     pub fn as_array(&self) -> Option<&Array> { self.as_value().and_then(Value::as_array) }
-
-    /// Casts `self` to mutable array.
-    pub fn as_array_mut(&mut self) -> Option<&mut Array> {
-        self.as_value_mut().and_then(Value::as_array_mut)
-    }
-
-    /// Returns true iff `self` is an array.
-    pub fn is_array(&self) -> bool { self.as_array().is_some() }
-
-    /// Casts `self` to inline table.
-    pub fn as_inline_table(&self) -> Option<&InlineTable> {
-        self.as_value().and_then(Value::as_inline_table)
-    }
-
-    /// Casts `self` to mutable inline table.
-    pub fn as_inline_table_mut(&mut self) -> Option<&mut InlineTable> {
-        self.as_value_mut().and_then(Value::as_inline_table_mut)
-    }
-
-    /// Returns true iff `self` is an inline table.
-    pub fn is_inline_table(&self) -> bool { self.as_inline_table().is_some() }
 }
 
 /// Returns a formatted value.
@@ -359,9 +271,3 @@ impl Item {
 /// "#);
 /// ```
 pub fn value<V: Into<Value>>(v: V) -> Item { Item::Value(decorated(v.into(), " ", "")) }
-
-/// Returns an empty table.
-pub fn table() -> Item { Item::Table(Table::new()) }
-
-/// Returns an empty array of tables.
-pub fn array() -> Item { Item::ArrayOfTables(ArrayOfTables::new()) }
