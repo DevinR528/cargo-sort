@@ -1,7 +1,9 @@
-use combine::char::{char, digit, hex_digit, oct_digit, string};
-use combine::range::{range, recognize};
-use combine::stream::RangeStream;
-use combine::*;
+use combine::{
+    char::{char, digit, hex_digit, oct_digit, string},
+    range::{range, recognize},
+    stream::RangeStream,
+    *,
+};
 
 // ;; Boolean
 

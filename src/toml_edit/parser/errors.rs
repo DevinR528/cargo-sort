@@ -1,8 +1,12 @@
-use combine::easy::Errors as ParseError;
-use combine::stream::easy::Error;
-use combine::stream::state::SourcePosition;
-use std::error::Error as StdError;
-use std::fmt::{Display, Formatter, Result};
+use std::{
+    error::Error as StdError,
+    fmt::{Display, Formatter, Result},
+};
+
+use combine::{
+    easy::Errors as ParseError,
+    stream::{easy::Error, state::SourcePosition},
+};
 
 /// Type representing a TOML parse error
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
@@ -11,17 +15,15 @@ pub struct TomlError {
 }
 
 impl TomlError {
-    pub(crate) fn new(error: ParseError<char, &str, SourcePosition>, input: &str) -> Self {
-        Self {
-            message: format!("{}", FancyError::new(error, input)),
-        }
+    pub(crate) fn new(
+        error: ParseError<char, &str, SourcePosition>,
+        input: &str,
+    ) -> Self {
+        Self { message: format!("{}", FancyError::new(error, input)) }
     }
 
     pub(crate) fn from_unparsed(pos: SourcePosition, input: &str) -> Self {
-        Self::new(
-            ParseError::new(pos, CustomError::UnparsedLine.into()),
-            input,
-        )
+        Self::new(ParseError::new(pos, CustomError::UnparsedLine.into()), input)
     }
 }
 
@@ -38,15 +40,11 @@ impl TomlError {
 /// While parsing a Time
 /// While parsing a Date-Time
 impl Display for TomlError {
-    fn fmt(&self, f: &mut Formatter<'_>) -> Result {
-        write!(f, "{}", self.message)
-    }
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result { write!(f, "{}", self.message) }
 }
 
 impl StdError for TomlError {
-    fn description(&self) -> &'static str {
-        "TOML parse error"
-    }
+    fn description(&self) -> &'static str { "TOML parse error" }
 }
 
 #[derive(Debug)]
@@ -56,7 +54,10 @@ pub(crate) struct FancyError<'a> {
 }
 
 impl<'a> FancyError<'a> {
-    pub(crate) fn new(error: ParseError<char, &'a str, SourcePosition>, input: &'a str) -> Self {
+    pub(crate) fn new(
+        error: ParseError<char, &'a str, SourcePosition>,
+        input: &'a str,
+    ) -> Self {
         Self { error, input }
     }
 }
@@ -66,11 +67,7 @@ impl<'a> Display for FancyError<'a> {
         let SourcePosition { line, column } = self.error.position;
 
         let offset = line.to_string().len();
-        let content = self
-            .input
-            .split('\n')
-            .nth((line - 1) as usize)
-            .expect("line");
+        let content = self.input.split('\n').nth((line - 1) as usize).expect("line");
 
         writeln!(f, "TOML parse error at line {}, column {}", line, column)?;
 
@@ -107,22 +104,19 @@ pub enum CustomError {
 }
 
 impl StdError for CustomError {
-    fn description(&self) -> &'static str {
-        "TOML parse error"
-    }
+    fn description(&self) -> &'static str { "TOML parse error" }
 }
 
 impl Display for CustomError {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
-        match *self {
-            CustomError::MixedArrayType {
-                ref got,
-                ref expected,
-            } => writeln!(f, "Mixed types in array: {} and {}", expected, got),
-            CustomError::DuplicateKey { ref key, ref table } => {
+        match self {
+            CustomError::MixedArrayType { got, expected } => {
+                writeln!(f, "Mixed types in array: {} and {}", expected, got)
+            }
+            CustomError::DuplicateKey { key, table } => {
                 writeln!(f, "Duplicate key `{}` in `{}` table", key, table)
             }
-            CustomError::InvalidHexEscape(ref h) => {
+            CustomError::InvalidHexEscape(h) => {
                 writeln!(f, "Invalid hex escape code: {:x} ", h)
             }
             CustomError::UnparsedLine => writeln!(f, "Could not parse the line"),
