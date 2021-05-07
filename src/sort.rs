@@ -62,8 +62,10 @@ fn sort_by_group(table: &mut Table) {
     for (idx, (k, v)) in
         table_clone.iter().map(|(k, _)| (k, table.remove_full(k).unwrap())).enumerate()
     {
-        let decor = v.decor();
-        if decor.prefix().contains('\n') {
+        let blank_lines =
+            v.decor().prefix().lines().filter(|l| !l.starts_with('#')).count();
+
+        if blank_lines > 0 {
             groups.entry(idx).or_insert_with(|| vec![(k, v)]);
             curr = idx;
         } else {
@@ -71,25 +73,16 @@ fn sort_by_group(table: &mut Table) {
         }
     }
 
-    let mut first_kv_pair = true;
     for (_, mut group) in groups {
-        group.sort_by(|a, b| a.0.cmp(&b.0));
-        for (i, (k, mut v)) in group.into_iter().enumerate() {
-            let dec = v.decor_mut();
-
-            if i == 0 && !first_kv_pair {
-                dec.prefix = "\n".to_string();
-            } else {
-                dec.prefix = String::new();
-            }
+        group.sort_by(|a, b| a.0.cmp(b.0));
+        for (k, v) in group {
             table.insert_key_value(k, v);
         }
-        first_kv_pair = false;
     }
 }
 
 /// Returns a sorted toml `Document`.
-pub fn sort_toml(input: &str, matcher: Matcher, group: bool) -> Document {
+pub fn sort_toml(input: &str, matcher: Matcher<'_>, group: bool) -> Document {
     let mut toml = input.parse::<Document>().unwrap();
     // This takes care of `[workspace] members = [...]`
     for (heading, key) in matcher.heading_key {

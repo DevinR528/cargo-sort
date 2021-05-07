@@ -15,27 +15,44 @@ use crate::toml_edit::{Document, Item, Table, Value};
 /// ```
 pub struct Config {
     /// Use trailing comma where possible.
+    ///
+    /// Defaults to `false`.
     pub trailing_comma: bool,
 
     /// Use space around equal sign for table key values.
+    ///
+    /// Defaults to `true`.
     pub space_around_eq: bool,
 
     /// Omit whitespace padding inside single-line arrays.
+    ///
+    /// Defaults to `false`.
     pub compact_arrays: bool,
 
     /// Omit whitespace padding inside inline tables.
+    ///
+    /// Defaults to `false`.
     pub compact_inline_tables: bool,
 
     /// Add trailing newline to the source.
+    ///
+    /// Defaults to `true`.
     pub trailing_newline: bool,
 
     /// Are newlines allowed between key value pairs in a table.
+    ///
+    /// This must be true for the `--grouped` flag to be used.
+    /// Defaults to `true`.
     pub key_value_newlines: bool,
 
     /// The maximum amount of consecutive blank lines allowed.
+    ///
+    /// Defaults to `1`.
     pub allowed_blank_lines: usize,
 
     /// Use CRLF line endings
+    ///
+    /// Defaults to `false`.
     pub crlf: bool,
 }
 
@@ -51,7 +68,7 @@ impl FromStr for Config {
                 .as_bool()
                 .unwrap_or_default(),
             trailing_newline: toml["trailing_newline"].as_bool().unwrap_or(true),
-            key_value_newlines: toml["key_value_newlines"].as_bool().unwrap_or_default(),
+            key_value_newlines: toml["key_value_newlines"].as_bool().unwrap_or(true),
             allowed_blank_lines: toml["allowed_blank_lines"].as_integer().unwrap_or(1)
                 as usize,
             crlf: toml["crlf"].as_bool().unwrap_or_default(),
@@ -71,9 +88,8 @@ fn fmt_value(value: &mut Value, config: &Config) {
         // Since the above variants have fmt methods we can only ever
         // get here from a headed table (`[header] key = val`)
         val => {
-            if config.space_around_eq {
-                let dec = val.decor_mut();
-                dec.prefix = " ".to_string();
+            if config.space_around_eq && val.decor().prefix().is_empty() {
+                val.decor_mut().prefix.push(' ');
             }
         }
     }
@@ -81,27 +97,45 @@ fn fmt_value(value: &mut Value, config: &Config) {
 
 fn fmt_table(table: &mut Table, config: &Config) {
     // Checks the header decor for blank lines
-    if config.allowed_blank_lines < table.header_decor().prefix().matches('\n').count() {
+    let blank_header_lines =
+        table.header_decor().prefix().lines().filter(|l| !l.starts_with('#')).count();
+    if config.allowed_blank_lines < blank_header_lines {
         let dec = table.header_decor_mut();
-        dec.prefix = "\n".repeat(config.allowed_blank_lines);
+        dec.prefix = dec.prefix().replacen(
+            "\n",
+            "",
+            blank_header_lines - config.allowed_blank_lines,
+        );
     }
+
     for (_, item) in table.iter_mut() {
+        let blank_lines =
+            item.decor().prefix().lines().filter(|l| !l.starts_with('#')).count();
+
         // Check each item in the table for blank lines
         if config.key_value_newlines {
-            if config.allowed_blank_lines < item.decor().prefix().matches('\n').count() {
+            if config.allowed_blank_lines < blank_lines {
                 let dec = item.decor_mut();
-                dec.prefix = "\n".repeat(config.allowed_blank_lines);
+                dec.prefix = dec.prefix().replacen(
+                    "\n",
+                    "",
+                    blank_lines - config.allowed_blank_lines,
+                );
             }
         } else {
             let dec = item.decor_mut();
-            dec.prefix = "".to_string();
+            dec.prefix = if dec.prefix.contains('#') {
+                dec.prefix().replacen("\n", "", blank_lines)
+            } else {
+                "".to_string()
+            };
         }
-        if config.space_around_eq {
-            let dec = item.decor_mut();
-            dec.suffix = " ".to_string();
+
+        if config.space_around_eq && item.decor().suffix.is_empty() {
+            item.decor_mut().suffix.push(' ');
         }
+
         match item.value_mut() {
-            Item::ArrayOfTables(_) => todo!(),
             Item::Table(table) => {
                 // stuff
                 fmt_table(table, config);
@@ -110,6 +144,7 @@ fn fmt_table(table: &mut Table, config: &Config) {
                 fmt_value(val, config);
             }
             Item::None => {}
+            Item::ArrayOfTables(_) => {}
         }
     }
 }
@@ -132,10 +167,9 @@ pub fn fmt_toml(toml: &mut Document, config: &Config) {
             Item::None => {}
         }
     }
-    if config.trailing_newline {
-        toml.trailing = "\n".to_string();
-    } else {
-        toml.trailing.clear();
+
+    if config.trailing_newline && !toml.trailing.contains('\n') {
+        toml.trailing.push('\n');
     }
 }
 

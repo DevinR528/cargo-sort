@@ -13,18 +13,18 @@ There are three modes cargo-sort can be used in:
     - No flags set cargo-sort will write the sorted result over the input Cargo.toml file.
  * **-c or --check**
     - Will fail with a non-zero exit code if the file is unsorted.
- * **-f or --format**
-    - Will format the sorted toml. This option is available only if writing or printing out.
+ * **-n or --no-format**
+    - Will **NOT** format the sorted toml. This option only has affect if writing or printing out.
  * **-g or --grouped**
     - When sorting keep table key value spacing, so if you have dependency groups they will stick.
 * **-p or --print**
     - Write the sorted toml file to stdout.
 * **-w or --workspace**
-    - Checks every crate in the workspace based on set flags
+    - Checks every crate in the workspace based on flags. Only one root may be given.
 
 ### Config
 
-cargo sort uses a config file when formatting called `tomlfmt.toml`. This is optional, defaults will
+cargo sort uses a config file when formatting called `tomlfmt.toml`. This is optional defaults will
 be used if not found in the current working dir.
 
 Here are the defaults when no `tomlfmt.toml` is found
@@ -112,8 +112,7 @@ a="0.1.1"
 # comments will stay with the item
 c="0.1.1"
 
-# if this key value is moved the whitespace before and after will stick
-# unless it is at the end of a table then it is formatted.
+# If --grouped is used the blank line will stay.
 b="0.1.1"
 
 [dependencies.alpha]
@@ -140,8 +139,7 @@ Will sort to, or fail until organized like so
 [dependencies]
 a="0.1.1"
 
-# if this key value is moved the whitespace before and after will stick
-# unless it is at the end of a table then it is formatted.
+# If --grouped is used the blank line will stay
 b="0.1.1"
 # comments will stay with the item
 c="0.1.1"
@@ -156,6 +154,9 @@ version="0"
 [dependencies.zed]
 version="0"
 
+# Tables are ordered by their appearance so
+# if dev-dependencies was before build it would be
+# sorted that way
 [build-dependencies]
 bar="0"
 foo="0"
