@@ -15,7 +15,7 @@ mod fmt;
 mod sort;
 mod toml_edit;
 
-const VERSION: &str = &include_str!("../Cargo.toml");
+const VERSION: &str = include_str!("../Cargo.toml");
 
 /// Each `Matcher` field when matched to a heading or key token
 /// will be matched with `.contains()`.
@@ -58,7 +58,7 @@ fn write_file<P: AsRef<Path>>(path: P, toml: &str) -> std::io::Result<()> {
     write!(fd, "{}", toml)
 }
 
-fn check_toml(path: &str, matches: &clap::ArgMatches, config: &Config) -> bool {
+fn check_toml(path: &str, matches: &clap::ArgMatches<'_>, config: &Config) -> bool {
     let mut path = PathBuf::from(path);
     if path.extension().is_none() {
         path.push("Cargo.toml");
@@ -73,7 +73,8 @@ fn check_toml(path: &str, matches: &clap::ArgMatches, config: &Config) -> bool {
     let mut sorted_str = sorted.to_string_in_original_order();
     let is_sorted = toml_raw == sorted_str;
 
-    if matches.is_present("format") {
+    if matches.is_present("no-format") {
+    } else {
         fmt::fmt_toml(&mut sorted, config);
         sorted_str = sorted.to_string_in_original_order();
     }
