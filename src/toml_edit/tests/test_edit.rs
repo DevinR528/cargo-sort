@@ -197,7 +197,7 @@ fn test_insert_values() {
     ).running(|root| {
         root["tbl"]["key1"] = value("value1");
         root["tbl"]["\"key2\""] = value(42);
-        root["tbl"]["'key3'"] = value(8.1415926);
+        root["tbl"]["'key3'"] = value(8.141_592_6);
     }).produces(r#"
 [tbl]
 key1 = "value1"

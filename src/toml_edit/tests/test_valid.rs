@@ -45,7 +45,6 @@ fn pair_to_json((key, value): (&str, Item)) -> (String, Json) {
 }
 
 #[cfg(test)]
-
 fn to_json<'a>(iter: impl Iterator<Item = (&'a str, &'a Item)>) -> Json {
     Json::Object(iter.map(|(k, v)| (k, v.clone())).map(pair_to_json).collect())
 }

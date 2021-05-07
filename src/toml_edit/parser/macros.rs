@@ -13,7 +13,7 @@ macro_rules! parse (
                  From<std::num::ParseIntError> +
                  From<std::num::ParseFloatError> +
                  From<chrono::ParseError> +
-                 From<crate::toml_edit::parser::errors::CustomError>
+                 From<$crate::toml_edit::parser::errors::CustomError>
                 ]
             {
                 $code
@@ -37,7 +37,7 @@ macro_rules! toml_parser (
                  From<std::num::ParseIntError> +
                  From<std::num::ParseFloatError> +
                  From<chrono::ParseError> +
-                 From<crate::toml_edit::parser::errors::CustomError>
+                 From<$crate::toml_edit::parser::errors::CustomError>
                 ]
             {
                 $closure
