@@ -3,7 +3,10 @@
 use std::ops::DerefMut;
 use std::{cell::RefCell, mem};
 
-use combine::{char::char, range::range, stream::RangeStream, *};
+use combine::{
+    between, char, char::char, combine_parse_partial, combine_parser_impl, parse_mode,
+    parser, range::range, sep_by1, stream::RangeStream, ParseError, StreamOnce,
+};
 
 use crate::toml_edit::{
     array_of_tables::ArrayOfTables,
@@ -69,7 +72,7 @@ parser! {
          From<std::num::ParseIntError> +
          From<std::num::ParseFloatError> +
          From<chrono::ParseError> +
-         From<crate::toml_edit::parser::errors::CustomError>
+         From<CustomError>
     ]    {
         array_table(parser)
             .or(std_table(parser))

@@ -39,10 +39,12 @@ impl Default for TomlParser {
 mod tests {
     use std::fmt;
 
-    use combine::{stream::state::State, *};
+    use combine::{stream::state::State, Parser};
     use pretty_assertions::assert_eq;
 
-    use crate::toml_edit::parser::*;
+    use crate::toml_edit::parser::{
+        array, inline_table, key, numbers, strings, trivia, value, TomlParser,
+    };
     // Copied from https://github.com/colin-kiegel/rust-pretty-assertions/issues/24
     /// Wrapper around string slice that makes debug output `{:?}` to print string same
     /// way as `{}`. Used in different `assert*!` macros in combination with

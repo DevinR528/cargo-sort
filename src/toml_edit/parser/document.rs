@@ -1,10 +1,13 @@
 use std::{cell::RefCell, mem, ops::DerefMut};
 
 use combine::{
+    char,
     char::char,
+    choice, combine_parse_partial, combine_parser_impl, eof, parse_mode, parser,
     range::recognize,
+    skip_many1,
     stream::{state::State, RangeStream},
-    Parser, *,
+    ParseError, Parser, StreamOnce,
 };
 
 use crate::toml_edit::{
@@ -52,7 +55,7 @@ parser! {
          From<std::num::ParseIntError> +
          From<std::num::ParseFloatError> +
          From<chrono::ParseError> +
-         From<crate::toml_edit::parser::errors::CustomError>
+         From<CustomError>
     ] {
         (
             (key(), ws()),
