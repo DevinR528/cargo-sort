@@ -15,7 +15,7 @@ mod fmt;
 mod sort;
 mod toml_edit;
 
-const VERSION: &str = include_str!("../Cargo.toml");
+const VERSION: &str = "1.0.1";
 
 fn write_err(msg: &str) -> std::io::Result<()> {
     let mut stderr = StandardStream::stderr(ColorChoice::Auto);
@@ -96,7 +96,7 @@ fn check_toml(path: &str, matches: &clap::ArgMatches<'_>, config: &Config) -> bo
 fn main() {
     let matches = App::new("cargo sort")
         .author("Devin R <devin.ragotzy@gmail.com>")
-        .version(&VERSION[41..46])
+        .version(VERSION)
         .about("Ensure Cargo.toml dependency tables are sorted.")
         .usage("cargo-sort [FLAGS] [CWD]")
         .arg(
@@ -177,8 +177,8 @@ fn main() {
             {
                 // TODO: a better test wether to glob?
                 if member.contains('*') || member.contains('?') {
-                    for entry in
-                        glob::glob(&format!("{}{}", dir, member)).unwrap_or_else(|e| {
+                    for entry in glob::glob(&format!("{}/{}", dir, member))
+                        .unwrap_or_else(|e| {
                             write_err(&format!("Glob failed: {}", e)).unwrap();
                             std::process::exit(1);
                         })
@@ -193,7 +193,7 @@ fn main() {
                         }
                     }
                 } else {
-                    filtered_matches.push(Cow::Owned(format!("{}{}", dir, member)));
+                    filtered_matches.push(Cow::Owned(format!("{}/{}", dir, member)));
                 }
             }
         }
