@@ -17,7 +17,12 @@ pub struct Config {
     /// Use trailing comma where possible.
     ///
     /// Defaults to `false`.
-    pub trailing_comma: bool,
+    pub always_trailing_comma: bool,
+
+    /// Use trailing comma for multi-line arrays.
+    ///
+    /// Defaults to `true`.
+    pub multiline_trailing_comma: bool,
 
     /// Use space around equal sign for table key values.
     ///
@@ -59,7 +64,8 @@ pub struct Config {
 impl Default for Config {
     fn default() -> Self {
         Self {
-            trailing_comma: false,
+            always_trailing_comma: false,
+            multiline_trailing_comma: true,
             space_around_eq: true,
             compact_arrays: false,
             compact_inline_tables: false,
@@ -76,7 +82,8 @@ impl Config {
     #[allow(dead_code)]
     pub(crate) const fn new() -> Self {
         Self {
-            trailing_comma: false,
+            always_trailing_comma: false,
+            multiline_trailing_comma: true,
             space_around_eq: true,
             compact_arrays: false,
             compact_inline_tables: false,
@@ -93,7 +100,12 @@ impl FromStr for Config {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let toml = s.parse::<Document>().map_err(|_| "failed to parse as toml")?;
         Ok(Config {
-            trailing_comma: toml["trailing_comma"].as_bool().unwrap_or_default(),
+            always_trailing_comma: toml["always_trailing_comma"]
+                .as_bool()
+                .unwrap_or_default(),
+            multiline_trailing_comma: toml["multiline_trailing_comma"]
+                .as_bool()
+                .unwrap_or_default(),
             space_around_eq: toml["space_around_eq"].as_bool().unwrap_or(true),
             compact_arrays: toml["compact_arrays"].as_bool().unwrap_or_default(),
             compact_inline_tables: toml["compact_inline_tables"]
@@ -111,8 +123,8 @@ impl FromStr for Config {
 fn fmt_value(value: &mut Value, config: &Config) {
     match value {
         Value::Array(arr) => {
-            arr.trailing_comma = config.trailing_comma;
-            arr.fmt(config.compact_arrays);
+            arr.trailing_comma = config.always_trailing_comma;
+            arr.fmt(config.compact_arrays, config.multiline_trailing_comma);
         }
         Value::InlineTable(table) => {
             table.fmt(config.compact_inline_tables);
@@ -222,7 +234,7 @@ mod test {
         let mut toml = input.parse::<Document>().unwrap();
         fmt_toml(&mut toml, &CONFIG);
         assert_ne!(input, toml.to_string_in_original_order());
-        // println!("{}", input.to_string_in_original_order());
+        // println!("{}", toml.to_string_in_original_order());
     }
 
     #[test]
@@ -231,5 +243,14 @@ mod test {
         let mut toml = input.parse::<Document>().unwrap();
         fmt_toml(&mut toml, &CONFIG);
         assert_eq!(input, toml.to_string_in_original_order());
+    }
+
+    #[test]
+    fn array() {
+        let input = fs::read_to_string("examp/clippy.toml").unwrap();
+        let mut toml = input.parse::<Document>().unwrap();
+        fmt_toml(&mut toml, &CONFIG);
+        assert_ne!(input, toml.to_string_in_original_order());
+        // println!("{}", toml.to_string_in_original_order());
     }
 }

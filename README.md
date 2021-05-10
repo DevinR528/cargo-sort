@@ -30,7 +30,9 @@ be used if not found in the current working dir.
 Here are the defaults when no `tomlfmt.toml` is found
 ```toml
 # trailing comma in arrays
-trailing_comma = false
+alwyas_trailing_comma = false
+# trailing comma when multi-line
+multiline_trailing_comma = true
 space_around_eq = true
 # remove all the spacing inside the array
 compact_arrays = false
@@ -87,7 +89,7 @@ left off the tool will default to Cargo.toml.
 
 
 ```bash
-cargo sort 3.0.0
+cargo sort 1.0.0
 Devin R <devin.ragotzy@gmail.com>
 Ensure Cargo.toml dependency tables are sorted.
 
