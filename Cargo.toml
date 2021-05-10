@@ -14,7 +14,7 @@ default-run = "cargo-sort"
 
 [dependencies]
 afl = { version = "0.10.0", optional = true }
-clap = "2.33"
+clap = "2.33.3"
 glob = "0.3.0"
 termcolor = "1.1"
 
