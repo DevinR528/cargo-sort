@@ -14,12 +14,13 @@ use super::{
 #[derive(Clone, Debug, Default)]
 pub struct Table {
     pub(crate) items: KeyValuePairs,
-    // comments/spaces before and after the header
+    /// Comments/spaces before and after the header
     pub(crate) decor: Decor,
-    // whether to hide an empty table
+    /// Whether to hide an empty table, false means the tabled was crated
+    /// during parsing and should be displayed.
     pub(crate) implicit: bool,
-    // used for putting tables back in their original order when serialising.
-    // Will be None when the Table wasn't parsed from a file.
+    /// Used for putting tables back in their original order when serializing.
+    /// Will be None when the Table wasn't parsed from a file.
     pub(crate) position: Option<usize>,
 }
 
@@ -75,6 +76,9 @@ impl Table {
     pub(crate) fn with_decor_and_pos(decor: Decor, position: Option<usize>) -> Self {
         Self { decor, position, ..Default::default() }
     }
+
+    /// Returns true iff the table contains no key value pairs.
+    pub fn is_empty(&self) -> bool { self.items.is_empty() }
 
     /// Returns true iff the table contains an item with the given key.
     pub fn contains_key(&self, key: &str) -> bool {
