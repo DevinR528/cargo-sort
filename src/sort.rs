@@ -28,7 +28,14 @@ enum Heading {
     Complete(Vec<String>),
 }
 
-fn gather_headings(table: &Table, keys: &mut Vec<Heading>) {
+fn gather_headings(table: &Table, keys: &mut Vec<Heading>, depth: usize) {
+    if table.is_empty() && !table.implicit {
+        let next = match keys.pop().unwrap() {
+            Heading::Next(segs) => Heading::Complete(segs),
+            comp => comp,
+        };
+        keys.push(next);
+    }
     for (head, item) in table.iter() {
         match item {
             Item::Value(_) => {
@@ -53,16 +60,18 @@ fn gather_headings(table: &Table, keys: &mut Vec<Heading>) {
                     // [heading]       // transitioning from here to
                     // [heading.segs]  // here
                     Heading::Complete(segs) => {
-                        let next = vec![segs[0].clone(), head.into()];
+                        let take = depth.max(1);
+                        let mut next = segs[..take].to_vec();
+                        next.push(head.into());
                         keys.push(Heading::Complete(segs));
                         Heading::Next(next)
                     }
                 };
                 keys.push(next);
-                gather_headings(table, keys);
+                gather_headings(table, keys, depth + 1);
             }
-            Item::ArrayOfTables(arr) => todo!("ArrayOfTables: {:?}", arr),
-            Item::None => panic!("{:?}", keys),
+            Item::ArrayOfTables(_arr) => unreachable!("no [[heading]] are sorted"),
+            Item::None => unreachable!("an empty table will not be sorted"),
         }
     }
 }
@@ -129,12 +138,11 @@ pub fn sort_toml(input: &str, matcher: Matcher<'_>, group: bool) -> Document {
                 // [heading.segs]
                 // [heading]
 
-                gather_headings(table, headings);
+                gather_headings(table, headings, 1);
                 headings.sort();
                 if group {
                     sort_by_group(table);
                 } else {
-                    // Sort also removes any newlines between key value pairs
                     table.sort_values();
                 }
             }
@@ -147,14 +155,14 @@ pub fn sort_toml(input: &str, matcher: Matcher<'_>, group: bool) -> Document {
     let first_table_idx = first_table.unwrap_or_default() + 1;
     for (idx, heading) in heading_order.into_iter().flat_map(|(_, segs)| segs).enumerate()
     {
-        // println!("{:?} {}", heading, first_table_idx);
         if let Heading::Complete(segs) = heading {
-            let mut table = toml.as_table_mut();
+            let mut table = Some(toml.as_table_mut());
             for seg in segs {
-                // We know these are valid tables since we just collected them
-                table = table[&seg].as_table_mut().unwrap();
+                table = table.and_then(|t| t[&seg].as_table_mut());
             }
-            table.set_position(first_table_idx + idx);
+            if let Some(table) = table {
+                table.set_position(first_table_idx + idx);
+            }
         }
     }
 
@@ -163,14 +171,12 @@ pub fn sort_toml(input: &str, matcher: Matcher<'_>, group: bool) -> Document {
 
 #[cfg(test)]
 mod test {
-    use std::fs::{self};
+    use std::fs;
 
     use super::Matcher;
 
-    const HEADERS: [&str; 3] = ["dependencies", "dev-dependencies", "build-dependencies"];
-
     const MATCHER: Matcher<'_> = Matcher {
-        heading: &HEADERS,
+        heading: &["dependencies", "dev-dependencies", "build-dependencies"],
         heading_key: &[("workspace", "members"), ("workspace", "exclude")],
     };
 
