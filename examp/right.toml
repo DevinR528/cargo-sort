@@ -1,21 +1,8 @@
 [dependencies]
-a="0"
-b="0"
-c="0"
-d="0"
-
-[build-dependencies]
-x="0"
-y="9"
-#comm
-z="3"
-
-[build-dependencies.abc]
-version="0"
-
-#comm
-[build-dependencies.def]
-version="0"
+a = "0"
+b = "0"
+c = "0"
+d = "0"
 
 [dependencies.alpha]
 version = "0.15"
@@ -31,6 +18,19 @@ features = ["full", "parsing", "printing", "visit-mut"]
 version = "0.15"
 default-features = false
 features = ["full", "parsing", "printing", "visit-mut"]
+
+[build-dependencies]
+x = "0"
+y = "9"
+#comm
+z = "3"
+
+[build-dependencies.abc]
+version = "0"
+
+#comm
+[build-dependencies.def]
+version = "0"
 
 [workspace.members]
 this = "that"
