@@ -225,15 +225,15 @@ fn main() {
     if flag { std::process::exit(0) } else { std::process::exit(1) }
 }
 
-#[test]
-fn fuzzy_fail() {
-    for file in std::fs::read_dir("out/default/crashes").unwrap() {
-        let path = file.unwrap().path();
-        println!("{}", path.display());
-        let s = read_to_string(&path).unwrap().replace("\r", "");
-        let mut toml = sort::sort_toml(&s, sort::MATCHER, false);
-        fmt::fmt_toml(&mut toml, &fmt::Config::default());
-        print!("{}", s);
-        s.parse::<Document>().unwrap();
-    }
-}
+// #[test]
+// fn fuzzy_fail() {
+//     for file in std::fs::read_dir("out/default/crashes").unwrap() {
+//         let path = file.unwrap().path();
+//         println!("{}", path.display());
+//         let s = read_to_string(&path).unwrap().replace("\r", "");
+//         let mut toml = sort::sort_toml(&s, sort::MATCHER, false);
+//         fmt::fmt_toml(&mut toml, &fmt::Config::default());
+//         print!("{}", s);
+//         s.parse::<Document>().unwrap();
+//     }
+// }
