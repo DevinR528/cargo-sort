@@ -106,8 +106,8 @@ impl Array {
     }
 
     /// Auto formats the array.
-    pub fn fmt(&mut self, is_compact: bool) {
-        formatted::decorate_array(self, is_compact);
+    pub fn fmt(&mut self, is_compact: bool, multi_trailing_comma: bool) {
+        formatted::decorate_array(self, is_compact, multi_trailing_comma);
     }
 
     fn value_op<T>(

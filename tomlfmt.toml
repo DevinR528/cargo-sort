@@ -1,4 +1,5 @@
-trailing_comma = false
+always_trailing_comma = false
+multiline_trailing_comma = true
 space_around_eq = true
 compact_arrays = false
 compact_inline_tables = false

@@ -10,15 +10,28 @@ use super::{
     value::{Array, DateTime, InlineTable, Value},
 };
 
-pub(crate) fn decorate_array(array: &mut Array, is_compact: bool) {
+pub(crate) fn decorate_array(
+    array: &mut Array,
+    is_compact: bool,
+    multi_trailing_comma: bool,
+) {
+    let len = array.len().saturating_sub(1);
     let newlines = array
         .values
         .iter()
         .filter_map(Item::as_value)
         .any(|v| v.decor().prefix.contains('\n'));
+
     for (i, val) in array.values.iter_mut().filter_map(Item::as_value_mut).enumerate() {
         if newlines {
-            decorate(val, &val.decor().prefix.clone(), "");
+            if len == i && multi_trailing_comma {
+                let prefix = val.decor().prefix().to_string();
+                let mut suffix = val.decor().suffix.clone();
+                if !suffix.starts_with(',') {
+                    suffix.insert(0, ',');
+                }
+                decorate(val, &prefix, &suffix);
+            }
         } else {
             // [value1, value2, value3]
             if i > 0 && !is_compact {
@@ -225,7 +238,7 @@ impl<V: Into<Value>> FromIterator<V> for Value {
     {
         let v = iter.into_iter().map(|a| Item::Value(a.into()));
         let mut array = Array { values: v.collect(), ..Default::default() };
-        decorate_array(&mut array, false);
+        decorate_array(&mut array, false, true);
         Value::Array(array)
     }
 }
