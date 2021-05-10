@@ -14,9 +14,9 @@ There are three modes cargo-sort can be used in:
  * **-c or --check**
     - Will fail with a non-zero exit code if the file is unsorted.
  * **-n or --no-format**
-    - Will **NOT** format the sorted toml. This option only has affect if writing or printing out.
+    - Will **NOT** format the sorted toml. This option only has an effect if writing or printing out.
  * **-g or --grouped**
-    - When sorting keep table key value spacing, so if you have dependency groups they will stick.
+    - When sorting keep table key value spacing. If you have dependency groups they will stick but be sorted within the grouping.
 * **-p or --print**
     - Write the sorted toml file to stdout.
 * **-w or --workspace**
@@ -24,7 +24,7 @@ There are three modes cargo-sort can be used in:
 
 ### Config
 
-cargo sort uses a config file when formatting called `tomlfmt.toml`. This is optional defaults will
+cargo sort uses a config file when formatting called `tomlfmt.toml`. This is optional and defaults will
 be used if not found in the current working dir.
 
 Here are the defaults when no `tomlfmt.toml` is found
@@ -62,27 +62,7 @@ cargo install cargo-sort
 ```
 
 # Run
-Defaults to current dir but any path can be passed in.
-```bash
-cargo sort 3.0.0
-Devin R <devin.ragotzy@gmail.com>
-Ensure Cargo.toml dependency tables are sorted.
 
-USAGE:
-    cargo-sort [FLAGS] [CWD]
-
-FLAGS:
-    -c, --check        exit with non-zero if Cargo.toml is unsorted, overrides printing flags
-    -f, --format       formats the given Cargo.toml according to tomlfmt.toml
-    -g, --grouped      when sorting groups of key value pairs blank lines are kept
-    -h, --help         Prints help information
-    -p, --print        prints Cargo.toml, lexically sorted, to the screen
-    -V, --version      Prints version information
-    -w, --workspace    checks every crate in a workspace
-
-ARGS:
-    <CWD>...    sets cwd, must contain a Cargo.toml file
-```
 Thanks to [dspicher](https://github.com/dspicher) for [issue #4](https://github.com/DevinR528/cargo-sort-ck/issues/4) you can now invoke cargo sort check as a cargo subcommand
 
 ```bash
@@ -104,6 +84,28 @@ cargo-sort -w/--workspace
 
 These are all valid. File names and extensions can be used on some of the paths but not others, if
 left off the tool will default to Cargo.toml.
+
+
+```bash
+cargo sort 3.0.0
+Devin R <devin.ragotzy@gmail.com>
+Ensure Cargo.toml dependency tables are sorted.
+
+USAGE:
+    cargo-sort [FLAGS] [CWD]
+
+FLAGS:
+    -c, --check        exit with non-zero if Cargo.toml is unsorted, overrides default behavior
+    -f, --format       formats the given Cargo.toml according to tomlfmt.toml
+    -g, --grouped      when sorting groups of key value pairs blank lines are kept
+    -h, --help         Prints help information
+    -p, --print        prints Cargo.toml, lexically sorted, to stdout
+    -V, --version      Prints version information
+    -w, --workspace    checks every crate in a workspace
+
+ARGS:
+    <CWD>...    sets cwd, must contain a Cargo.toml file
+```
 
 # Examples
 ```toml

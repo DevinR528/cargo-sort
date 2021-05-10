@@ -1,8 +1,20 @@
 use std::collections::BTreeMap;
 
-use crate::{
-    toml_edit::{Document, Item, Table, Value},
-    Matcher,
+use crate::toml_edit::{Document, Item, Table, Value};
+
+/// Each `Matcher` field when matched to a heading or key token
+/// will be matched with `.contains()`.
+pub struct Matcher<'a> {
+    /// Toml headings with braces `[heading]`.
+    pub heading: &'a [&'a str],
+    /// Toml heading with braces `[heading]` and the key
+    /// of the array to sort.
+    pub heading_key: &'a [(&'a str, &'a str)],
+}
+
+pub const MATCHER: Matcher<'_> = Matcher {
+    heading: &["dependencies", "dev-dependencies", "build-dependencies"],
+    heading_key: &[("workspace", "members"), ("workspace", "exclude")],
 };
 
 /// A state machine to track collection of headings.
@@ -175,6 +187,14 @@ mod test {
         let input = fs::read_to_string("examp/ruma.toml").unwrap();
         let sorted = super::sort_toml(&input, MATCHER, true);
         assert_ne!(input, sorted.to_string_in_original_order());
+        // println!("{}", sorted.to_string_in_original_order());
+    }
+
+    #[test]
+    fn sort_correct() {
+        let input = fs::read_to_string("examp/right.toml").unwrap();
+        let sorted = super::sort_toml(&input, MATCHER, true);
+        assert_eq!(input, sorted.to_string_in_original_order());
         // println!("{}", sorted.to_string_in_original_order());
     }
 }

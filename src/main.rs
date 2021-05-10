@@ -17,23 +17,6 @@ mod toml_edit;
 
 const VERSION: &str = include_str!("../Cargo.toml");
 
-/// Each `Matcher` field when matched to a heading or key token
-/// will be matched with `.contains()`.
-pub struct Matcher<'a> {
-    /// Toml headings with braces `[heading]`.
-    pub heading: &'a [&'a str],
-    /// Toml heading with braces `[heading]` and the key
-    /// of the array to sort.
-    pub heading_key: &'a [(&'a str, &'a str)],
-}
-
-const HEADERS: [&str; 3] = ["dependencies", "dev-dependencies", "build-dependencies"];
-
-const MATCHER: Matcher<'_> = Matcher {
-    heading: &HEADERS,
-    heading_key: &[("workspace", "members"), ("workspace", "exclude")],
-};
-
 fn write_err(msg: &str) -> std::io::Result<()> {
     let mut stderr = StandardStream::stderr(ColorChoice::Auto);
     stderr.set_color(ColorSpec::new().set_fg(Some(Color::Red)))?;
@@ -69,12 +52,13 @@ fn check_toml(path: &str, matches: &clap::ArgMatches<'_>, config: &Config) -> bo
         std::process::exit(1);
     });
 
-    let mut sorted = sort::sort_toml(&toml_raw, MATCHER, matches.is_present("grouped"));
+    let mut sorted =
+        sort::sort_toml(&toml_raw, sort::MATCHER, matches.is_present("grouped"));
     let mut sorted_str = sorted.to_string_in_original_order();
     let is_sorted = toml_raw == sorted_str;
 
-    if matches.is_present("no-format") {
-    } else {
+    // if no-format is not found apply formatting
+    if !matches.is_present("no-format") {
         fmt::fmt_toml(&mut sorted, config);
         sorted_str = sorted.to_string_in_original_order();
     }
@@ -126,18 +110,18 @@ fn main() {
                 .short("c")
                 .long("check")
                 .overrides_with_all(&["print", "format", "grouped"])
-                .help("exit with non-zero if Cargo.toml is unsorted, overrides printing flags"),
+                .help("exit with non-zero if Cargo.toml is unsorted, overrides default behavior"),
         )
         .arg(
             Arg::with_name("print")
                 .short("p")
                 .long("print")
-                .help("prints Cargo.toml, lexically sorted, to the screen"),
+                .help("prints Cargo.toml, lexically sorted, to stdout"),
         )
         .arg(
-            Arg::with_name("format")
-                .short("f")
-                .long("format")
+            Arg::with_name("no-format")
+                .short("n")
+                .long("no-format")
                 .help("formats the given Cargo.toml according to tomlfmt.toml"),
         )
         .arg(

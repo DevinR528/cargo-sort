@@ -56,6 +56,38 @@ pub struct Config {
     pub crlf: bool,
 }
 
+impl Default for Config {
+    fn default() -> Self {
+        Self {
+            trailing_comma: false,
+            space_around_eq: true,
+            compact_arrays: false,
+            compact_inline_tables: false,
+            trailing_newline: true,
+            key_value_newlines: true,
+            allowed_blank_lines: 1,
+            crlf: false,
+        }
+    }
+}
+
+impl Config {
+    // Used in testing and fuzzing
+    #[allow(dead_code)]
+    pub(crate) const fn new() -> Self {
+        Self {
+            trailing_comma: false,
+            space_around_eq: true,
+            compact_arrays: false,
+            compact_inline_tables: false,
+            trailing_newline: true,
+            key_value_newlines: true,
+            allowed_blank_lines: 1,
+            crlf: false,
+        }
+    }
+}
+
 impl FromStr for Config {
     type Err = &'static str;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
@@ -143,8 +175,8 @@ fn fmt_table(table: &mut Table, config: &Config) {
             Item::Value(val) => {
                 fmt_value(val, config);
             }
-            Item::None => {}
             Item::ArrayOfTables(_) => {}
+            Item::None => {}
         }
     }
 }
@@ -168,7 +200,10 @@ pub fn fmt_toml(toml: &mut Document, config: &Config) {
         }
     }
 
-    if config.trailing_newline && !toml.trailing.contains('\n') {
+    // TODO:
+    // This is TERRIBLE!! Convert the Document to a string only to check it ends with a
+    // newline
+    if config.trailing_newline && !toml.to_string_in_original_order().ends_with('\n') {
         toml.trailing.push('\n');
     }
 }
@@ -179,16 +214,7 @@ mod test {
 
     use super::{fmt_toml, Config, Document};
 
-    const CONFIG: Config = Config {
-        trailing_comma: false,
-        space_around_eq: true,
-        compact_arrays: false,
-        compact_inline_tables: false,
-        trailing_newline: true,
-        key_value_newlines: true,
-        allowed_blank_lines: 1,
-        crlf: false,
-    };
+    const CONFIG: Config = Config::new();
 
     #[test]
     fn toml_fmt_check() {
@@ -197,5 +223,13 @@ mod test {
         fmt_toml(&mut toml, &CONFIG);
         assert_ne!(input, toml.to_string_in_original_order());
         // println!("{}", input.to_string_in_original_order());
+    }
+
+    #[test]
+    fn fmt_correct() {
+        let input = fs::read_to_string("examp/right.toml").unwrap();
+        let mut toml = input.parse::<Document>().unwrap();
+        fmt_toml(&mut toml, &CONFIG);
+        assert_eq!(input, toml.to_string_in_original_order());
     }
 }
