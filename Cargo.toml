@@ -12,14 +12,16 @@ readme = "README.md"
 exclude = ["examp", "fixtures"]
 
 [dependencies]
+afl = { version = "0.10.0", optional = true }
 clap = "2.33"
-termcolor = "1.1"
 glob = "0.3.0"
+termcolor = "1.1"
 
 # toml_edit's dependencies
 chrono="0.4.10"
-linked-hash-map = "0.5.2"
 combine = "3.8.1"
+linked-hash-map = "0.5.2"
+
 
 [dev-dependencies]
 serde_json = "1.0.44"
@@ -28,6 +30,18 @@ pretty_assertions = "0.7.1"
 [[bin]]
 name = "cargo-sort"
 path = "src/main.rs"
+
+# In order to run fuzz
+# `cargo install afl`
+# `cargo afl build --features=fuzz --bin fuzz`
+# `cargo afl target/debug/fuzz`
+[[bin]]
+name = "fuzz"
+path = "src/fuzz.rs"
+required-features = [ "fuzz" ]
+
+[features]
+fuzz = [ "afl" ]
 
 [badges]
 travis-ci = { repository = "DevinR528/cargo-sort-ck" }
