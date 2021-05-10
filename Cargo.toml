@@ -10,6 +10,7 @@ categories = ["development-tools::cargo-plugins", "development-tools"]
 edition = "2018"
 readme = "README.md"
 exclude = ["examp", "fixtures"]
+default-run = "cargo-sort"
 
 [dependencies]
 afl = { version = "0.10.0", optional = true }
@@ -18,14 +19,13 @@ glob = "0.3.0"
 termcolor = "1.1"
 
 # toml_edit's dependencies
-chrono="0.4.10"
+chrono = "0.4.10"
 combine = "3.8.1"
 linked-hash-map = "0.5.2"
 
-
 [dev-dependencies]
-serde_json = "1.0.44"
 pretty_assertions = "0.7.1"
+serde_json = "1.0.44"
 
 [[bin]]
 name = "cargo-sort"
@@ -38,10 +38,7 @@ path = "src/main.rs"
 [[bin]]
 name = "fuzz"
 path = "src/fuzz.rs"
-required-features = [ "fuzz" ]
+required-features = ["fuzz"]
 
 [features]
-fuzz = [ "afl" ]
-
-[badges]
-travis-ci = { repository = "DevinR528/cargo-sort-ck" }
+fuzz = ["afl"]

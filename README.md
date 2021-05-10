@@ -1,6 +1,6 @@
 # Cargo Sort Check
 
-[![Latest Version](https://img.shields.io/crates/v/cargo-sort.svg)](https://crates.io/crates/cargo-sort)
+[![Rust Stable](https://github.com/DevinR528/cargo-sort-ck/actions/workflows/stable.yml/badge.svg)](https://github.com/DevinR528/cargo-sort-ck/actions/workflows/stable.yml)
 
 A tool to check that your Cargo.toml dependencies are sorted alphabetically. Project created as a solution to @dtolnay's [request for implementation #29](https://github.com/dtolnay/request-for-implementation/issues/29).  Cross platform implementation, windows compatible.  Terminal coloring works on both cmd.exe and powershell.  Checks/sorts by key in tables and also nested table headers (does not sort the items in a nested header, sorts the table itself). `cargo sort` uses [toml-edit](https://github.com/ordian/toml_edit) to parse the toml file into something useful.
 
