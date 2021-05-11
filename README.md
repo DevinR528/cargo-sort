@@ -17,6 +17,7 @@ There are three modes cargo-sort can be used in:
     - Will **NOT** format the sorted toml. This option only has an effect if writing or printing out.
  * **-g or --grouped**
     - When sorting keep table key value spacing. If you have dependency groups they will stick but be sorted within the grouping.
+    The `key_value_newlines` config option needs to be `true` for this to have any effect.
 * **-p or --print**
     - Write the sorted toml file to stdout.
 * **-w or --workspace**
@@ -40,6 +41,7 @@ compact_arrays = false
 compact_inline_tables = false
 trailing_newline = true
 # is it ok to have blank lines inside of a table
+# this option needs to be true for the --grouped flag
 key_value_newlines = false
 allowed_blank_lines = 1
 # windows style line endings

@@ -6,7 +6,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use clap::{App, Arg};
+use clap::{crate_name, crate_version, App, Arg};
 use fmt::Config;
 use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
 use toml_edit::{Document, Item};
@@ -15,42 +15,49 @@ mod fmt;
 mod sort;
 mod toml_edit;
 
-const VERSION: &str = "1.0.1";
+#[rustfmt::skip]
+const EXTRA_HELP: &str =
+"NOTE: formatting is applied after the check for sorting so
+      sorted but unformatted toml will not cause a failure";
 
-fn write_err(msg: &str) -> std::io::Result<()> {
+type IoResult<T> = Result<T, Box<dyn std::error::Error>>;
+
+fn write_err(msg: &str) -> IoResult<()> {
     let mut stderr = StandardStream::stderr(ColorChoice::Auto);
     stderr.set_color(ColorSpec::new().set_fg(Some(Color::Red)))?;
     write!(stderr, "Failure: ")?;
     stderr.reset()?;
-    writeln!(stderr, "{}", msg)
+    writeln!(stderr, "{}", msg).map_err(Into::into)
 }
 
-fn write_succ(msg: &str) -> std::io::Result<()> {
+fn write_succ(msg: &str) -> IoResult<()> {
     let mut stdout = StandardStream::stdout(ColorChoice::Auto);
     stdout.set_color(ColorSpec::new().set_fg(Some(Color::Green)))?;
     write!(stdout, "Success: ")?;
     stdout.reset()?;
-    writeln!(stdout, "{}", msg)
+    writeln!(stdout, "{}", msg).map_err(Into::into)
 }
 
 // TODO:
 // it would be nice to be able to check if the file had been saved recently
 // or check if uncommitted changes were present
-fn write_file<P: AsRef<Path>>(path: P, toml: &str) -> std::io::Result<()> {
+fn write_file<P: AsRef<Path>>(path: P, toml: &str) -> IoResult<()> {
     let mut fd = OpenOptions::new().write(true).create(true).truncate(true).open(path)?;
-    write!(fd, "{}", toml)
+    write!(fd, "{}", toml).map_err(Into::into)
 }
 
-fn check_toml(path: &str, matches: &clap::ArgMatches<'_>, config: &Config) -> bool {
+fn check_toml(
+    path: &str,
+    matches: &clap::ArgMatches<'_>,
+    config: &Config,
+) -> IoResult<bool> {
     let mut path = PathBuf::from(path);
     if path.extension().is_none() {
         path.push("Cargo.toml");
     }
 
-    let toml_raw = read_to_string(&path).unwrap_or_else(|_| {
-        write_err(&format!("No file found at: {}", path.display())).unwrap();
-        std::process::exit(1);
-    });
+    let toml_raw = read_to_string(&path)
+        .map_err(|_| format!("No file found at: {}", path.display()))?;
 
     let mut sorted =
         sort::sort_toml(&toml_raw, sort::MATCHER, matches.is_present("grouped"));
@@ -63,85 +70,78 @@ fn check_toml(path: &str, matches: &clap::ArgMatches<'_>, config: &Config) -> bo
         sorted_str = sorted.to_string_in_original_order();
     }
 
+    if config.crlf && !sorted_str.contains("\r\n") {
+        sorted_str = sorted_str.replace("\n", "\r\n")
+    }
+
     if matches.is_present("print") {
-        if config.crlf {
-            sorted_str = sorted_str.replace("\n", "\r\n")
-        }
         print!("{}", sorted_str);
-        if !matches.is_present("check") {
-            return true;
-        }
+        return Ok(true);
     }
 
     if matches.is_present("check") {
         if is_sorted {
-            write_succ(&format!("dependencies are sorted for {:?}", path)).unwrap();
+            write_succ(&format!("dependencies are sorted for {:?}", path))?;
         } else {
-            write_err(&format!("dependencies are not sorted for {:?}", path)).unwrap();
+            write_err(&format!("dependencies are not sorted for {:?}", path))?;
         }
-        return is_sorted;
+        return Ok(is_sorted);
     }
 
-    if config.crlf {
-        sorted_str = sorted_str.replace("\n", "\r\n")
-    }
-    write_file(&path, &sorted_str).unwrap_or_else(|e| {
-        write_err(&format!("failed to rewrite file: {:?}", e)).unwrap();
-    });
-    write_succ(&format!("dependencies are now sorted for {:?}", path)).unwrap();
+    write_file(&path, &sorted_str)?;
+    write_succ(&format!("dependencies are now sorted for {:?}", path))?;
 
-    true
+    Ok(true)
 }
 
-fn main() {
-    let matches = App::new("cargo sort")
-        .author("Devin R <devin.ragotzy@gmail.com>")
-        .version(VERSION)
-        .about("Ensure Cargo.toml dependency tables are sorted.")
-        .usage("cargo-sort [FLAGS] [CWD]")
-        .arg(
-            Arg::with_name("cwd")
-                .value_name("CWD")
-                .multiple(true)
-                .help("sets cwd, must contain a Cargo.toml file"),
-        )
-        .arg(
-            Arg::with_name("check")
-                .short("c")
-                .long("check")
-                .overrides_with_all(&["print", "format", "grouped"])
-                .help("exit with non-zero if Cargo.toml is unsorted, overrides default behavior"),
-        )
-        .arg(
-            Arg::with_name("print")
-                .short("p")
-                .long("print")
-                .help("prints Cargo.toml, lexically sorted, to stdout"),
-        )
-        .arg(
-            Arg::with_name("no-format")
-                .short("n")
-                .long("no-format")
-                .help("formats the given Cargo.toml according to tomlfmt.toml"),
-        )
-        .arg(
-            Arg::with_name("workspace")
-                .short("w")
-                .long("workspace")
-                .help("checks every crate in a workspace"),
-        )
-        .arg(
-            Arg::with_name("grouped")
-                .short("g")
-                .long("grouped")
-                .help("when sorting groups of key value pairs blank lines are kept"),
-        )
-        .get_matches();
+fn _main() -> IoResult<()> {
+    let matches =
+        App::new(crate_name!())
+            .author("Devin R <devin.ragotzy@gmail.com>")
+            .version(crate_version!())
+            .about("Ensure Cargo.toml dependency tables are sorted.")
+            .arg(
+                Arg::with_name("cwd")
+                    .value_name("CWD")
+                    .multiple(true)
+                    .help("sets cwd, must contain a Cargo.toml file"),
+            )
+            .arg(Arg::with_name("check").short("c").long("check").help(
+                "non-zero exit if Cargo.toml is unsorted, overrides default behavior",
+            ))
+            .arg(
+                Arg::with_name("print")
+                    .short("p")
+                    .long("print")
+                    // No printing if we are running a --check
+                    .conflicts_with("check")
+                    .help("prints Cargo.toml, lexically sorted, to stdout"),
+            )
+            .arg(
+                Arg::with_name("no-format")
+                    .short("n")
+                    .long("no-format")
+                    // Force this arg to be present if --check is
+                    .default_value_if("check", None, "")
+                    .help("formats the given Cargo.toml according to tomlfmt.toml"),
+            )
+            .arg(
+                Arg::with_name("workspace")
+                    .short("w")
+                    .long("workspace")
+                    .help("checks every crate in a workspace"),
+            )
+            .arg(
+                Arg::with_name("grouped")
+                    .short("g")
+                    .long("grouped")
+                    .help("when sorting groups of key value pairs blank lines are kept"),
+            )
+            .after_help(EXTRA_HELP)
+            .get_matches();
 
-    let cwd = env::current_dir().unwrap_or_else(|e| {
-        write_err(&format!("no current directory found: {}", e)).unwrap();
-        std::process::exit(1);
-    });
+    let cwd =
+        env::current_dir().map_err(|e| format!("no current directory found: {}", e))?;
     let dir = cwd.to_string_lossy();
 
     // remove "sort" when invoked `cargo sort` sort is the first arg
@@ -159,14 +159,9 @@ fn main() {
             path.push("Cargo.toml");
         }
 
-        let raw_toml = read_to_string(&path).unwrap_or_else(|_| {
-            write_err(&format!("No file found at: {}", path.display())).unwrap();
-            std::process::exit(1);
-        });
-        let toml = raw_toml.parse::<Document>().unwrap_or_else(|e| {
-            write_err(&e.to_string()).unwrap();
-            std::process::exit(1);
-        });
+        let raw_toml = read_to_string(&path)
+            .map_err(|_| format!("no file found at: {}", path.display()))?;
+        let toml = raw_toml.parse::<Document>()?;
         let workspace = &toml["workspace"];
         if let Item::Table(ws) = workspace {
             for member in ws["members"]
@@ -183,14 +178,8 @@ fn main() {
                             std::process::exit(1);
                         })
                     {
-                        match entry {
-                            Ok(path) => filtered_matches
-                                .push(Cow::Owned(path.display().to_string())),
-                            Err(e) => {
-                                write_err(&format!("Glob failed: {}", e)).unwrap();
-                                std::process::exit(1);
-                            }
-                        }
+                        let path = entry?;
+                        filtered_matches.push(Cow::Owned(path.display().to_string()));
                     }
                 } else {
                     filtered_matches.push(Cow::Owned(format!("{}/{}", dir, member)));
@@ -217,12 +206,19 @@ fn main() {
     let mut flag = true;
     for sorted in filtered_matches.iter().map(|path| check_toml(path, &matches, &config))
     {
-        if !sorted {
+        if !(sorted?) {
             flag = false;
         }
     }
 
     if flag { std::process::exit(0) } else { std::process::exit(1) }
+}
+
+fn main() {
+    _main().unwrap_or_else(|e| {
+        write_err(&e.to_string()).unwrap();
+        std::process::exit(1);
+    })
 }
 
 // #[test]
