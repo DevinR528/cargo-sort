@@ -26,4 +26,6 @@ jobs:
     - name: Catch common mistakes
       uses: actions-rs/cargo@v1
       with:
+        - run: cargo install cargo-sort
+        - run: cargo sort -gc
         command: mean-clippy
