@@ -64,8 +64,12 @@ fn check_toml(
     let toml_raw = read_to_string(&path)
         .map_err(|_| format!("No file found at: {}", path.display()))?;
 
-    let mut sorted =
-        sort::sort_toml(&toml_raw, sort::MATCHER, matches.is_present("grouped"));
+    let mut sorted = sort::sort_toml(
+        &toml_raw,
+        sort::MATCHER,
+        matches.is_present("grouped"),
+        &config.table_order,
+    );
     let mut sorted_str = sorted.to_string_in_original_order();
     let is_sorted = toml_raw == sorted_str;
 
@@ -146,6 +150,16 @@ fn _main() -> IoResult<()> {
                     .long("grouped")
                     .help("when sorting groups of key value pairs blank lines are kept"),
             )
+            .arg(
+                Arg::with_name("order")
+                    .short("o")
+                    .long("order")
+                    .takes_value(true)
+                    .empty_values(false)
+                    .require_equals(true)
+                    .value_delimiter(",")
+                    .help("when sorting groups of key value pairs blank lines are kept"),
+            )
             .after_help(EXTRA_HELP)
             .get_matches();
 
@@ -199,7 +213,7 @@ fn _main() -> IoResult<()> {
 
     let mut cwd = cwd.clone();
     cwd.push("tomlfmt.toml");
-    let config = read_to_string(&cwd)
+    let mut config = read_to_string(&cwd)
         .or_else(|_err| {
             cwd.pop();
             cwd.push(".tomlfmt.toml");
@@ -207,6 +221,10 @@ fn _main() -> IoResult<()> {
         })
         .unwrap_or_default()
         .parse::<Config>()?;
+
+    if let Some(ordering) = matches.values_of("order").map(|v| v.collect::<Vec<_>>()) {
+        config.table_order = ordering.into_iter().map(|s| s.to_string()).collect();
+    }
 
     let mut flag = true;
     for sorted in filtered_matches.iter().map(|path| check_toml(path, &matches, &config))

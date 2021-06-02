@@ -59,28 +59,17 @@ pub struct Config {
     ///
     /// Defaults to `false`.
     pub crlf: bool,
-}
 
-impl Default for Config {
-    fn default() -> Self {
-        Self {
-            always_trailing_comma: false,
-            multiline_trailing_comma: true,
-            space_around_eq: true,
-            compact_arrays: false,
-            compact_inline_tables: false,
-            trailing_newline: true,
-            key_value_newlines: true,
-            allowed_blank_lines: 1,
-            crlf: false,
-        }
-    }
+    /// The user specified ordering of tables in a document.
+    ///
+    /// All unspecified tables will come after these.
+    pub table_order: Vec<String>,
 }
 
 impl Config {
     // Used in testing and fuzzing
     #[allow(dead_code)]
-    pub(crate) const fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Self {
             always_trailing_comma: false,
             multiline_trailing_comma: true,
@@ -91,6 +80,16 @@ impl Config {
             key_value_newlines: true,
             allowed_blank_lines: 1,
             crlf: false,
+            table_order: [
+                "package",
+                "features",
+                "dependencies",
+                "build-dependencies",
+                "dev-dependencies",
+            ]
+            .iter()
+            .map(|s| (*s).to_owned())
+            .collect(),
         }
     }
 }
@@ -116,6 +115,13 @@ impl FromStr for Config {
             allowed_blank_lines: toml["allowed_blank_lines"].as_integer().unwrap_or(1)
                 as usize,
             crlf: toml["crlf"].as_bool().unwrap_or_default(),
+            table_order: toml["table_order"]
+                .as_array()
+                .into_iter()
+                .flat_map(|a| a.iter())
+                .filter_map(|v| v.as_str())
+                .map(|s| s.to_string())
+                .collect(),
         })
     }
 }
@@ -226,13 +232,11 @@ mod test {
 
     use super::{fmt_toml, Config, Document};
 
-    const CONFIG: Config = Config::new();
-
     #[test]
     fn toml_fmt_check() {
         let input = fs::read_to_string("examp/ruma.toml").unwrap();
         let mut toml = input.parse::<Document>().unwrap();
-        fmt_toml(&mut toml, &CONFIG);
+        fmt_toml(&mut toml, &Config::new());
         assert_ne!(input, toml.to_string_in_original_order());
         // println!("{}", toml.to_string_in_original_order());
     }
@@ -241,7 +245,7 @@ mod test {
     fn fmt_correct() {
         let input = fs::read_to_string("examp/right.toml").unwrap();
         let mut toml = input.parse::<Document>().unwrap();
-        fmt_toml(&mut toml, &CONFIG);
+        fmt_toml(&mut toml, &Config::new());
         assert_eq!(input, toml.to_string_in_original_order());
     }
 
@@ -249,7 +253,7 @@ mod test {
     fn array() {
         let input = fs::read_to_string("examp/clippy.toml").unwrap();
         let mut toml = input.parse::<Document>().unwrap();
-        fmt_toml(&mut toml, &CONFIG);
+        fmt_toml(&mut toml, &Config::new());
         assert_ne!(input, toml.to_string_in_original_order());
         // println!("{}", toml.to_string_in_original_order());
     }
