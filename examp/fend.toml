@@ -24,6 +24,9 @@ toml = "0.5"
 toolchain_find = "0.1"
 atty = "0.2"
 
+[features]
+foo = "bar"
+
 [dependencies.beta]
 version = "0.15"
 default-features = false

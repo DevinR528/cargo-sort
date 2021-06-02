@@ -2,9 +2,9 @@
 
 [![Rust Stable](https://github.com/DevinR528/cargo-sort-ck/actions/workflows/stable.yml/badge.svg)](https://github.com/DevinR528/cargo-sort-ck/actions/workflows/stable.yml)
 
-A tool to check that your Cargo.toml dependencies are sorted alphabetically. Project created as a solution to @dtolnay's [request for implementation #29](https://github.com/dtolnay/request-for-implementation/issues/29).  Cross platform implementation, windows compatible.  Terminal coloring works on both cmd.exe and powershell.  Checks/sorts by key in tables and also nested table headers (does not sort the items in a nested header, sorts the table itself). `cargo sort` uses [toml-edit](https://github.com/ordian/toml_edit) to parse the toml file into something useful.
+A tool to check that your Cargo.toml dependencies are sorted alphabetically. Project created as a solution to @dtolnay's [request for implementation #29](https://github.com/dtolnay/request-for-implementation/issues/29). Cross platform implementation, windows compatible.  Terminal coloring works on both cmd.exe and powershell. Checks/sorts by key in tables and also nested table headers (does not sort the items in a nested header, sorts the table itself). `cargo sort` uses [toml-edit](https://github.com/ordian/toml_edit) to parse the toml file into something useful.
 
-The `--format` option may result in improperly formatted toml please file an issue.
+The `--format` option may result in improperly formatted toml; please file an issue.
 
 ## Use
 
@@ -18,14 +18,16 @@ There are three modes cargo-sort can be used in:
  * **-g or --grouped**
     - When sorting keep table key value spacing. If you have dependency groups they will stick but be sorted within the grouping.
     The `key_value_newlines` config option needs to be `true` for this to have any effect.
-* **-p or --print**
+ * **-p or --print**
     - Write the sorted toml file to stdout.
-* **-w or --workspace**
+ * **-w or --workspace**
     - Checks every crate in the workspace based on flags. Only one root may be given.
+ * **-o or --order**
+    - Specify an ordering of tables. All nested tables will be sorted and appear after the specified table. Any unspecified table will be after specified.
 
 ### Config
 
-cargo sort uses a config file when formatting called `tomlfmt.toml`. This is optional and defaults will
+`cargo sort` uses a config file when formatting called `tomlfmt.toml`. This is optional and defaults will
 be used if not found in the current working dir.
 
 Here are the defaults when no `tomlfmt.toml` is found
@@ -46,6 +48,9 @@ key_value_newlines = false
 allowed_blank_lines = 1
 # windows style line endings
 crlf = false
+# The user specified ordering of tables in a document.
+# All unspecified tables will come after these.
+table_order = [],
 ```
 
 included in sort check is:
@@ -67,7 +72,7 @@ cargo install cargo-sort
 
 # Run
 
-Thanks to [dspicher](https://github.com/dspicher) for [issue #4](https://github.com/DevinR528/cargo-sort-ck/issues/4) you can now invoke cargo sort check as a cargo subcommand
+Thanks to [dspicher](https://github.com/dspicher) for [issue #4](https://github.com/DevinR528/cargo-sort-ck/issues/4) you can now invoke `cargo sort` check as a cargo subcommand
 
 ```bash
 cargo sort [FLAGS] [path]
