@@ -103,7 +103,13 @@ fn sort_by_group(table: &mut Table) {
 }
 
 /// Returns a sorted toml `Document`.
-pub fn sort_toml(input: &str, matcher: Matcher<'_>, group: bool) -> Document {
+pub fn sort_toml(
+    input: &str,
+    matcher: Matcher<'_>,
+    group: bool,
+    ordering: &[String],
+) -> Document {
+    let mut ordering = ordering.to_owned();
     let mut toml = input.parse::<Document>().unwrap();
     // This takes care of `[workspace] members = [...]`
     for (heading, key) in matcher.heading_key {
@@ -125,18 +131,23 @@ pub fn sort_toml(input: &str, matcher: Matcher<'_>, group: bool) -> Document {
     let mut heading_order: BTreeMap<_, Vec<Heading>> = BTreeMap::new();
     for (idx, (head, item)) in toml.as_table_mut().iter_mut().enumerate() {
         if !matcher.heading.contains(&head.as_str()) {
+            if !ordering.contains(head) && !ordering.is_empty() {
+                ordering.push(head.to_owned());
+            }
             continue;
         }
         match item.value_mut() {
             Item::Table(table) => {
                 if first_table.is_none() {
-                    first_table = Some(idx);
+                    // The root table is always index 0 which we ignore so add 1
+                    first_table = Some(idx + 1);
                 }
                 let headings = heading_order.entry((idx, head.to_string())).or_default();
-                headings.push(Heading::Complete(vec![head.to_string()]));
                 // Push a `Heading::Complete` here incase the tables are ordered
                 // [heading.segs]
                 // [heading]
+                // It will just be ignored if not the case
+                headings.push(Heading::Complete(vec![head.to_string()]));
 
                 gather_headings(table, headings, 1);
                 headings.sort();
@@ -151,22 +162,96 @@ pub fn sort_toml(input: &str, matcher: Matcher<'_>, group: bool) -> Document {
         }
     }
 
-    // Since the root table is always index 0 we add one
-    let first_table_idx = first_table.unwrap_or_default() + 1;
-    for (idx, heading) in heading_order.into_iter().flat_map(|(_, segs)| segs).enumerate()
-    {
-        if let Heading::Complete(segs) = heading {
-            let mut table = Some(toml.as_table_mut());
-            for seg in segs {
-                table = table.and_then(|t| t[&seg].as_table_mut());
-            }
-            if let Some(table) = table {
-                table.set_position(first_table_idx + idx);
-            }
-        }
+    if ordering.is_empty() {
+        sort_lexicographical(first_table, &heading_order, &mut toml);
+    } else {
+        sort_by_ordering(&ordering, &heading_order, &mut toml);
     }
 
     toml
+}
+
+fn sort_lexicographical(
+    first_table: Option<usize>,
+    heading_order: &BTreeMap<(usize, String), Vec<Heading>>,
+    toml: &mut Document,
+) {
+    // Since the root table is always index 0 we add one
+    let first_table_idx = first_table.unwrap_or_default() + 1;
+    for (idx, heading) in heading_order.iter().flat_map(|(_, segs)| segs).enumerate() {
+        if let Heading::Complete(segs) = heading {
+            let mut nested = 0;
+            let mut table = Some(toml.as_table_mut());
+            for seg in segs {
+                nested += 1;
+                table = table.and_then(|t| t[seg].as_table_mut());
+            }
+            // Do not reorder the unsegmented tables
+            if nested > 1 {
+                if let Some(table) = table {
+                    table.set_position(first_table_idx + idx);
+                }
+            }
+        }
+    }
+}
+
+fn sort_by_ordering(
+    ordering: &[String],
+    heading_order: &BTreeMap<(usize, String), Vec<Heading>>,
+    toml: &mut Document,
+) {
+    let mut idx = 0;
+    for heading in ordering {
+        if let Some((_, to_sort_headings)) =
+            heading_order.iter().find(|((_, key), _)| key == heading)
+        {
+            for h in to_sort_headings {
+                if let Heading::Complete(segs) = h {
+                    let mut table = Some(toml.as_table_mut());
+                    for seg in segs {
+                        table = table.and_then(|t| t[seg].as_table_mut());
+                    }
+                    // Do not reorder the unsegmented tables
+                    if let Some(table) = table {
+                        table.set_position(idx);
+                        idx += 1;
+                    }
+                }
+            }
+        } else if let Some(tab) = toml.as_table_mut()[heading].as_table_mut() {
+            tab.set_position(idx);
+            idx += 1;
+            walk_tables_set_position(tab, &mut idx)
+        } else if let Some(arrtab) = toml.as_table_mut()[heading].as_array_of_tables_mut()
+        {
+            for tab in arrtab.iter_mut() {
+                tab.set_position(idx);
+                idx += 1;
+                walk_tables_set_position(tab, &mut idx);
+            }
+        }
+    }
+}
+
+fn walk_tables_set_position(table: &mut Table, idx: &mut usize) {
+    for (_, item) in table.iter_mut() {
+        match item.value_mut() {
+            Item::Table(tab) => {
+                tab.set_position(*idx);
+                *idx += 1;
+                walk_tables_set_position(tab, idx)
+            }
+            Item::ArrayOfTables(arr) => {
+                for tab in arr.iter_mut() {
+                    tab.set_position(*idx);
+                    *idx += 1;
+                    walk_tables_set_position(tab, idx)
+                }
+            }
+            _ => {}
+        }
+    }
 }
 
 #[cfg(test)]
@@ -183,7 +268,7 @@ mod test {
     #[test]
     fn toml_edit_check() {
         let input = fs::read_to_string("examp/workspace.toml").unwrap();
-        let sorted = super::sort_toml(&input, MATCHER, false);
+        let sorted = super::sort_toml(&input, MATCHER, false, &[]);
         assert_ne!(input, sorted.to_string_in_original_order());
         // println!("{}", sorted.to_string_in_original_order());
     }
@@ -191,7 +276,7 @@ mod test {
     #[test]
     fn grouped_check() {
         let input = fs::read_to_string("examp/ruma.toml").unwrap();
-        let sorted = super::sort_toml(&input, MATCHER, true);
+        let sorted = super::sort_toml(&input, MATCHER, true, &[]);
         assert_ne!(input, sorted.to_string_in_original_order());
         // println!("{}", sorted.to_string_in_original_order());
     }
@@ -199,8 +284,47 @@ mod test {
     #[test]
     fn sort_correct() {
         let input = fs::read_to_string("examp/right.toml").unwrap();
-        let sorted = super::sort_toml(&input, MATCHER, true);
+        let sorted = super::sort_toml(&input, MATCHER, true, &[]);
         assert_eq!(input, sorted.to_string_in_original_order());
         // println!("{}", sorted.to_string_in_original_order());
+    }
+
+    #[test]
+    fn sort_tables() {
+        let input = fs::read_to_string("examp/fend.toml").unwrap();
+        let sorted = super::sort_toml(&input, MATCHER, true, &[]);
+        assert_ne!(input, sorted.to_string_in_original_order());
+        println!("{}", sorted.to_string_in_original_order());
+    }
+
+    #[test]
+    fn sort_devfirst() {
+        let input = fs::read_to_string("examp/reorder.toml").unwrap();
+        let sorted = super::sort_toml(&input, MATCHER, true, &[]);
+        assert_eq!(input, sorted.to_string_in_original_order());
+        // println!("{}", sorted.to_string_in_original_order());
+
+        let input = fs::read_to_string("examp/noreorder.toml").unwrap();
+        let sorted = super::sort_toml(&input, MATCHER, true, &[]);
+        assert_eq!(input, sorted.to_string_in_original_order());
+        // println!("{}", sorted.to_string_in_original_order());
+    }
+
+    #[test]
+    fn reorder() {
+        let input = fs::read_to_string("examp/clippy.toml").unwrap();
+        let sorted = super::sort_toml(
+            &input,
+            MATCHER,
+            true,
+            &[
+                "package".to_owned(),
+                "features".to_owned(),
+                "dependencies".to_owned(),
+                "build-dependencies".to_owned(),
+                "dev-dependencies".to_owned(),
+            ],
+        );
+        assert_ne!(input, sorted.to_string_in_original_order());
     }
 }
