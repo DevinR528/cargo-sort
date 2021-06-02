@@ -1,6 +1,7 @@
 use std::{
     borrow::Cow,
     env,
+    fmt::Display,
     fs::{read_to_string, OpenOptions},
     io::Write,
     path::{Path, PathBuf},
@@ -22,18 +23,18 @@ const EXTRA_HELP: &str =
 
 type IoResult<T> = Result<T, Box<dyn std::error::Error>>;
 
-fn write_err(msg: &str) -> IoResult<()> {
+fn write_red<S: Display>(highlight: &str, msg: S) -> IoResult<()> {
     let mut stderr = StandardStream::stderr(ColorChoice::Auto);
     stderr.set_color(ColorSpec::new().set_fg(Some(Color::Red)))?;
-    write!(stderr, "Failure: ")?;
+    write!(stderr, "{}", highlight)?;
     stderr.reset()?;
     writeln!(stderr, "{}", msg).map_err(Into::into)
 }
 
-fn write_succ(msg: &str) -> IoResult<()> {
+fn write_green<S: Display>(highlight: &str, msg: S) -> IoResult<()> {
     let mut stdout = StandardStream::stdout(ColorChoice::Auto);
     stdout.set_color(ColorSpec::new().set_fg(Some(Color::Green)))?;
-    write!(stdout, "Success: ")?;
+    write!(stdout, "{}", highlight)?;
     stdout.reset()?;
     writeln!(stdout, "{}", msg).map_err(Into::into)
 }
@@ -55,6 +56,10 @@ fn check_toml(
     if path.extension().is_none() {
         path.push("Cargo.toml");
     }
+
+    let krate = path.components().nth_back(1).ok_or("No crate folder found")?.as_os_str();
+
+    write_green("Checking ", format!("{}...", krate.to_string_lossy()))?;
 
     let toml_raw = read_to_string(&path)
         .map_err(|_| format!("No file found at: {}", path.display()))?;
@@ -80,16 +85,20 @@ fn check_toml(
     }
 
     if matches.is_present("check") {
-        if is_sorted {
-            write_succ(&format!("dependencies are sorted for {:?}", path))?;
-        } else {
-            write_err(&format!("dependencies are not sorted for {:?}", path))?;
+        if !is_sorted {
+            write_red(
+                "error: ",
+                format!("Dependencies for {} are not sorted", krate.to_string_lossy()),
+            )?;
         }
         return Ok(is_sorted);
     }
 
     write_file(&path, &sorted_str)?;
-    write_succ(&format!("dependencies are now sorted for {:?}", path))?;
+    write_green(
+        "Finished: ",
+        format!("Cargo.toml for {:?} has been rewritten", krate.to_string_lossy()),
+    )?;
 
     Ok(true)
 }
@@ -174,7 +183,7 @@ fn _main() -> IoResult<()> {
                 if member.contains('*') || member.contains('?') {
                     for entry in glob::glob(&format!("{}/{}", dir, member))
                         .unwrap_or_else(|e| {
-                            write_err(&format!("Glob failed: {}", e)).unwrap();
+                            write_red("error: ", format!("Glob failed: {}", e)).unwrap();
                             std::process::exit(1);
                         })
                     {
@@ -197,11 +206,7 @@ fn _main() -> IoResult<()> {
             read_to_string(&cwd)
         })
         .unwrap_or_default()
-        .parse::<Config>()
-        .unwrap_or_else(|e| {
-            write_err(&e.to_string()).unwrap();
-            std::process::exit(1);
-        });
+        .parse::<Config>()?;
 
     let mut flag = true;
     for sorted in filtered_matches.iter().map(|path| check_toml(path, &matches, &config))
@@ -216,7 +221,7 @@ fn _main() -> IoResult<()> {
 
 fn main() {
     _main().unwrap_or_else(|e| {
-        write_err(&e.to_string()).unwrap();
+        write_red("error: ", e).unwrap();
         std::process::exit(1);
     })
 }
