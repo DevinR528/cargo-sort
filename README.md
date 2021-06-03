@@ -50,7 +50,7 @@ allowed_blank_lines = 1
 crlf = false
 # The user specified ordering of tables in a document.
 # All unspecified tables will come after these.
-table_order = [],
+table_order = []
 ```
 
 included in sort check is:
@@ -167,7 +167,7 @@ version="0"
 
 # Tables are ordered by their appearance so
 # if dev-dependencies was before build it would be
-# sorted that way
+# sorted that way unless --order is specified
 [build-dependencies]
 bar="0"
 foo="0"
