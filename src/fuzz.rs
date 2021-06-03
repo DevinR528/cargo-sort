@@ -12,7 +12,18 @@ fn main() {
         if let Ok(s) = std::str::from_utf8(data) {
             let s = s.replace("\r", "");
             if s.parse::<Document>().is_ok() {
-                let mut toml = sort::sort_toml(&s, sort::MATCHER, false, &[]);
+                let mut toml = sort::sort_toml(
+                    &s,
+                    sort::MATCHER,
+                    false,
+                    &[
+                        "package".to_owned(),
+                        "features".to_owned(),
+                        "dependencies".to_owned(),
+                        "build-dependencies".to_owned(),
+                        "dev-dependencies".to_owned(),
+                    ],
+                );
                 fmt::fmt_toml(&mut toml, &Config::new());
                 let s = toml.to_string_in_original_order();
                 assert!(s.parse::<Document>().is_ok())

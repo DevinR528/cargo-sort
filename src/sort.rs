@@ -294,7 +294,7 @@ mod test {
         let input = fs::read_to_string("examp/fend.toml").unwrap();
         let sorted = super::sort_toml(&input, MATCHER, true, &[]);
         assert_ne!(input, sorted.to_string_in_original_order());
-        println!("{}", sorted.to_string_in_original_order());
+        // println!("{}", sorted.to_string_in_original_order());
     }
 
     #[test]
