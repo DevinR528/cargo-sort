@@ -156,7 +156,6 @@ fn _main() -> IoResult<()> {
                     .long("order")
                     .takes_value(true)
                     .empty_values(false)
-                    .require_equals(true)
                     .value_delimiter(",")
                     .help("when sorting groups of key value pairs blank lines are kept"),
             )
