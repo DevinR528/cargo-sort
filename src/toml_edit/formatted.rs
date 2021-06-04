@@ -15,31 +15,19 @@ pub(crate) fn decorate_array(
     is_compact: bool,
     multi_trailing_comma: bool,
 ) {
-    let len = array.len().saturating_sub(1);
-    let newlines = array
-        .values
-        .iter()
-        .filter_map(Item::as_value)
-        .any(|v| v.decor().prefix.contains('\n'));
-
+    let mut newlines = false;
     for (i, val) in array.values.iter_mut().filter_map(Item::as_value_mut).enumerate() {
-        if newlines {
-            if len == i && multi_trailing_comma {
-                let prefix = val.decor().prefix().to_string();
-                let mut suffix = val.decor().suffix.clone();
-                if !suffix.starts_with(',') {
-                    suffix.insert(0, ',');
-                }
-                decorate(val, &prefix, &suffix);
-            }
-        } else {
-            // [value1, value2, value3]
+        newlines |= val.decor().prefix.contains('\n');
+        if !newlines {
             if i > 0 && !is_compact {
                 decorate(val, " ", "");
             } else {
                 decorate(val, "", "");
             }
         }
+    }
+    if newlines {
+        array.trailing_comma |= multi_trailing_comma;
     }
 }
 

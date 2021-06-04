@@ -53,6 +53,7 @@ pub struct Array {
     /// and comments in an empty array or after the trailing comma
     pub trailing: InternalString,
     pub trailing_comma: bool,
+    pub newlines: bool,
     // prefix before `[` and suffix after `]`
     pub decor: Decor,
 }
