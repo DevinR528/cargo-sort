@@ -34,7 +34,7 @@ fn array_from_vec(
             got: format!("{:?}", val.get_type()),
             expected: format!("{:?}", array.value_type()),
         });
-        array.newlines |= val.decor().suffix.contains("\n");
+        array.newlines |= val.decor().suffix.contains('\n');
         if array.push_formatted(val).is_err() {
             return err;
         }

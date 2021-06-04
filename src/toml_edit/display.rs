@@ -48,7 +48,7 @@ impl Display for Array {
         write!(f, "{}[", self.decor.prefix)?;
         for (i, v) in self.iter().enumerate() {
             if i > 0 {
-                write!(f, "{}", ",")?;
+                write!(f, ",")?;
             }
 
             // The last values decor.suffix is \n so we can't just
