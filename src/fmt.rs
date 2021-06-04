@@ -129,7 +129,7 @@ impl FromStr for Config {
 fn fmt_value(value: &mut Value, config: &Config) {
     match value {
         Value::Array(arr) => {
-            arr.trailing_comma = config.always_trailing_comma;
+            arr.trailing_comma |= config.always_trailing_comma;
             arr.fmt(config.compact_arrays, config.multiline_trailing_comma);
         }
         Value::InlineTable(table) => {
@@ -252,6 +252,15 @@ mod test {
     #[test]
     fn array() {
         let input = fs::read_to_string("examp/clippy.toml").unwrap();
+        let mut toml = input.parse::<Document>().unwrap();
+        fmt_toml(&mut toml, &Config::new());
+        assert_ne!(input, toml.to_string_in_original_order());
+        // println!("{}", toml.to_string_in_original_order());
+    }
+
+    #[test]
+    fn trailing() {
+        let input = fs::read_to_string("examp/trailing.toml").unwrap();
         let mut toml = input.parse::<Document>().unwrap();
         fmt_toml(&mut toml, &Config::new());
         assert_ne!(input, toml.to_string_in_original_order());

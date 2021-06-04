@@ -44,11 +44,30 @@ impl Display for Value {
 
 impl Display for Array {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
+        let len = self.len().saturating_sub(1);
         write!(f, "{}[", self.decor.prefix)?;
-        join(f, self.iter(), ",")?;
-        if self.trailing_comma {
+        for (i, v) in self.iter().enumerate() {
+            if i > 0 {
+                write!(f, "{}", ",")?;
+            }
+
+            // The last values decor.suffix is \n so we can't just
+            // write a `,` after we write the value
+            let mut v2 = v.clone();
+            let val = if i == len && self.trailing_comma && self.newlines {
+                v2.decor_mut().suffix.insert(0, ',');
+                &v2
+            } else {
+                v
+            };
+
+            write!(f, "{}", val)?;
+        }
+
+        if self.trailing_comma && !self.newlines {
             write!(f, ",")?;
         }
+
         write!(f, "{}", self.trailing)?;
         write!(f, "]{}", self.decor.suffix)
     }
@@ -178,18 +197,4 @@ impl Display for Document {
         write!(f, "{}", self.as_table())?;
         write!(f, "{}", self.trailing)
     }
-}
-
-fn join<D, I>(f: &mut Formatter<'_>, iter: I, sep: &str) -> Result
-where
-    D: Display,
-    I: Iterator<Item = D>,
-{
-    for (i, v) in iter.enumerate() {
-        if i > 0 {
-            write!(f, "{}", sep)?;
-        }
-        write!(f, "{}", v)?;
-    }
-    Ok(())
 }

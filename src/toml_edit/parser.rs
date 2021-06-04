@@ -281,10 +281,10 @@ trimmed in raw strings.
    ]"#,
             r#"[# comment
 # comment2
-      1
+      1,
 
 #sd
-,
+
 # comment3
 
    ]"#,
