@@ -44,7 +44,7 @@ compact_inline_tables = false
 trailing_newline = true
 # is it ok to have blank lines inside of a table
 # this option needs to be true for the --grouped flag
-key_value_newlines = false
+key_value_newlines = true
 allowed_blank_lines = 1
 # windows style line endings
 crlf = false
@@ -62,7 +62,7 @@ included in sort check is:
 ["workspace.exclude"]
 ```
 
-if you have a header to add open a PR's, they are welcomed.
+If you have a header to add open a PR, they are welcome.
 
 
 # Install
