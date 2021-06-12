@@ -7,7 +7,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use clap::{crate_name, crate_version, App, Arg};
+use clap::{crate_name, crate_version, App, AppSettings, Arg};
 use fmt::Config;
 use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
 use toml_edit::{Document, Item};
@@ -113,6 +113,7 @@ fn _main() -> IoResult<()> {
             .author("Devin R <devin.ragotzy@gmail.com>")
             .version(crate_version!())
             .about("Ensure Cargo.toml dependency tables are sorted.")
+            .setting(AppSettings::ColoredHelp)
             .arg(
                 Arg::with_name("cwd")
                     .value_name("CWD")
