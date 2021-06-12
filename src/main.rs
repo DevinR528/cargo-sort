@@ -16,10 +16,9 @@ mod fmt;
 mod sort;
 mod toml_edit;
 
-#[rustfmt::skip]
-const EXTRA_HELP: &str =
-"NOTE: formatting is applied after the check for sorting so
-      sorted but unformatted toml will not cause a failure";
+const EXTRA_HELP: &str = "\
+    NOTE: formatting is applied after the check for sorting so \
+          sorted but unformatted toml will not cause a failure";
 
 type IoResult<T> = Result<T, Box<dyn std::error::Error>>;
 
