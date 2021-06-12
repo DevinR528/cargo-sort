@@ -136,7 +136,7 @@ fn _main() -> IoResult<()> {
                     .long("no-format")
                     // Force this arg to be present if --check is
                     .default_value_if("check", None, "")
-                    .help("formats the given Cargo.toml according to tomlfmt.toml"),
+                    .help("skip formatting after sorting"),
             )
             .arg(
                 Arg::with_name("workspace")
