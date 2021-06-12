@@ -17,7 +17,7 @@ fuzz = ["afl"]
 
 [dependencies]
 afl = { version = "0.10", optional = true }
-clap = "2.33"
+clap = { version = "2.33", features = ["wrap_help"] }
 glob = "0.3"
 termcolor = "1.1"
 
