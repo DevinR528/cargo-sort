@@ -1,4 +1,4 @@
-- id: sort
+- id: cargo-sort
   name: Check Cargo.toml is sorted
   description: 'Ensure Cargo.toml is sorted'
   entry: cargo-sort
