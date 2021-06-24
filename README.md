@@ -70,6 +70,22 @@ If you have a header to add open a PR, they are welcome.
 cargo install cargo-sort
 ```
 
+## pre-commit
+
+If you use [pre-commit](https://pre-commit.com/) in your project, you can add cargo-sort as hook by
+adding the following entry to your `.pre-commit0-config.yaml` configuration:
+
+```yaml
+repos:
+- repo: https://github.com/DevinR528/cargo-sort
+  rev: v1.0.4
+  hooks:
+  - id: cargo-sort
+```
+
+Please make sure to set `rev` to the latest tag of this repo as the tag shown here might not always
+be updated to the latest version.
+
 # Run
 
 Thanks to [dspicher](https://github.com/dspicher) for [issue #4](https://github.com/DevinR528/cargo-sort-ck/issues/4) you can now invoke `cargo sort` check as a cargo subcommand
