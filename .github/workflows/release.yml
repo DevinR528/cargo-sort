@@ -7,7 +7,7 @@ on:
 
 jobs:
   create-release:
-    if: github.repository_owner == 'DevinR528'
+    # if: github.repository_owner == 'DevinR528'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
