@@ -7,6 +7,8 @@ mod toml_edit;
 use fmt::Config;
 use toml_edit::Document;
 
+// cargo afl build --bin=fuzz --features=fuzz
+// cargo afl fuzz -i examp/ -o target/cargo-sort-fuzz -- target/debug/fuzz
 fn main() {
     fuzz!(|data: &[u8]| {
         if let Ok(s) = std::str::from_utf8(data) {
