@@ -33,7 +33,7 @@ be used if not found in the current working dir.
 Here are the defaults when no `tomlfmt.toml` is found
 ```toml
 # trailing comma in arrays
-alwyas_trailing_comma = false
+always_trailing_comma = false
 # trailing comma when multi-line
 multiline_trailing_comma = true
 space_around_eq = true
