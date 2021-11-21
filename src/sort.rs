@@ -285,6 +285,12 @@ mod test {
     fn sort_correct() {
         let input = fs::read_to_string("examp/right.toml").unwrap();
         let sorted = super::sort_toml(&input, MATCHER, true, &[]);
+        #[cfg(target_os = "windows")]
+        assert_eq!(
+            input.replace("\r\n", "\n"),
+            sorted.to_string_in_original_order().replace("\r\n", "\n")
+        );
+        #[cfg(not(target_os = "windows"))]
         assert_eq!(input, sorted.to_string_in_original_order());
         // println!("{}", sorted.to_string_in_original_order());
     }
@@ -301,11 +307,23 @@ mod test {
     fn sort_devfirst() {
         let input = fs::read_to_string("examp/reorder.toml").unwrap();
         let sorted = super::sort_toml(&input, MATCHER, true, &[]);
+        #[cfg(target_os = "windows")]
+        assert_eq!(
+            input.replace("\r\n", "\n"),
+            sorted.to_string_in_original_order().replace("\r\n", "\n")
+        );
+        #[cfg(not(target_os = "windows"))]
         assert_eq!(input, sorted.to_string_in_original_order());
         // println!("{}", sorted.to_string_in_original_order());
 
         let input = fs::read_to_string("examp/noreorder.toml").unwrap();
         let sorted = super::sort_toml(&input, MATCHER, true, &[]);
+        #[cfg(target_os = "windows")]
+        assert_eq!(
+            input.replace("\r\n", "\n"),
+            sorted.to_string_in_original_order().replace("\r\n", "\n")
+        );
+        #[cfg(not(target_os = "windows"))]
         assert_eq!(input, sorted.to_string_in_original_order());
         // println!("{}", sorted.to_string_in_original_order());
     }

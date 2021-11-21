@@ -246,6 +246,12 @@ mod test {
         let input = fs::read_to_string("examp/right.toml").unwrap();
         let mut toml = input.parse::<Document>().unwrap();
         fmt_toml(&mut toml, &Config::new());
+        #[cfg(target_os = "windows")]
+        assert_eq!(
+            input.replace("\r\n", "\n"),
+            toml.to_string_in_original_order().replace("\r\n", "\n")
+        );
+        #[cfg(not(target_os = "windows"))]
         assert_eq!(input, toml.to_string_in_original_order());
     }
 
