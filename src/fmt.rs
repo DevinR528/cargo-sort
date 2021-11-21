@@ -146,13 +146,17 @@ fn fmt_value(value: &mut Value, config: &Config) {
 }
 
 fn fmt_table(table: &mut Table, config: &Config) {
+    #[cfg(target_os = "windows")]
+    const NEWLINE_PATTERN: &'static str = "\r\n";
+    #[cfg(not(target_os = "windows"))]
+    const NEWLINE_PATTERN: &'static str = "\n";
     // Checks the header decor for blank lines
     let blank_header_lines =
         table.header_decor().prefix().lines().filter(|l| !l.starts_with('#')).count();
     if config.allowed_blank_lines < blank_header_lines {
         let dec = table.header_decor_mut();
         dec.prefix = dec.prefix().replacen(
-            "\n",
+            NEWLINE_PATTERN,
             "",
             blank_header_lines - config.allowed_blank_lines,
         );
@@ -167,7 +171,7 @@ fn fmt_table(table: &mut Table, config: &Config) {
             if config.allowed_blank_lines < blank_lines {
                 let dec = item.decor_mut();
                 dec.prefix = dec.prefix().replacen(
-                    "\n",
+                    NEWLINE_PATTERN,
                     "",
                     blank_lines - config.allowed_blank_lines,
                 );
@@ -175,7 +179,7 @@ fn fmt_table(table: &mut Table, config: &Config) {
         } else {
             let dec = item.decor_mut();
             dec.prefix = if dec.prefix.contains('#') {
-                dec.prefix().replacen("\n", "", blank_lines)
+                dec.prefix().replacen(NEWLINE_PATTERN, "", blank_lines)
             } else {
                 "".to_string()
             };
@@ -253,6 +257,20 @@ mod test {
         );
         #[cfg(not(target_os = "windows"))]
         assert_eq!(input, toml.to_string_in_original_order());
+    }
+
+    #[cfg(target_os = "windows")]
+    #[test]
+    fn fmt_crlf_correct() {
+        let input = String::from(
+            "[package]\r\nname = \"priv-test\"\r\nversion = \"0.1.0\"\r\nedition = \"2021\"\r\nresolver = \"2\"\r\n\r\n# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html\r\n\r\n[dependencies]\r\nstructopt = \"0.3\"\r\n",
+        );
+        let expected = String::from(
+            "[package]\nname = \"priv-test\"\nversion = \"0.1.0\"\nedition = \"2021\"\nresolver = \"2\"\n# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html\n\r\n[dependencies]\nstructopt = \"0.3\"\n",
+        );
+        let mut toml = input.parse::<Document>().unwrap();
+        fmt_toml(&mut toml, &Config::new());
+        assert_eq!(expected, toml.to_string_in_original_order());
     }
 
     #[test]
