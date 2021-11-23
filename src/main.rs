@@ -17,7 +17,6 @@ use toml_edit::{Document, Item};
 
 mod fmt;
 mod sort;
-mod toml_edit;
 
 const EXTRA_HELP: &str = "\
     NOTE: formatting is applied after the check for sorting so \
@@ -72,7 +71,7 @@ fn check_toml(path: &str, matches: &ArgMatches, config: &Config) -> IoResult<boo
         flag_set("grouped", matches),
         &config.table_order,
     );
-    let mut sorted_str = sorted.to_string_in_original_order();
+    let mut sorted_str = sorted.to_string();
     let is_sorted = toml_raw == sorted_str;
 
     let is_formatted =
@@ -80,7 +79,7 @@ fn check_toml(path: &str, matches: &ArgMatches, config: &Config) -> IoResult<boo
         if !flag_set("no-format", matches) || flag_set("check-format", matches) {
             let original = sorted_str.clone();
             fmt::fmt_toml(&mut sorted, config);
-            sorted_str = sorted.to_string_in_original_order();
+            sorted_str = sorted.to_string();
             original == sorted_str
         } else {
             true
