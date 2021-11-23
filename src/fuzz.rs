@@ -2,7 +2,6 @@ use afl::fuzz;
 
 mod fmt;
 mod sort;
-mod toml_edit;
 
 use fmt::Config;
 use toml_edit::Document;
@@ -27,7 +26,7 @@ fn main() {
                     ],
                 );
                 fmt::fmt_toml(&mut toml, &Config::new());
-                let s = toml.to_string_in_original_order();
+                let s = toml.to_string();
                 assert!(s.parse::<Document>().is_ok())
             }
         }
