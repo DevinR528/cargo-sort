@@ -12,11 +12,11 @@ readme = "README.md"
 exclude = ["examp", "fixtures"]
 default-run = "cargo-sort"
 
-[features]
-fuzz = ["afl"]
+# [features]
+# fuzz = ["afl"]
 
 [dependencies]
-afl = { version = "0.10", optional = true }
+# afl = { version = "0.10", optional = true }
 clap = { version = "2.33", features = ["wrap_help"] }
 glob = "0.3"
 termcolor = "1.1"
@@ -30,15 +30,19 @@ linked-hash-map = "0.5"
 pretty_assertions = "0.7"
 serde_json = "1"
 
-[[bin]]
-name = "cargo-sort"
-path = "src/main.rs"
+# The following is commented out for releases because of
+# https://github.com/DevinR528/cargo-sort/issues/31
+
+# [[bin]]
+# name = "cargo-sort"
+# path = "src/main.rs"
 
 # In order to run fuzz
 # `cargo install afl`
 # `cargo afl build --features=fuzz --bin fuzz`
 # `cargo afl target/debug/fuzz`
-[[bin]]
-name = "fuzz"
-path = "src/fuzz.rs"
-required-features = ["fuzz"]
+
+# [[bin]]
+# name = "fuzz"
+# path = "src/fuzz.rs"
+# required-features = ["fuzz"]
