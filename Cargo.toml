@@ -17,7 +17,7 @@ default-run = "cargo-sort"
 
 [dependencies]
 # afl = { version = "0.10", optional = true }
-clap = { version = "2.33", features = ["wrap_help"] }
+clap = { version = "2.34", features = ["wrap_help"] }
 glob = "0.3"
 termcolor = "1.1"
 
@@ -27,11 +27,12 @@ combine = "3.8"
 linked-hash-map = "0.5"
 
 [dev-dependencies]
-pretty_assertions = "0.7"
+pretty_assertions = "1.0.0"
 serde_json = "1"
 
 # The following is commented out for releases because of
 # https://github.com/DevinR528/cargo-sort/issues/31
+# see also https://github.com/rust-lang/cargo/issues/8703
 
 # [[bin]]
 # name = "cargo-sort"
