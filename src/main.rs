@@ -216,8 +216,6 @@ fn _main() -> IoResult<()> {
         }
     }
 
-    println!("{:?}", filtered_matches);
-
     let mut cwd = cwd.clone();
     cwd.push("tomlfmt.toml");
     let mut config = read_to_string(&cwd)

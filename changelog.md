@@ -1,3 +1,9 @@
+# 1.0.7
+
+Bug Fixes
+
+  * Fix leaving files in the list of paths to check when `--workspace` is used with globs
+    * [Thanks innuwa](https://github.com/DevinR528/cargo-sort/issues/33)
 # 1.0.6
 
 Bug Fixes
