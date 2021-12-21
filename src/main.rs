@@ -183,6 +183,7 @@ fn _main() -> IoResult<()> {
 
         let raw_toml = read_to_string(&path)
             .map_err(|_| format!("no file found at: {}", path.display()))?;
+
         let toml = raw_toml.parse::<Document>()?;
         let workspace = &toml["workspace"];
         if let Item::Table(ws) = workspace {
@@ -201,6 +202,11 @@ fn _main() -> IoResult<()> {
                         })
                     {
                         let path = entry?;
+                        // The `check_toml` function expects only folders that it appends
+                        // `Cargo.toml` onto
+                        if path.is_file() {
+                            continue;
+                        }
                         filtered_matches.push(Cow::Owned(path.display().to_string()));
                     }
                 } else {
@@ -209,6 +215,8 @@ fn _main() -> IoResult<()> {
             }
         }
     }
+
+    println!("{:?}", filtered_matches);
 
     let mut cwd = cwd.clone();
     cwd.push("tomlfmt.toml");
