@@ -4,6 +4,7 @@ Bug Fixes
 
   * Fix leaving files in the list of paths to check when `--workspace` is used with globs
     * [Thanks innuwa](https://github.com/DevinR528/cargo-sort/issues/33)
+  * Fix the cargo install always re-installing https://github.com/rust-lang/cargo/issues/8703
 # 1.0.6
 
 Bug Fixes
