@@ -72,11 +72,16 @@ fn check_toml(
     let mut sorted_str = sorted.to_string_in_original_order();
     let is_sorted = toml_raw == sorted_str;
 
-    // if no-format is not found apply formatting
-    if !matches.is_present("no-format") {
-        fmt::fmt_toml(&mut sorted, config);
-        sorted_str = sorted.to_string_in_original_order();
-    }
+    let is_formatted =
+        // if no-format is not found apply formatting
+        if !matches.is_present("no-format") || matches.is_present("check-format") {
+            let original = sorted_str.clone();
+            fmt::fmt_toml(&mut sorted, config);
+            sorted_str = sorted.to_string_in_original_order();
+            original == sorted_str
+        } else {
+            true
+        };
 
     if config.crlf && !sorted_str.contains("\r\n") {
         sorted_str = sorted_str.replace("\n", "\r\n")
@@ -94,7 +99,15 @@ fn check_toml(
                 format!("Dependencies for {} are not sorted", krate.to_string_lossy()),
             )?;
         }
-        return Ok(is_sorted);
+
+        if !is_formatted {
+            write_red(
+                "error: ",
+                format!("Cargo.toml for {} is not formatted", krate.to_string_lossy()),
+            )?;
+        }
+
+        return Ok(is_sorted && is_formatted);
     }
 
     write_file(&path, &sorted_str)?;
@@ -134,9 +147,13 @@ fn _main() -> IoResult<()> {
                 Arg::with_name("no-format")
                     .short("n")
                     .long("no-format")
-                    // Force this arg to be present if --check is
-                    .default_value_if("check", None, "")
                     .help("skip formatting after sorting"),
+            )
+            .arg(
+                Arg::with_name("check-format")
+                    .requires("check")
+                    .long("check-format")
+                    .help("also return non-zero exit code if formatting changes"),
             )
             .arg(
                 Arg::with_name("workspace")
