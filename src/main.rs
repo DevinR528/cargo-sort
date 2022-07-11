@@ -133,7 +133,7 @@ fn _main() -> IoResult<()> {
                     .help("sets cwd, must contain a Cargo.toml file"),
             )
             .arg(Arg::with_name("check").short("c").long("check").help(
-                "non-zero exit if Cargo.toml is unsorted, overrides default behavior",
+                "Returns non-zero exit code if Cargo.toml is unsorted, overrides default behavior",
             ))
             .arg(
                 Arg::with_name("print")
@@ -141,31 +141,31 @@ fn _main() -> IoResult<()> {
                     .long("print")
                     // No printing if we are running a --check
                     .conflicts_with("check")
-                    .help("prints Cargo.toml, lexically sorted, to stdout"),
+                    .help("Prints Cargo.toml, lexically sorted, to stdout"),
             )
             .arg(
                 Arg::with_name("no-format")
                     .short("n")
                     .long("no-format")
-                    .help("skip formatting after sorting"),
+                    .help("Skips formatting after sorting"),
             )
             .arg(
                 Arg::with_name("check-format")
                     .requires("check")
                     .long("check-format")
-                    .help("also return non-zero exit code if formatting changes"),
+                    .help("Also returns non-zero exit code if formatting changes"),
             )
             .arg(
                 Arg::with_name("workspace")
                     .short("w")
                     .long("workspace")
-                    .help("checks every crate in a workspace"),
+                    .help("Checks every crate in a workspace"),
             )
             .arg(
                 Arg::with_name("grouped")
                     .short("g")
                     .long("grouped")
-                    .help("when sorting groups of key value pairs blank lines are kept"),
+                    .help("Keep blank lines when sorting groups of key value pairs"),
             )
             .arg(
                 Arg::with_name("order")
@@ -174,7 +174,7 @@ fn _main() -> IoResult<()> {
                     .takes_value(true)
                     .empty_values(false)
                     .value_delimiter(",")
-                    .help("when sorting groups of key value pairs blank lines are kept"),
+                    .help("Keep blank lines when sorting groups of key value pairs"),
             )
             .after_help(EXTRA_HELP)
             .get_matches();
