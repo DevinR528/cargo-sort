@@ -132,6 +132,20 @@ ARGS:
     <CWD>...    sets cwd, must contain a Cargo.toml file
 ```
 
+# Docker
+
+Build the image:
+
+```sh
+docker build -t cargo-sort .
+```
+
+Run the container:
+
+```sh
+docker run -it --rm -v "$(pwd)/Cargo.toml":/app/Cargo.toml cargo-sort
+```
+
 # Examples
 ```toml
 [dependencies]
