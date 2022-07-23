@@ -79,7 +79,7 @@ fn check_toml(
     }
 
     if config.crlf && !sorted_str.contains("\r\n") {
-        sorted_str = sorted_str.replace("\n", "\r\n")
+        sorted_str = sorted_str.replace('\n', "\r\n")
     }
 
     if matches.is_present("print") {
