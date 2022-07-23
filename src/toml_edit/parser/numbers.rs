@@ -46,7 +46,7 @@ parse!(integer() -> i64, {
         attempt(parse_octal_integer()),
         attempt(parse_binary_integer()),
         parse_integer()
-            .and_then(|s| s.replace("_", "").parse())
+            .and_then(|s| s.replace('_', "").parse())
             .message("While parsing an Integer")
     )
 });
@@ -61,7 +61,7 @@ parse!(parse_hex_integer() -> i64, {
                 skip_many1(hex_digit()),
             )),
         ).map(|t| t.0)
-    )).and_then(|s: &str| i64::from_str_radix(&s.replace("_", ""), 16))
+    )).and_then(|s: &str| i64::from_str_radix(&s.replace('_', ""), 16))
        .message("While parsing a hexadecimal Integer")
 });
 
@@ -75,7 +75,7 @@ parse!(parse_octal_integer() -> i64, {
                 skip_many1(oct_digit()),
             )),
         ).map(|t| t.0)
-    )).and_then(|s: &str| i64::from_str_radix(&s.replace("_", ""), 8))
+    )).and_then(|s: &str| i64::from_str_radix(&s.replace('_', ""), 8))
        .message("While parsing an octal Integer")
 });
 
@@ -89,7 +89,7 @@ parse!(parse_binary_integer() -> i64, {
                 skip_many1(satisfy(|c: char| c.is_digit(0x2))),
             )),
         ).map(|t| t.0)
-    )).and_then(|s: &str| i64::from_str_radix(&s.replace("_", ""), 2))
+    )).and_then(|s: &str| i64::from_str_radix(&s.replace('_', ""), 2))
        .message("While parsing a binary Integer")
 });
 
@@ -134,6 +134,6 @@ parse!(parse_float() -> &'a str, {
 
 parse!(float() -> f64, {
     parse_float()
-        .and_then(|s| s.replace("_", "").parse())
+        .and_then(|s| s.replace('_', "").parse())
         .message("While parsing a Float")
 });

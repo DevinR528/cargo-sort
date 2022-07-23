@@ -149,7 +149,7 @@ fn fmt_table(table: &mut Table, config: &Config) {
     #[cfg(target_os = "windows")]
     const NEWLINE_PATTERN: &'static str = "\r\n";
     #[cfg(not(target_os = "windows"))]
-    const NEWLINE_PATTERN: &'static str = "\n";
+    const NEWLINE_PATTERN: &str = "\n";
     // Checks the header decor for blank lines
     let blank_header_lines =
         table.header_decor().prefix().lines().filter(|l| !l.starts_with('#')).count();
