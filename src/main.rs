@@ -7,7 +7,9 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use clap::{crate_name, crate_version, App, AppSettings, Arg};
+use clap::{
+    crate_authors, crate_name, crate_version, Arg, ArgAction, ArgMatches, Command, parser::ValueSource,
+};
 use fmt::Config;
 use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
 use toml_edit::{Document, Item};
@@ -21,6 +23,10 @@ const EXTRA_HELP: &str = "\
           sorted but unformatted toml will not cause a failure";
 
 type IoResult<T> = Result<T, Box<dyn std::error::Error>>;
+
+fn flag_set(flag: &str, matches: &ArgMatches) -> bool {
+    matches!(matches.value_source(flag), Some(ValueSource::CommandLine | ValueSource::EnvVariable))
+}
 
 fn write_red<S: Display>(highlight: &str, msg: S) -> IoResult<()> {
     let mut stderr = StandardStream::stderr(ColorChoice::Auto);
@@ -38,19 +44,12 @@ fn write_green<S: Display>(highlight: &str, msg: S) -> IoResult<()> {
     writeln!(stdout, "{}", msg).map_err(Into::into)
 }
 
-// TODO:
-// it would be nice to be able to check if the file had been saved recently
-// or check if uncommitted changes were present
 fn write_file<P: AsRef<Path>>(path: P, toml: &str) -> IoResult<()> {
     let mut fd = OpenOptions::new().write(true).create(true).truncate(true).open(path)?;
     write!(fd, "{}", toml).map_err(Into::into)
 }
 
-fn check_toml(
-    path: &str,
-    matches: &clap::ArgMatches<'_>,
-    config: &Config,
-) -> IoResult<bool> {
+fn check_toml(path: &str, matches: &ArgMatches, config: &Config) -> IoResult<bool> {
     let mut path = PathBuf::from(path);
     if path.extension().is_none() {
         path.push("Cargo.toml");
@@ -66,7 +65,7 @@ fn check_toml(
     let mut sorted = sort::sort_toml(
         &toml_raw,
         sort::MATCHER,
-        matches.is_present("grouped"),
+        flag_set("grouped", matches),
         &config.table_order,
     );
     let mut sorted_str = sorted.to_string_in_original_order();
@@ -74,7 +73,7 @@ fn check_toml(
 
     let is_formatted =
         // if no-format is not found apply formatting
-        if !matches.is_present("no-format") || matches.is_present("check-format") {
+        if !flag_set("no-format", matches) || flag_set("check-format", matches) {
             let original = sorted_str.clone();
             fmt::fmt_toml(&mut sorted, config);
             sorted_str = sorted.to_string_in_original_order();
@@ -87,12 +86,12 @@ fn check_toml(
         sorted_str = sorted_str.replace('\n', "\r\n")
     }
 
-    if matches.is_present("print") {
+    if flag_set("print", matches) {
         print!("{}", sorted_str);
         return Ok(true);
     }
 
-    if matches.is_present("check") {
+    if flag_set("check", matches) {
         if !is_sorted {
             write_red(
                 "error: ",
@@ -121,60 +120,65 @@ fn check_toml(
 
 fn _main() -> IoResult<()> {
     let matches =
-        App::new(crate_name!())
-            .author("Devin R <devin.ragotzy@gmail.com>")
+        Command::new(crate_name!())
+            .author(crate_authors!())
             .version(crate_version!())
             .about("Ensure Cargo.toml dependency tables are sorted.")
-            .setting(AppSettings::ColoredHelp)
             .arg(
-                Arg::with_name("cwd")
+                Arg::new("cwd")
                     .value_name("CWD")
-                    .multiple(true)
+                    .action(ArgAction::Append)
                     .help("sets cwd, must contain a Cargo.toml file"),
             )
-            .arg(Arg::with_name("check").short("c").long("check").help(
+            .arg(Arg::new("check").short('c').long("check")
+            .action(ArgAction::SetTrue)
+            .help(
                 "Returns non-zero exit code if Cargo.toml is unsorted, overrides default behavior",
             ))
             .arg(
-                Arg::with_name("print")
-                    .short("p")
+                Arg::new("print")
+                    .short('p')
                     .long("print")
+                    .action(ArgAction::SetTrue)
                     // No printing if we are running a --check
                     .conflicts_with("check")
                     .help("Prints Cargo.toml, lexically sorted, to stdout"),
             )
             .arg(
-                Arg::with_name("no-format")
-                    .short("n")
+                Arg::new("no-format")
+                    .short('n')
                     .long("no-format")
+                    .action(ArgAction::SetTrue)
                     .help("Skips formatting after sorting"),
             )
             .arg(
-                Arg::with_name("check-format")
+                Arg::new("check-format")
                     .requires("check")
                     .long("check-format")
+                    .action(ArgAction::SetTrue)
                     .help("Also returns non-zero exit code if formatting changes"),
             )
             .arg(
-                Arg::with_name("workspace")
-                    .short("w")
+                Arg::new("workspace")
+                    .short('w')
                     .long("workspace")
+                    .action(ArgAction::SetTrue)
                     .help("Checks every crate in a workspace"),
             )
             .arg(
-                Arg::with_name("grouped")
-                    .short("g")
+                Arg::new("grouped")
+                    .short('g')
                     .long("grouped")
+                    .action(ArgAction::SetTrue)
                     .help("Keep blank lines when sorting groups of key value pairs"),
             )
             .arg(
-                Arg::with_name("order")
-                    .short("o")
+                Arg::new("order")
+                    .short('o')
                     .long("order")
-                    .takes_value(true)
-                    .empty_values(false)
-                    .value_delimiter(",")
-                    .help("Keep blank lines when sorting groups of key value pairs"),
+                    .action(ArgAction::Append)
+                    .value_delimiter(',')
+                    .help("List the order tables should be written out (--order package,dependencies,features)"),
             )
             .after_help(EXTRA_HELP)
             .get_matches();
@@ -186,12 +190,12 @@ fn _main() -> IoResult<()> {
     // remove "sort" when invoked `cargo sort` sort is the first arg
     // https://github.com/rust-lang/cargo/issues/7653
     let (is_posible_workspace, mut filtered_matches) =
-        matches.values_of("cwd").map_or((true, vec![dir.clone()]), |s| {
+        matches.get_many::<String>("cwd").map_or((true, vec![dir.clone()]), |s| {
             let args = s.filter(|it| *it != "sort").map(Into::into).collect::<Vec<_>>();
             if args.is_empty() { (true, vec![dir]) } else { (args.len() == 1, args) }
         });
 
-    if matches.is_present("workspace") && is_posible_workspace {
+    if flag_set("workspace", &matches) && is_posible_workspace {
         let dir = filtered_matches[0].clone();
         let mut path = PathBuf::from(dir.as_ref());
         if path.extension().is_none() {
@@ -244,7 +248,9 @@ fn _main() -> IoResult<()> {
         .unwrap_or_default()
         .parse::<Config>()?;
 
-    if let Some(ordering) = matches.values_of("order").map(|v| v.collect::<Vec<_>>()) {
+    if let Some(ordering) =
+        matches.get_many::<String>("order").map(|v| v.collect::<Vec<_>>())
+    {
         config.table_order = ordering.into_iter().map(|s| s.to_string()).collect();
     }
 

@@ -1,3 +1,19 @@
+# 1.0.8
+
+Update
+
+  * Update clap from 2.34 to 4.0.10
+
+  Feature
+
+  *  Add --check-format flag
+    * If set, `cargo-sort` will check formatting (allows only checking formatting)
+    * [Thanks matze](https://github.com/DevinR528/cargo-sort/pull/41)
+  * DockerHub builds added
+    * [Thanks orhun](https://github.com/DevinR528/cargo-sort/pull/44)
+
+
+
 # 1.0.7
 
 Bug Fixes
@@ -5,6 +21,7 @@ Bug Fixes
   * Fix leaving files in the list of paths to check when `--workspace` is used with globs
     * [Thanks innuwa](https://github.com/DevinR528/cargo-sort/issues/33)
   * Fix the cargo install always re-installing https://github.com/rust-lang/cargo/issues/8703
+
 # 1.0.6
 
 Bug Fixes
