@@ -146,6 +146,12 @@ Run the container:
 docker run -it --rm -v "$(pwd)/Cargo.toml":/app/Cargo.toml cargo-sort
 ```
 
+Image is also available on [Docker Hub](https://hub.docker.com/r/devinr528/cargo-sort):
+
+```sh
+docker run -it --rm -v "$(pwd)/Cargo.toml":/app/Cargo.toml devinr528/cargo-sort:latest
+```
+
 # Examples
 ```toml
 [dependencies]
