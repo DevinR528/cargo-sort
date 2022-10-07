@@ -8,7 +8,8 @@ use std::{
 };
 
 use clap::{
-    crate_authors, crate_name, crate_version, Arg, ArgAction, ArgMatches, Command, parser::ValueSource,
+    crate_authors, crate_name, crate_version, parser::ValueSource, Arg, ArgAction,
+    ArgMatches, Command,
 };
 use fmt::Config;
 use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
@@ -25,7 +26,10 @@ const EXTRA_HELP: &str = "\
 type IoResult<T> = Result<T, Box<dyn std::error::Error>>;
 
 fn flag_set(flag: &str, matches: &ArgMatches) -> bool {
-    matches!(matches.value_source(flag), Some(ValueSource::CommandLine | ValueSource::EnvVariable))
+    matches!(
+        matches.value_source(flag),
+        Some(ValueSource::CommandLine | ValueSource::EnvVariable)
+    )
 }
 
 fn write_red<S: Display>(highlight: &str, msg: S) -> IoResult<()> {
