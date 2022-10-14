@@ -200,8 +200,8 @@ fn _main() -> IoResult<()> {
         });
 
     if flag_set("workspace", &matches) && is_posible_workspace {
-        let dir = filtered_matches[0].clone();
-        let mut path = PathBuf::from(dir.as_ref());
+        let dir = filtered_matches[0].to_string();
+        let mut path = PathBuf::from(&dir);
         if path.extension().is_none() {
             path.push("Cargo.toml");
         }
@@ -212,26 +212,46 @@ fn _main() -> IoResult<()> {
         let toml = raw_toml.parse::<Document>()?;
         let workspace = &toml["workspace"];
         if let Item::Table(ws) = workspace {
+            // The workspace excludes, used to filter members by
+            let excludes: Vec<&str> = ws["exclude"]
+                .as_array()
+                .into_iter()
+                .flat_map(|a| a.iter())
+                .flat_map(|s| s.as_str())
+                .collect();
             for member in ws["members"]
                 .as_array()
                 .into_iter()
                 .flat_map(|arr| arr.iter())
                 .flat_map(|s| s.as_str())
+                .filter(|s| !excludes.contains(s))
             {
                 // TODO: a better test wether to glob?
                 if member.contains('*') || member.contains('?') {
-                    for entry in glob::glob(&format!("{}/{}", dir, member))
+                    'globs: for entry in glob::glob(&format!("{}/{}", dir, member))
                         .unwrap_or_else(|e| {
                             write_red("error: ", format!("Glob failed: {}", e)).unwrap();
                             std::process::exit(1);
                         })
                     {
                         let path = entry?;
+
                         // The `check_toml` function expects only folders that it appends
                         // `Cargo.toml` onto
                         if path.is_file() {
                             continue;
                         }
+
+                        // Since the glob function gives us actual paths we need to only
+                        // check if the relevant parts match so we can't just do
+                        // `excludes.contains(..)`
+                        let path_str = path.to_string_lossy();
+                        for excl in &excludes {
+                            if path_str.ends_with(excl) {
+                                continue 'globs;
+                            }
+                        }
+
                         filtered_matches.push(Cow::Owned(path.display().to_string()));
                     }
                 } else {
