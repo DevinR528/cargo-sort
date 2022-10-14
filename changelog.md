@@ -1,3 +1,10 @@
+# 1.0.9
+
+Bug Fixes
+
+  * The `--workspace` feature now respects the exclude array
+
+
 # 1.0.8
 
 Update
