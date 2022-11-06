@@ -14,7 +14,13 @@ pub struct Matcher<'a> {
 
 pub const MATCHER: Matcher<'_> = Matcher {
     heading: &["dependencies", "dev-dependencies", "build-dependencies"],
-    heading_key: &[("workspace", "members"), ("workspace", "exclude")],
+    heading_key: &[
+        ("workspace", "members"),
+        ("workspace", "exclude"),
+        ("workspace", "dependencies"),
+        ("workspace", "dev-dependencies"),
+        ("workspace", "build-dependencies"),
+    ],
 };
 
 /// A state machine to track collection of headings.
@@ -102,6 +108,14 @@ fn sort_by_group(table: &mut Table) {
     }
 }
 
+fn sort_table(table: &mut Table, group: bool) {
+    if group {
+        sort_by_group(table);
+    } else {
+        table.sort_values();
+    }
+}
+
 /// Returns a sorted toml `Document`.
 pub fn sort_toml(
     input: &str,
@@ -119,8 +133,14 @@ pub fn sort_toml(
         if toml.as_table().contains_key(heading) {
             if let Item::Table(table) = &mut toml[heading] {
                 if table.contains_key(key) {
-                    if let Item::Value(Value::Array(arr)) = &mut table[key] {
-                        arr.sort();
+                    match &mut table[key] {
+                        Item::Value(Value::Array(arr)) => {
+                            arr.sort();
+                        }
+                        Item::Table(table) => {
+                            sort_table(table, group);
+                        }
+                        _ => unreachable!("{}.{} must be value or table", heading, key),
                     }
                 }
             }
@@ -151,11 +171,7 @@ pub fn sort_toml(
 
                 gather_headings(table, headings, 1);
                 headings.sort();
-                if group {
-                    sort_by_group(table);
-                } else {
-                    table.sort_values();
-                }
+                sort_table(table, group);
             }
             Item::None => continue,
             _ => unreachable!("Top level toml must be tables"),
@@ -258,16 +274,19 @@ fn walk_tables_set_position(table: &mut Table, idx: &mut usize) {
 mod test {
     use std::fs;
 
-    use super::Matcher;
-
-    const MATCHER: Matcher<'_> = Matcher {
-        heading: &["dependencies", "dev-dependencies", "build-dependencies"],
-        heading_key: &[("workspace", "members"), ("workspace", "exclude")],
-    };
+    use super::MATCHER;
 
     #[test]
     fn toml_edit_check() {
         let input = fs::read_to_string("examp/workspace.toml").unwrap();
+        let sorted = super::sort_toml(&input, MATCHER, false, &[]);
+        assert_ne!(input, sorted.to_string_in_original_order());
+        // println!("{}", sorted.to_string_in_original_order());
+    }
+
+    #[test]
+    fn toml_workspace_deps_edit_check() {
+        let input = fs::read_to_string("examp/workspace_deps.toml").unwrap();
         let sorted = super::sort_toml(&input, MATCHER, false, &[]);
         assert_ne!(input, sorted.to_string_in_original_order());
         // println!("{}", sorted.to_string_in_original_order());
