@@ -14,7 +14,13 @@ pub struct Matcher<'a> {
 
 pub const MATCHER: Matcher<'_> = Matcher {
     heading: &["dependencies", "dev-dependencies", "build-dependencies"],
-    heading_key: &[("workspace", "members"), ("workspace", "exclude")],
+    heading_key: &[
+        ("workspace", "members"),
+        ("workspace", "exclude"),
+        ("workspace", "dependencies"),
+        ("workspace", "dev-dependencies"),
+        ("workspace", "build-dependencies"),
+    ],
 };
 
 /// A state machine to track collection of headings.
@@ -45,8 +51,14 @@ pub fn sort_toml(
         if toml.as_table().contains_key(heading) {
             if let Item::Table(table) = &mut toml[heading] {
                 if table.contains_key(key) {
-                    if let Item::Value(Value::Array(arr)) = &mut table[key] {
-                        sort_array(arr);
+                    match &mut table[key] {
+                        Item::Value(Value::Array(arr)) => {
+                            sort_array(arr);
+                        }
+                        Item::Table(table) => {
+                            sort_table(table, group);
+                        }
+                        _ => unreachable!("{}.{} must be value or table", heading, key),
                     }
                 }
             }
@@ -77,11 +89,7 @@ pub fn sort_toml(
 
                 gather_headings(table, headings, 1);
                 headings.sort();
-                if group {
-                    sort_by_group(table);
-                } else {
-                    table.sort_values();
-                }
+                sort_by_group(table);
             }
             Item::None => continue,
             _ => unreachable!("Top level toml must be tables"),
@@ -109,6 +117,14 @@ fn sort_array(arr: &mut Array) {
     });
     if all_strings {
         *arr = Array::from_iter(arr_copy);
+    }
+}
+
+fn sort_table(table: &mut Table, group: bool) {
+    if group {
+        sort_by_group(table);
+    } else {
+        table.sort_values();
     }
 }
 
@@ -282,16 +298,19 @@ mod test {
 
     use similar_asserts::assert_eq;
 
-    use super::Matcher;
-
-    const MATCHER: Matcher<'_> = Matcher {
-        heading: &["dependencies", "dev-dependencies", "build-dependencies"],
-        heading_key: &[("workspace", "members"), ("workspace", "exclude")],
-    };
+    use super::MATCHER;
 
     #[test]
     fn toml_edit_check() {
         let input = fs::read_to_string("examp/workspace.toml").unwrap();
+        let sorted = super::sort_toml(&input, MATCHER, false, &[]);
+        assert_ne!(input, sorted.to_string());
+        // println!("{}", sorted.to_string());
+    }
+
+    #[test]
+    fn toml_workspace_deps_edit_check() {
+        let input = fs::read_to_string("examp/workspace_deps.toml").unwrap();
         let sorted = super::sort_toml(&input, MATCHER, false, &[]);
         assert_ne!(input, sorted.to_string());
         // println!("{}", sorted.to_string());
