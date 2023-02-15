@@ -326,4 +326,13 @@ mod test {
         assert_ne!(input, toml.to_string());
         // println!("{}", toml.to_string_in_original_order());
     }
+
+    #[test]
+    fn to_many_newlines() {
+        let input = fs::read_to_string("examp/trailing.toml").unwrap();
+        let mut toml = input.parse::<Document>().unwrap();
+        fmt_toml(&mut toml, &Config::new());
+        assert_ne!(input, toml.to_string());
+        println!("{}", input.to_string());
+    }
 }
