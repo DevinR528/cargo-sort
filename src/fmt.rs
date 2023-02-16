@@ -55,6 +55,7 @@ pub struct Config {
     /// Defaults to `1`.
     pub allowed_blank_lines: usize,
 
+    // NOTE: this is only used in main, fmt doesn't set the line endings
     /// Use CRLF line endings
     ///
     /// Defaults to `false`.
@@ -179,7 +180,7 @@ fn replacen(
 
 fn fmt_table(table: &mut Table, config: &Config) {
     #[cfg(target_os = "windows")]
-    const NEWLINE_PATTERN: &'static str = "\r\n";
+    const NEWLINE_PATTERN: &str = "\r\n";
     #[cfg(not(target_os = "windows"))]
     const NEWLINE_PATTERN: &str = "\n";
     // Checks the header decor for blank lines
@@ -297,12 +298,12 @@ mod test {
 
     #[cfg(target_os = "windows")]
     #[test]
-    fn fmt_crlf_correct() {
+    fn fmt_crlf_false_correct() {
         let input = String::from(
             "[package]\r\nname = \"priv-test\"\r\nversion = \"0.1.0\"\r\nedition = \"2021\"\r\nresolver = \"2\"\r\n\r\n# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html\r\n\r\n[dependencies]\r\nstructopt = \"0.3\"\r\n",
         );
         let expected = String::from(
-            "[package]\nname = \"priv-test\"\nversion = \"0.1.0\"\nedition = \"2021\"\nresolver = \"2\"\n# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html\n\r\n[dependencies]\nstructopt = \"0.3\"\n",
+            "[package]\nname = \"priv-test\"\nversion = \"0.1.0\"\nedition = \"2021\"\nresolver = \"2\"\n# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html\n\n[dependencies]\nstructopt = \"0.3\"\n",
         );
         let mut toml = input.parse::<Document>().unwrap();
         fmt_toml(&mut toml, &Config::new());
@@ -333,6 +334,5 @@ mod test {
         let mut toml = input.parse::<Document>().unwrap();
         fmt_toml(&mut toml, &Config::new());
         assert_ne!(input, toml.to_string());
-        println!("{}", input.to_string());
     }
 }
