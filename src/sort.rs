@@ -14,7 +14,11 @@ pub struct Matcher<'a> {
 
 pub const MATCHER: Matcher<'_> = Matcher {
     heading: &["dependencies", "dev-dependencies", "build-dependencies"],
-    heading_key: &[("workspace", "members"), ("workspace", "exclude")],
+    heading_key: &[
+        ("workspace", "members"),
+        ("workspace", "exclude"),
+        ("workspace", "dependencies"),
+    ],
 };
 
 /// A state machine to track collection of headings.
