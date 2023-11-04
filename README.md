@@ -73,7 +73,7 @@ cargo install cargo-sort
 ## pre-commit
 
 If you use [pre-commit](https://pre-commit.com/) in your project, you can add cargo-sort as hook by
-adding the following entry to your `.pre-commit0-config.yaml` configuration:
+adding the following entry to your `.pre-commit-config.yaml` configuration:
 
 ```yaml
 repos:
