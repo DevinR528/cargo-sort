@@ -274,6 +274,8 @@ fn walk_tables_set_position(table: &mut Table, idx: &mut usize) {
 mod test {
     use std::fs;
 
+    use similar_asserts::assert_eq;
+
     use super::Matcher;
 
     const MATCHER: Matcher<'_> = Matcher {
