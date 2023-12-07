@@ -1,6 +1,6 @@
 use std::{cmp::Ordering, collections::BTreeMap, iter::FromIterator};
 
-use toml_edit::{Array, Document, Item, Table, Value};
+use toml_edit::{Array, Document, Item, Key, RawString, Table, Value};
 
 /// Each `Matcher` field when matched to a heading or key token
 /// will be matched with `.contains()`.
@@ -56,7 +56,7 @@ pub fn sort_toml(
     let mut first_table = None;
     let mut heading_order: BTreeMap<_, Vec<Heading>> = BTreeMap::new();
     for (idx, (head, item)) in toml.as_table_mut().iter_mut().enumerate() {
-        if !matcher.heading.contains(&head) {
+        if !matcher.heading.contains(&head.get()) {
             if !ordering.contains(&head.to_owned()) && !ordering.is_empty() {
                 ordering.push(head.to_owned());
             }
@@ -161,15 +161,21 @@ fn gather_headings(table: &Table, keys: &mut Vec<Heading>, depth: usize) {
 }
 
 fn sort_by_group(table: &mut Table) {
-    let table_clone = table.clone();
+    let mut table_clone = table.clone();
     table.clear();
     let mut groups = BTreeMap::new();
     let mut curr = 0;
-    for (idx, (k, v)) in table_clone.iter().enumerate() {
-        let decor = table.key_decor(k);
-        let blank_lines = decor.map_or(0, |d| {
-            d.prefix().unwrap_or("").lines().filter(|l| !l.starts_with('#')).count()
-        });
+    for (idx, (k, v)) in table_clone.iter_mut().enumerate() {
+        let blank_lines = k
+            .decor()
+            .prefix()
+            .and_then(RawString::as_str)
+            .unwrap_or("")
+            .lines()
+            .filter(|l| !l.starts_with('#'))
+            .count();
+
+        let k = Key::new(&*k).with_decor(k.decor().clone());
 
         if blank_lines > 0 {
             groups.entry(idx).or_insert_with(|| vec![(k, v)]);
@@ -182,7 +188,7 @@ fn sort_by_group(table: &mut Table) {
     for (_, mut group) in groups {
         group.sort_by(|a, b| a.0.cmp(&b.0));
         for (k, v) in group {
-            table.insert(&k, v.clone());
+            table.insert_formatted(&k, v.clone());
         }
     }
 }

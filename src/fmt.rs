@@ -1,6 +1,6 @@
 use std::str::FromStr;
 
-use toml_edit::{Document, Item, Table, Value};
+use toml_edit::{Document, Item, RawString, Table, Value};
 
 /// The config file for formatting toml after sorting.
 ///
@@ -139,7 +139,11 @@ fn fmt_value(value: &mut Value, config: &Config) {
         // Since the above variants have fmt methods we can only ever
         // get here from a headed table (`[header] key = val`)
         val => {
-            if config.space_around_eq && val.decor().prefix().map_or(true, str::is_empty)
+            if config.space_around_eq
+                && val
+                    .decor()
+                    .prefix()
+                    .map_or(true, |s| s.as_str().map_or(true, str::is_empty))
             {
                 val.decor_mut().set_prefix(" ");
             }
@@ -156,13 +160,14 @@ fn fmt_table(table: &mut Table, config: &Config) {
     let blank_header_lines = table
         .decor()
         .prefix()
+        .and_then(RawString::as_str)
         .unwrap_or("")
         .lines()
         .filter(|l| !l.starts_with('#'))
         .count();
     if config.allowed_blank_lines < blank_header_lines {
         let dec = table.decor_mut();
-        dec.set_prefix(dec.prefix().unwrap_or("").replacen(
+        dec.set_prefix(dec.prefix().and_then(RawString::as_str).unwrap_or("").replacen(
             NEWLINE_PATTERN,
             "",
             blank_header_lines - config.allowed_blank_lines,
@@ -172,21 +177,21 @@ fn fmt_table(table: &mut Table, config: &Config) {
     let keys: Vec<_> = table.iter().map(|(k, _)| k.to_owned()).collect();
     for key in keys {
         let dec = table.key_decor_mut(&key).unwrap();
-        let blank_lines =
-            dec.prefix().unwrap_or("").lines().filter(|l| !l.starts_with('#')).count();
+        let prefix = dec.prefix().and_then(RawString::as_str).unwrap_or("");
+        let blank_lines = prefix.lines().filter(|l| !l.starts_with('#')).count();
 
         // Check each item in the table for blank lines
         if config.key_value_newlines {
             if config.allowed_blank_lines < blank_lines {
-                dec.set_prefix(dec.prefix().unwrap_or("").replacen(
+                dec.set_prefix(prefix.replacen(
                     NEWLINE_PATTERN,
                     "",
                     blank_lines - config.allowed_blank_lines,
                 ));
             }
         } else {
-            dec.set_prefix(if dec.prefix().is_some_and(|pre| pre.contains('#')) {
-                dec.prefix().unwrap_or("").replacen(NEWLINE_PATTERN, "", blank_lines)
+            dec.set_prefix(if prefix.contains('#') {
+                prefix.replacen(NEWLINE_PATTERN, "", blank_lines)
             } else {
                 "".to_string()
             });
@@ -194,8 +199,14 @@ fn fmt_table(table: &mut Table, config: &Config) {
 
         // This is weirdly broken, inserts underscores into `[foo.bar]` table
         // headers. Revisit later.
-        /* if config.space_around_eq && dec.suffix().map_or(true, str::is_empty) {
-            dec.set_suffix(format!("{}{}", dec.suffix().unwrap_or(""), ' '));
+        /* if config.space_around_eq
+            && dec.suffix().and_then(RawString::as_str).map_or(true, str::is_empty)
+        {
+            dec.set_suffix(format!(
+                "{}{}",
+                dec.suffix().and_then(RawString::as_str).unwrap_or(""),
+                ' '
+            ));
         } */
 
         match table.get_mut(&key).unwrap() {
