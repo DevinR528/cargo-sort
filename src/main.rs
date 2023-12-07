@@ -209,22 +209,12 @@ fn _main() -> IoResult<()> {
             .map_err(|_| format!("no file found at: {}", path.display()))?;
 
         let toml = raw_toml.parse::<Document>()?;
-        let workspace = &toml["workspace"];
-        if let Item::Table(ws) = workspace {
+        let workspace = toml.get("workspace");
+        if let Some(Item::Table(ws)) = workspace {
             // The workspace excludes, used to filter members by
-            let excludes: Vec<&str> = ws["exclude"]
-                .as_array()
-                .into_iter()
-                .flat_map(|a| a.iter())
-                .flat_map(|s| s.as_str())
-                .collect();
-            for member in ws["members"]
-                .as_array()
-                .into_iter()
-                .flat_map(|arr| arr.iter())
-                .flat_map(|s| s.as_str())
-                .filter(|s| !excludes.contains(s))
-            {
+            let excludes: Vec<&str> =
+                ws.get("exclude").map_or_else(Vec::new, array_string_members);
+            for member in ws.get("members").map_or_else(Vec::new, array_string_members) {
                 // TODO: a better test wether to glob?
                 if member.contains('*') || member.contains('?') {
                     'globs: for entry in glob::glob(&format!("{}/{}", dir, member))
@@ -286,6 +276,10 @@ fn _main() -> IoResult<()> {
     }
 
     if flag { std::process::exit(0) } else { std::process::exit(1) }
+}
+
+fn array_string_members(value: &toml_edit::Item) -> Vec<&str> {
+    value.as_array().into_iter().flatten().filter_map(|s| s.as_str()).collect()
 }
 
 fn main() {

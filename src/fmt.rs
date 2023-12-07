@@ -99,26 +99,44 @@ impl FromStr for Config {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let toml = s.parse::<Document>().map_err(|_| "failed to parse as toml")?;
         Ok(Config {
-            always_trailing_comma: toml["always_trailing_comma"]
-                .as_bool()
+            always_trailing_comma: toml
+                .get("always_trailing_comma")
+                .and_then(toml_edit::Item::as_bool)
                 .unwrap_or_default(),
-            multiline_trailing_comma: toml["multiline_trailing_comma"]
-                .as_bool()
+            multiline_trailing_comma: toml
+                .get("multiline_trailing_comma")
+                .and_then(toml_edit::Item::as_bool)
                 .unwrap_or_default(),
-            space_around_eq: toml["space_around_eq"].as_bool().unwrap_or(true),
-            compact_arrays: toml["compact_arrays"].as_bool().unwrap_or_default(),
-            compact_inline_tables: toml["compact_inline_tables"]
-                .as_bool()
+            space_around_eq: toml
+                .get("space_around_eq")
+                .and_then(toml_edit::Item::as_bool)
+                .unwrap_or(true),
+            compact_arrays: toml
+                .get("compact_arrays")
+                .and_then(toml_edit::Item::as_bool)
                 .unwrap_or_default(),
-            trailing_newline: toml["trailing_newline"].as_bool().unwrap_or(true),
-            key_value_newlines: toml["key_value_newlines"].as_bool().unwrap_or(true),
-            allowed_blank_lines: toml["allowed_blank_lines"].as_integer().unwrap_or(1)
-                as usize,
-            crlf: toml["crlf"].as_bool().unwrap_or_default(),
-            table_order: toml["table_order"]
-                .as_array()
+            compact_inline_tables: toml
+                .get("compact_inline_tables")
+                .and_then(toml_edit::Item::as_bool)
+                .unwrap_or_default(),
+            trailing_newline: toml
+                .get("trailing_newline")
+                .and_then(toml_edit::Item::as_bool)
+                .unwrap_or(true),
+            key_value_newlines: toml
+                .get("key_value_newlines")
+                .and_then(toml_edit::Item::as_bool)
+                .unwrap_or(true),
+            allowed_blank_lines: toml
+                .get("allowed_blank_lines")
+                .and_then(toml_edit::Item::as_integer)
+                .unwrap_or(1) as usize,
+            crlf: toml.get("crlf").and_then(toml_edit::Item::as_bool).unwrap_or_default(),
+            table_order: toml
+                .get("table_order")
+                .and_then(toml_edit::Item::as_array)
                 .into_iter()
-                .flat_map(|a| a.iter())
+                .flatten()
                 .filter_map(|v| v.as_str())
                 .map(|s| s.to_string())
                 .collect(),
