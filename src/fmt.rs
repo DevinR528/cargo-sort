@@ -243,6 +243,8 @@ pub fn fmt_toml(toml: &mut Document, config: &Config) {
 mod test {
     use std::fs;
 
+    use similar_asserts::assert_eq;
+
     use super::{fmt_toml, Config, Document};
 
     #[test]
