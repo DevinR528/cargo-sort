@@ -15,6 +15,8 @@ There are three modes cargo-sort can be used in:
     - Will fail with a non-zero exit code if the file is unsorted.
  * **-n or --no-format**
     - Will **NOT** format the sorted toml. This option only has an effect if writing or printing out.
+ * **--check-format**
+    - Checks that after sorting the original input file has not changed.
  * **-g or --grouped**
     - When sorting keep table key value spacing. If you have dependency groups they will stick but be sorted within the grouping.
     The `key_value_newlines` config option needs to be `true` for this to have any effect.
@@ -36,6 +38,11 @@ Here are the defaults when no `tomlfmt.toml` is found
 always_trailing_comma = false
 # trailing comma when multi-line
 multiline_trailing_comma = true
+# the maximum length in bytes of the string of an array object
+max_array_line_len = 80
+# number of spaces to indent
+indent_count = 4
+# space around equal sign
 space_around_eq = true
 # remove all the spacing inside the array
 compact_arrays = false
