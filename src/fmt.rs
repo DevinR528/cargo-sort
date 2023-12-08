@@ -173,7 +173,8 @@ fn fmt_value(value: &mut Value, config: &Config) {
     match value {
         Value::Array(arr) => {
             if arr.to_string().len() > config.max_array_line_len {
-                let arr_has_trailing_newline = arr.trailing().as_str().map_or(false, |s| s.contains('\n'));
+                let arr_has_trailing_newline =
+                    arr.trailing().as_str().map_or(false, |s| s.contains('\n'));
                 let len = arr.len();
                 for (i, val) in arr.iter_mut().enumerate() {
                     val.decor_mut().set_prefix(format!(
