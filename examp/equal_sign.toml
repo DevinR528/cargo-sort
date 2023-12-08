@@ -1,0 +1,14 @@
+# oh yea
+[dependencies]
+c="0"
+d="0"
+a="0"
+b="0"
+
+[dependencies.alpha]
+version ="0.15"
+default-features =false
+more-stuff ={sub = false, object = 10 }
+dot.key = "foo"
+dot.no.space = true
+features =["full", "parsing", "printing", "visit-mut"]
