@@ -127,7 +127,7 @@ impl FromStr for Config {
             max_array_line_len: toml
                 .get("max_array_line_len")
                 .and_then(toml_edit::Item::as_integer)
-                .unwrap_or_default() as usize,
+                .unwrap_or(80) as usize,
             indent_count: toml
                 .get("indent_count")
                 .and_then(toml_edit::Item::as_integer)
@@ -173,6 +173,7 @@ fn fmt_value(value: &mut Value, config: &Config) {
     match value {
         Value::Array(arr) => {
             if arr.to_string().len() > config.max_array_line_len {
+                let arr_has_trailing_newline = arr.trailing().as_str().map_or(false, |s| s.contains('\n'));
                 let len = arr.len();
                 for (i, val) in arr.iter_mut().enumerate() {
                     val.decor_mut().set_prefix(format!(
@@ -184,14 +185,16 @@ fn fmt_value(value: &mut Value, config: &Config) {
                         val.decor_mut().set_suffix(format!(
                             "{}{}",
                             if config.multiline_trailing_comma { "," } else { "" },
-                            NEWLINE_PATTERN
+                            if !arr_has_trailing_newline { NEWLINE_PATTERN } else { "" }
                         ));
                     }
                 }
             } else {
                 arr.fmt();
             }
+            // TODO: this is most likely after an equal sign but not always...
             arr.decor_mut().set_prefix(" ");
+            // TODO: can this be moved into the else of the above if/else
             arr.set_trailing_comma(config.always_trailing_comma);
         }
         Value::InlineTable(table) => {
@@ -234,12 +237,6 @@ fn fmt_table(table: &mut Table, config: &Config) {
 
     let keys: Vec<_> = table.iter().map(|(k, _)| k.to_owned()).collect();
     for key in keys {
-        println!(
-            "key {} {} val: {:?}",
-            key,
-            table.get(&key).map_or(false, |item| item.is_value()),
-            table.get(&key)
-        );
         let is_value_for_space = table.get(&key).map_or(false, |item| {
             item.is_value() && item.as_inline_table().map_or(true, |t| !t.is_dotted())
         });
@@ -379,3 +376,7 @@ mod test {
         // println!("{}", toml.to_string());
     }
 }
+
+// Array { trailing: "\n", trailing_comma: true, decor: Decor { prefix: " ", suffix: empty }, span: None, values: [Value(String(Formatted { value: "unstable-msc3246", repr: "\"unstable-msc3246\"", decor: Decor { prefix: "\n    ", suffix: empty } })), Value(String(Formatted { value: "unstable-msc3488", repr: "\"unstable-msc3488\"", decor: Decor { prefix: "\n    ", suffix: empty } })), Value(String(Formatted { value: "unstable-msc3553", repr: "\"unstable-msc3553\"", decor: Decor { prefix: "\n    ", suffix: empty } })), Value(String(Formatted { value: "unstable-msc3954", repr: "\"unstable-msc3954\"", decor: Decor { prefix: "\n    ", suffix: empty } })), Value(String(Formatted { value: "unstable-msc3955", repr: "\"unstable-msc3955\"", decor: Decor { prefix: "\n    ", suffix: empty } }))] }
+
+// Array { trailing: "\n", trailing_comma: true, decor: Decor { prefix: " ", suffix: empty }, span: None, values: [Value(String(Formatted { value: "unstable-msc3246", repr: "\"unstable-msc3246\"", decor: Decor { prefix: "\r\n    ", suffix: empty } })), Value(String(Formatted { value: "unstable-msc3488", repr: "\"unstable-msc3488\"", decor: Decor { prefix: "\r\n    ", suffix: empty } })), Value(String(Formatted { value: "unstable-msc3553", repr: "\"unstable-msc3553\"", decor: Decor { prefix: "\r\n    ", suffix: empty } })), Value(String(Formatted { value: "unstable-msc3954", repr: "\"unstable-msc3954\"", decor: Decor { prefix: "\r\n    ", suffix: empty } })), Value(String(Formatted { value: "unstable-msc3955", repr: "\"unstable-msc3955\"", decor: Decor { prefix: "\r\n    ", suffix: ",\r\n" } }))] }   
