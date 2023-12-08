@@ -2,6 +2,11 @@ use std::str::FromStr;
 
 use toml_edit::{Document, Item, RawString, Table, Value};
 
+#[cfg(target_os = "windows")]
+const NEWLINE_PATTERN: &str = "\r\n";
+#[cfg(not(target_os = "windows"))]
+const NEWLINE_PATTERN: &str = "\n";
+
 /// The config file for formatting toml after sorting.
 ///
 /// Use the `FromStr` to create a config from a string.
@@ -33,6 +38,16 @@ pub struct Config {
     ///
     /// Defaults to `false`.
     pub compact_arrays: bool,
+
+    /// Max line length before arrays are broken up with newlines.
+    ///
+    /// Defaults to 80.
+    pub max_array_line_len: usize,
+
+    /// Number of spaces to indent for arrays broken up with newlines.
+    ///
+    /// Defaults to 4.
+    pub indent_count: usize,
 
     /// Omit whitespace padding inside inline tables.
     ///
@@ -73,6 +88,8 @@ impl Config {
         Self {
             always_trailing_comma: false,
             multiline_trailing_comma: true,
+            max_array_line_len: 80,
+            indent_count: 4,
             space_around_eq: true,
             compact_arrays: false,
             compact_inline_tables: false,
@@ -107,6 +124,14 @@ impl FromStr for Config {
                 .get("multiline_trailing_comma")
                 .and_then(toml_edit::Item::as_bool)
                 .unwrap_or_default(),
+            max_array_line_len: toml
+                .get("max_array_line_len")
+                .and_then(toml_edit::Item::as_integer)
+                .unwrap_or_default() as usize,
+            indent_count: toml
+                .get("indent_count")
+                .and_then(toml_edit::Item::as_integer)
+                .unwrap_or(4) as usize,
             space_around_eq: toml
                 .get("space_around_eq")
                 .and_then(toml_edit::Item::as_bool)
@@ -147,11 +172,30 @@ impl FromStr for Config {
 fn fmt_value(value: &mut Value, config: &Config) {
     match value {
         Value::Array(arr) => {
-            // TODO if multi line trailing comma and compact array
+            if arr.to_string().len() > config.max_array_line_len {
+                let len = arr.len();
+                for (i, val) in arr.iter_mut().enumerate() {
+                    val.decor_mut().set_prefix(format!(
+                        "{}{}",
+                        NEWLINE_PATTERN,
+                        " ".repeat(config.indent_count)
+                    ));
+                    if i == (len - 1) {
+                        val.decor_mut().set_suffix(format!(
+                            "{}{}",
+                            if config.multiline_trailing_comma { "," } else { "" },
+                            NEWLINE_PATTERN
+                        ));
+                    }
+                }
+            } else {
+                arr.fmt();
+            }
+            arr.decor_mut().set_prefix(" ");
             arr.set_trailing_comma(config.always_trailing_comma);
-            arr.fmt();
         }
         Value::InlineTable(table) => {
+            table.decor_mut().set_prefix(" ");
             table.fmt();
         }
         // Since the above variants have fmt methods we can only ever
@@ -170,10 +214,6 @@ fn fmt_value(value: &mut Value, config: &Config) {
 }
 
 fn fmt_table(table: &mut Table, config: &Config) {
-    #[cfg(target_os = "windows")]
-    const NEWLINE_PATTERN: &'static str = "\r\n";
-    #[cfg(not(target_os = "windows"))]
-    const NEWLINE_PATTERN: &str = "\n";
     // Checks the header decor for blank lines
     let blank_header_lines = table
         .decor()
@@ -194,6 +234,16 @@ fn fmt_table(table: &mut Table, config: &Config) {
 
     let keys: Vec<_> = table.iter().map(|(k, _)| k.to_owned()).collect();
     for key in keys {
+        println!(
+            "key {} {} val: {:?}",
+            key,
+            table.get(&key).map_or(false, |item| item.is_value()),
+            table.get(&key)
+        );
+        let is_value_for_space = table.get(&key).map_or(false, |item| {
+            item.is_value() && item.as_inline_table().map_or(true, |t| !t.is_dotted())
+        });
+
         let dec = table.key_decor_mut(&key).unwrap();
         let prefix = dec.prefix().and_then(RawString::as_str).unwrap_or("");
         let blank_lines = prefix.lines().filter(|l| !l.starts_with('#')).count();
@@ -217,15 +267,16 @@ fn fmt_table(table: &mut Table, config: &Config) {
 
         // This is weirdly broken, inserts underscores into `[foo.bar]` table
         // headers. Revisit later.
-        /* if config.space_around_eq
+        if config.space_around_eq
             && dec.suffix().and_then(RawString::as_str).map_or(true, str::is_empty)
+            && is_value_for_space
         {
             dec.set_suffix(format!(
                 "{}{}",
                 dec.suffix().and_then(RawString::as_str).unwrap_or(""),
                 ' '
             ));
-        } */
+        }
 
         match table.get_mut(&key).unwrap() {
             Item::Table(table) => {
