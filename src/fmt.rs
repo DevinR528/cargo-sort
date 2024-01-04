@@ -171,7 +171,7 @@ fn fmt_value(value: &mut Value, config: &Config) {
 
 fn fmt_table(table: &mut Table, config: &Config) {
     #[cfg(target_os = "windows")]
-    const NEWLINE_PATTERN: &'static str = "\r\n";
+    const NEWLINE_PATTERN: &str = "\r\n";
     #[cfg(not(target_os = "windows"))]
     const NEWLINE_PATTERN: &str = "\n";
     // Checks the header decor for blank lines
