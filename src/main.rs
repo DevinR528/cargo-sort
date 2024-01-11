@@ -65,6 +65,8 @@ fn check_toml(path: &str, matches: &ArgMatches, config: &Config) -> IoResult<boo
     let toml_raw = read_to_string(&path)
         .map_err(|_| format!("No file found at: {}", path.display()))?;
 
+    let crlf = toml_raw.contains("\r\n");
+
     let mut sorted = sort::sort_toml(
         &toml_raw,
         sort::MATCHER,
@@ -72,7 +74,6 @@ fn check_toml(path: &str, matches: &ArgMatches, config: &Config) -> IoResult<boo
         &config.table_order,
     );
     let mut sorted_str = sorted.to_string();
-    let is_sorted = toml_raw == sorted_str;
 
     let is_formatted =
         // if no-format is not found apply formatting
@@ -85,7 +86,7 @@ fn check_toml(path: &str, matches: &ArgMatches, config: &Config) -> IoResult<boo
             true
         };
 
-    if config.crlf && !sorted_str.contains("\r\n") {
+    if (config.crlf || crlf) && !sorted_str.contains("\r\n") {
         sorted_str = sorted_str.replace('\n', "\r\n")
     }
 
@@ -94,6 +95,7 @@ fn check_toml(path: &str, matches: &ArgMatches, config: &Config) -> IoResult<boo
         return Ok(true);
     }
 
+    let is_sorted = toml_raw == sorted_str;
     if flag_set("check", matches) {
         if !is_sorted {
             write_red(
@@ -112,11 +114,21 @@ fn check_toml(path: &str, matches: &ArgMatches, config: &Config) -> IoResult<boo
         return Ok(is_sorted && is_formatted);
     }
 
-    write_file(&path, &sorted_str)?;
-    write_green(
-        "Finished: ",
-        format!("Cargo.toml for {:?} has been rewritten", krate.to_string_lossy()),
-    )?;
+    if !is_sorted {
+        write_file(&path, &sorted_str)?;
+        write_green(
+            "Finished: ",
+            format!("Cargo.toml for {:?} has been rewritten", krate.to_string_lossy()),
+        )?;
+    } else {
+        write_green(
+            "Finished: ",
+            format!(
+                "Cargo.toml for {} is sorted already, no changes made",
+                krate.to_string_lossy()
+            ),
+        )?;
+    }
 
     Ok(true)
 }
