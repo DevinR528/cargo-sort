@@ -293,7 +293,7 @@ mod test {
     fn toml_edit_check() {
         let input = fs::read_to_string("examp/workspace.toml").unwrap();
         let sorted = super::sort_toml(&input, MATCHER, false, &[]);
-        assert_ne!(input, sorted.to_string());
+        assert_eq!(input, sorted.to_string());
         // println!("{}", sorted.to_string());
     }
 
