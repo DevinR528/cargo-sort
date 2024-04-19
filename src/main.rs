@@ -13,7 +13,7 @@ use clap::{
 };
 use fmt::Config;
 use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
-use toml_edit::{Document, Item};
+use toml_edit::{DocumentMut, Item};
 
 mod fmt;
 mod sort;
@@ -208,7 +208,7 @@ fn _main() -> IoResult<()> {
         let raw_toml = read_to_string(&path)
             .map_err(|_| format!("no file found at: {}", path.display()))?;
 
-        let toml = raw_toml.parse::<Document>()?;
+        let toml = raw_toml.parse::<DocumentMut>()?;
         let workspace = toml.get("workspace");
         if let Some(Item::Table(ws)) = workspace {
             // The workspace excludes, used to filter members by
@@ -298,6 +298,6 @@ fn main() {
 //         let mut toml = sort::sort_toml(&s, sort::MATCHER, false);
 //         fmt::fmt_toml(&mut toml, &fmt::Config::default());
 //         print!("{}", s);
-//         s.parse::<Document>().unwrap();
+//         s.parse::<DocumentMut>().unwrap();
 //     }
 // }

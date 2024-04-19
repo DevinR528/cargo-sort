@@ -1,7 +1,10 @@
 [package]
 name = "cargo-sort"
 version = "1.0.9"
-authors = ["Devin R <devin.ragotzy@gmail.com>", "Andronik Ordian <write@reusable.software>"]
+authors = [
+    "Devin R <devin.ragotzy@gmail.com>",
+    "Andronik Ordian <write@reusable.software>",
+]
 license = "MIT/Apache-2.0"
 description = "Check if tables and items in a .toml file are lexically sorted"
 repository = "https://github.com/DevinR528/cargo-sort"
@@ -17,13 +20,13 @@ default-run = "cargo-sort"
 
 [dependencies]
 # afl = { version = "0.10", optional = true }
-clap = { version = "4.0.10", features = ["wrap_help", "cargo"] }
-glob = "0.3"
-termcolor = "1.1"
-toml_edit = "0.21"
+clap = { version = "4.5.4", features = ["wrap_help", "cargo"] }
+glob = "0.3.1"
+termcolor = "1.4.1"
+toml_edit = "0.22.11"
 
 [dev-dependencies]
-serde_json = "1"
+serde_json = "1.0.116"
 similar-asserts = "1.5.0"
 
 # The following is commented out for releases because of
