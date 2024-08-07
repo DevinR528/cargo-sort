@@ -89,7 +89,7 @@ pub fn sort_toml(
 
                 gather_headings(table, headings, 1);
                 headings.sort();
-                sort_by_group(table);
+                sort_table(table, group);
             }
             Item::None => continue,
             _ => unreachable!("Top level toml must be tables"),
