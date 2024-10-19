@@ -1,4 +1,4 @@
-use std::{cmp::Ordering, collections::BTreeMap, iter::FromIterator};
+use std::{cmp::Ordering, collections::BTreeMap};
 
 use toml_edit::{Array, Document, Item, Key, RawString, Table, Value};
 
@@ -98,18 +98,15 @@ pub fn sort_toml(
 }
 
 fn sort_array(arr: &mut Array) {
-    let mut all_strings = true;
-    let mut arr_copy = arr.iter().cloned().collect::<Vec<_>>();
-    arr_copy.sort_by(|a, b| match (a, b) {
+    arr.sort_by(|a, b| match (a, b) {
         (Value::String(a), Value::String(b)) => a.value().cmp(b.value()),
+        (Value::Integer(a), Value::Integer(b)) => a.value().cmp(b.value()),
+        (Value::Boolean(a), Value::Boolean(b)) => a.value().cmp(b.value()),
+        (Value::Datetime(a), Value::Datetime(b)) => a.value().cmp(b.value()),
         _ => {
-            all_strings = false;
             Ordering::Equal
         }
     });
-    if all_strings {
-        *arr = Array::from_iter(arr_copy);
-    }
 }
 
 fn gather_headings(table: &Table, keys: &mut Vec<Heading>, depth: usize) {
@@ -293,7 +290,7 @@ mod test {
     fn toml_edit_check() {
         let input = fs::read_to_string("examp/workspace.toml").unwrap();
         let sorted = super::sort_toml(&input, MATCHER, false, &[]);
-        assert_ne!(input, sorted.to_string());
+        assert_eq!(input, sorted.to_string());
         // println!("{}", sorted.to_string());
     }
 
