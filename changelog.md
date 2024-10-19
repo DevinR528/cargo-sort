@@ -1,3 +1,9 @@
+# 1.1.0
+
+Feature
+
+  * Upgrade `toml_edit` to support more TOML syntax
+
 # 1.0.9
 
 Bug Fixes
@@ -11,9 +17,9 @@ Update
 
   * Update clap from 2.34 to 4.0.10
 
-  Feature
+Feature
 
-  *  Add --check-format flag
+  * Add --check-format flag
     * If set, `cargo-sort` will check formatting (allows only checking formatting)
     * [Thanks matze](https://github.com/DevinR528/cargo-sort/pull/41)
   * DockerHub builds added
