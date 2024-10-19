@@ -323,7 +323,7 @@ mod test {
 
     use similar_asserts::assert_eq;
 
-    use super::{fmt_toml, Config, Document};
+    use super::{Config, Document, fmt_toml};
 
     #[test]
     fn toml_fmt_check() {

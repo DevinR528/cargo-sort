@@ -2,14 +2,14 @@ use std::{
     borrow::Cow,
     env,
     fmt::Display,
-    fs::{read_to_string, OpenOptions},
+    fs::{OpenOptions, read_to_string},
     io::Write,
     path::{Path, PathBuf},
 };
 
 use clap::{
-    crate_authors, crate_name, crate_version, parser::ValueSource, Arg, ArgAction,
-    ArgMatches, Command,
+    Arg, ArgAction, ArgMatches, Command, crate_authors, crate_name, crate_version,
+    parser::ValueSource,
 };
 use fmt::Config;
 use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};

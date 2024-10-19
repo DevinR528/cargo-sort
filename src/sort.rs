@@ -346,18 +346,13 @@ mod test {
     #[test]
     fn reorder() {
         let input = fs::read_to_string("examp/clippy.toml").unwrap();
-        let sorted = super::sort_toml(
-            &input,
-            MATCHER,
-            true,
-            &[
-                "package".to_owned(),
-                "features".to_owned(),
-                "dependencies".to_owned(),
-                "build-dependencies".to_owned(),
-                "dev-dependencies".to_owned(),
-            ],
-        );
+        let sorted = super::sort_toml(&input, MATCHER, true, &[
+            "package".to_owned(),
+            "features".to_owned(),
+            "dependencies".to_owned(),
+            "build-dependencies".to_owned(),
+            "dev-dependencies".to_owned(),
+        ]);
         assert_ne!(input, sorted.to_string());
     }
 }
