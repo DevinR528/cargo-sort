@@ -2,18 +2,18 @@ use std::{
     borrow::Cow,
     env,
     fmt::Display,
-    fs::{OpenOptions, read_to_string},
+    fs::{read_to_string, OpenOptions},
     io::Write,
     path::{Path, PathBuf},
 };
 
 use clap::{
-    Arg, ArgAction, ArgMatches, Command, crate_authors, crate_name, crate_version,
-    parser::ValueSource,
+    crate_authors, crate_name, crate_version, parser::ValueSource, Arg, ArgAction,
+    ArgMatches, Command,
 };
 use fmt::Config;
 use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
-use toml_edit::{Document, Item};
+use toml_edit::{DocumentMut, Item};
 
 mod fmt;
 mod sort;
@@ -207,7 +207,11 @@ fn _main() -> IoResult<()> {
     let (is_posible_workspace, mut filtered_matches) =
         matches.get_many::<String>("cwd").map_or((true, vec![dir.clone()]), |s| {
             let args = s.filter(|it| *it != "sort").map(Into::into).collect::<Vec<_>>();
-            if args.is_empty() { (true, vec![dir]) } else { (args.len() == 1, args) }
+            if args.is_empty() {
+                (true, vec![dir])
+            } else {
+                (args.len() == 1, args)
+            }
         });
 
     if flag_set("workspace", &matches) && is_posible_workspace {
@@ -220,7 +224,7 @@ fn _main() -> IoResult<()> {
         let raw_toml = read_to_string(&path)
             .map_err(|_| format!("no file found at: {}", path.display()))?;
 
-        let toml = raw_toml.parse::<Document>()?;
+        let toml = raw_toml.parse::<DocumentMut>()?;
         let workspace = toml.get("workspace");
         if let Some(Item::Table(ws)) = workspace {
             // The workspace excludes, used to filter members by
@@ -287,10 +291,14 @@ fn _main() -> IoResult<()> {
         }
     }
 
-    if flag { std::process::exit(0) } else { std::process::exit(1) }
+    if flag {
+        std::process::exit(0)
+    } else {
+        std::process::exit(1)
+    }
 }
 
-fn array_string_members(value: &toml_edit::Item) -> Vec<&str> {
+fn array_string_members(value: &Item) -> Vec<&str> {
     value.as_array().into_iter().flatten().filter_map(|s| s.as_str()).collect()
 }
 
@@ -310,6 +318,6 @@ fn main() {
 //         let mut toml = sort::sort_toml(&s, sort::MATCHER, false);
 //         fmt::fmt_toml(&mut toml, &fmt::Config::default());
 //         print!("{}", s);
-//         s.parse::<Document>().unwrap();
+//         s.parse::<DocumentMut>().unwrap();
 //     }
 // }

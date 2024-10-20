@@ -11,7 +11,7 @@ jobs:
     name: Check
     strategy:
       matrix:
-        os: [ ubuntu-latest, windows-latest ]
+        os: [ ubuntu-latest, windows-latest, macos-latest ]
     runs-on: ${{ matrix.os }}
     steps:
     - uses: actions/checkout@v2
@@ -20,6 +20,9 @@ jobs:
         toolchain: stable
         profile: minimal
         override: true
+    - run: cargo check --all --all-targets --all-features
+    - run: cargo fmt --all -- --check
+    - run: cargo clippy --all-targets --all-features -- -D warnings
     - name: Run tests
       uses: actions-rs/cargo@v1
       with:
