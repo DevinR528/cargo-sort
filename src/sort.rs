@@ -1,6 +1,6 @@
 use std::{cmp::Ordering, collections::BTreeMap, iter::FromIterator};
 
-use toml_edit::{Array, Document, Item, Key, RawString, Table, Value};
+use toml_edit::{Array, DocumentMut, Item, Key, RawString, Table, Value};
 
 /// Each `Matcher` field when matched to a heading or key token
 /// will be matched with `.contains()`.
@@ -28,15 +28,15 @@ enum Heading {
     Complete(Vec<String>),
 }
 
-/// Returns a sorted toml `Document`.
+/// Returns a sorted toml `DocumentMut`.
 pub fn sort_toml(
     input: &str,
     matcher: Matcher<'_>,
     group: bool,
     ordering: &[String],
-) -> Document {
+) -> DocumentMut {
     let mut ordering = ordering.to_owned();
-    let mut toml = input.parse::<Document>().unwrap();
+    let mut toml = input.parse::<DocumentMut>().unwrap();
     // This takes care of `[workspace] members = [...]`
     for (heading, key) in matcher.heading_key {
         // Since this `&mut toml[&heading]` is like
@@ -167,7 +167,7 @@ fn sort_by_group(table: &mut Table) {
     let mut curr = 0;
     for (idx, (k, v)) in table_clone.iter_mut().enumerate() {
         let blank_lines = k
-            .decor()
+            .leaf_decor()
             .prefix()
             .and_then(RawString::as_str)
             .unwrap_or("")
@@ -175,7 +175,7 @@ fn sort_by_group(table: &mut Table) {
             .filter(|l| !l.starts_with('#'))
             .count();
 
-        let k = Key::new(&*k).with_decor(k.decor().clone());
+        let k = Key::new(&*k).with_leaf_decor(k.leaf_decor().clone());
 
         if blank_lines > 0 {
             groups.entry(idx).or_insert_with(|| vec![(k, v)]);
@@ -196,7 +196,7 @@ fn sort_by_group(table: &mut Table) {
 fn sort_lexicographical(
     first_table: Option<usize>,
     heading_order: &BTreeMap<(usize, String), Vec<Heading>>,
-    toml: &mut Document,
+    toml: &mut DocumentMut,
 ) {
     // Since the root table is always index 0 we add one
     let first_table_idx = first_table.unwrap_or_default() + 1;
@@ -221,7 +221,7 @@ fn sort_lexicographical(
 fn sort_by_ordering(
     ordering: &[String],
     heading_order: &BTreeMap<(usize, String), Vec<Heading>>,
-    toml: &mut Document,
+    toml: &mut DocumentMut,
 ) {
     let mut idx = 0;
     for heading in ordering {
@@ -346,13 +346,18 @@ mod test {
     #[test]
     fn reorder() {
         let input = fs::read_to_string("examp/clippy.toml").unwrap();
-        let sorted = super::sort_toml(&input, MATCHER, true, &[
-            "package".to_owned(),
-            "features".to_owned(),
-            "dependencies".to_owned(),
-            "build-dependencies".to_owned(),
-            "dev-dependencies".to_owned(),
-        ]);
+        let sorted = super::sort_toml(
+            &input,
+            MATCHER,
+            true,
+            &[
+                "package".to_owned(),
+                "features".to_owned(),
+                "dependencies".to_owned(),
+                "build-dependencies".to_owned(),
+                "dev-dependencies".to_owned(),
+            ],
+        );
         assert_ne!(input, sorted.to_string());
     }
 }

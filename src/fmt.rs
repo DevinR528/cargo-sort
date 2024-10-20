@@ -1,6 +1,8 @@
+#![allow(dead_code, unused_qualifications)]
+
 use std::str::FromStr;
 
-use toml_edit::{Document, Item, RawString, Table, Value};
+use toml_edit::{DocumentMut, Item, RawString, Table, Value};
 
 #[cfg(target_os = "windows")]
 const NEWLINE_PATTERN: &str = "\r\n";
@@ -114,7 +116,7 @@ impl Config {
 impl FromStr for Config {
     type Err = &'static str;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let toml = s.parse::<Document>().map_err(|_| "failed to parse as toml")?;
+        let toml = s.parse::<DocumentMut>().map_err(|_| "failed to parse as toml")?;
         Ok(Config {
             always_trailing_comma: toml
                 .get("always_trailing_comma")
@@ -242,7 +244,8 @@ fn fmt_table(table: &mut Table, config: &Config) {
             item.is_value() && item.as_inline_table().map_or(true, |t| !t.is_dotted())
         });
 
-        let dec = table.key_decor_mut(&key).unwrap();
+        let mut dec = table.key_mut(&key).unwrap();
+        let dec = dec.leaf_decor_mut();
         let prefix = dec.prefix().and_then(RawString::as_str).unwrap_or("");
         let blank_lines = prefix.lines().filter(|l| !l.starts_with('#')).count();
 
@@ -290,8 +293,8 @@ fn fmt_table(table: &mut Table, config: &Config) {
     }
 }
 
-/// Formats a toml `Document` according to `tomlfmt.toml`.
-pub fn fmt_toml(toml: &mut Document, config: &Config) {
+/// Formats a toml `DocumentMut` according to `tomlfmt.toml`.
+pub fn fmt_toml(toml: &mut DocumentMut, config: &Config) {
     for (_key, item) in toml.as_table_mut().iter_mut() {
         match item {
             Item::ArrayOfTables(table) => {
@@ -323,12 +326,12 @@ mod test {
 
     use similar_asserts::assert_eq;
 
-    use super::{Config, Document, fmt_toml};
+    use super::{fmt_toml, Config, DocumentMut};
 
     #[test]
     fn toml_fmt_check() {
         let input = fs::read_to_string("examp/ruma.toml").unwrap();
-        let mut toml = input.parse::<Document>().unwrap();
+        let mut toml = input.parse::<DocumentMut>().unwrap();
         fmt_toml(&mut toml, &Config::new());
         assert_ne!(input, toml.to_string());
         // println!("{}", toml.to_string());
@@ -337,7 +340,7 @@ mod test {
     #[test]
     fn fmt_correct() {
         let input = fs::read_to_string("examp/right.toml").unwrap();
-        let mut toml = input.parse::<Document>().unwrap();
+        let mut toml = input.parse::<DocumentMut>().unwrap();
         fmt_toml(&mut toml, &Config::new());
         #[cfg(target_os = "windows")]
         assert_eq!(input.replace("\r\n", "\n"), toml.to_string().replace("\r\n", "\n"));
@@ -354,7 +357,7 @@ mod test {
         let expected = String::from(
             "[package]\nname = \"priv-test\"\nversion = \"0.1.0\"\nedition = \"2021\"\nresolver = \"2\"\n# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html\n\n[dependencies]\nstructopt = \"0.3\"\n",
         );
-        let mut toml = input.parse::<Document>().unwrap();
+        let mut toml = input.parse::<DocumentMut>().unwrap();
         fmt_toml(&mut toml, &Config::new());
         assert_eq!(expected, toml.to_string());
     }
@@ -362,7 +365,7 @@ mod test {
     #[test]
     fn array() {
         let input = fs::read_to_string("examp/clippy.toml").unwrap();
-        let mut toml = input.parse::<Document>().unwrap();
+        let mut toml = input.parse::<DocumentMut>().unwrap();
         fmt_toml(&mut toml, &Config::new());
         assert_ne!(input, toml.to_string());
         // println!("{}", toml.to_string());
@@ -371,7 +374,7 @@ mod test {
     #[test]
     fn trailing() {
         let input = fs::read_to_string("examp/trailing.toml").unwrap();
-        let mut toml = input.parse::<Document>().unwrap();
+        let mut toml = input.parse::<DocumentMut>().unwrap();
         fmt_toml(&mut toml, &Config::new());
         assert_ne!(input, toml.to_string());
         // println!("{}", toml.to_string());
