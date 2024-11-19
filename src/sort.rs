@@ -123,7 +123,7 @@ fn gather_headings(table: &Table, keys: &mut Vec<Heading>, depth: usize) {
     for (head, item) in table.iter() {
         match item {
             Item::Value(_) => {
-                if keys.last().map_or(false, |h| matches!(h, Heading::Complete(_))) {
+                if keys.last().is_some_and(|h| matches!(h, Heading::Complete(_))) {
                     continue;
                 }
                 let next = match keys.pop().unwrap() {
@@ -346,13 +346,18 @@ mod test {
     #[test]
     fn reorder() {
         let input = fs::read_to_string("examp/clippy.toml").unwrap();
-        let sorted = super::sort_toml(&input, MATCHER, true, &[
-            "package".to_owned(),
-            "features".to_owned(),
-            "dependencies".to_owned(),
-            "build-dependencies".to_owned(),
-            "dev-dependencies".to_owned(),
-        ]);
+        let sorted = super::sort_toml(
+            &input,
+            MATCHER,
+            true,
+            &[
+                "package".to_owned(),
+                "features".to_owned(),
+                "dependencies".to_owned(),
+                "build-dependencies".to_owned(),
+                "dev-dependencies".to_owned(),
+            ],
+        );
         assert_ne!(input, sorted.to_string());
     }
 }

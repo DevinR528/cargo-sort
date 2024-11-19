@@ -10,10 +10,11 @@ description = "Check if tables and items in a .toml file are lexically sorted"
 repository = "https://github.com/DevinR528/cargo-sort"
 keywords = ["cargo", "subcommand", "dependencies", "sort", "check"]
 categories = ["development-tools::cargo-plugins", "development-tools"]
-edition = "2018"
+edition = "2021"
 readme = "README.md"
 exclude = ["examp", "fixtures"]
 default-run = "cargo-sort"
+rust-version = "1.70"
 
 # [features]
 # fuzz = ["afl"]

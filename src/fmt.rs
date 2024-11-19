@@ -18,6 +18,7 @@ const NEWLINE_PATTERN: &str = "\n";
 /// assert!(config.trailing_comma);
 /// assert!(config.crlf);
 /// ```
+#[allow(dead_code)]
 pub struct Config {
     /// Use trailing comma where possible.
     ///
@@ -174,7 +175,7 @@ fn fmt_value(value: &mut Value, config: &Config) {
         Value::Array(arr) => {
             if arr.to_string().len() > config.max_array_line_len {
                 let arr_has_trailing_newline =
-                    arr.trailing().as_str().map_or(false, |s| s.contains('\n'));
+                    arr.trailing().as_str().is_some_and(|s| s.contains('\n'));
                 let len = arr.len();
                 for (i, val) in arr.iter_mut().enumerate() {
                     val.decor_mut().set_prefix(format!(
@@ -238,7 +239,7 @@ fn fmt_table(table: &mut Table, config: &Config) {
 
     let keys: Vec<_> = table.iter().map(|(k, _)| k.to_owned()).collect();
     for key in keys {
-        let is_value_for_space = table.get(&key).map_or(false, |item| {
+        let is_value_for_space = table.get(&key).is_some_and(|item| {
             item.is_value() && item.as_inline_table().map_or(true, |t| !t.is_dotted())
         });
 
@@ -323,7 +324,7 @@ mod test {
 
     use similar_asserts::assert_eq;
 
-    use super::{Config, Document, fmt_toml};
+    use super::{fmt_toml, Config, Document};
 
     #[test]
     fn toml_fmt_check() {

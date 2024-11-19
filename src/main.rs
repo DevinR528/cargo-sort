@@ -2,14 +2,14 @@ use std::{
     borrow::Cow,
     env,
     fmt::Display,
-    fs::{OpenOptions, read_to_string},
+    fs::{read_to_string, OpenOptions},
     io::Write,
     path::{Path, PathBuf},
 };
 
 use clap::{
-    Arg, ArgAction, ArgMatches, Command, crate_authors, crate_name, crate_version,
-    parser::ValueSource,
+    crate_authors, crate_name, crate_version, parser::ValueSource, Arg, ArgAction,
+    ArgMatches, Command,
 };
 use fmt::Config;
 use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
@@ -207,7 +207,11 @@ fn _main() -> IoResult<()> {
     let (is_posible_workspace, mut filtered_matches) =
         matches.get_many::<String>("cwd").map_or((true, vec![dir.clone()]), |s| {
             let args = s.filter(|it| *it != "sort").map(Into::into).collect::<Vec<_>>();
-            if args.is_empty() { (true, vec![dir]) } else { (args.len() == 1, args) }
+            if args.is_empty() {
+                (true, vec![dir])
+            } else {
+                (args.len() == 1, args)
+            }
         });
 
     if flag_set("workspace", &matches) && is_posible_workspace {
@@ -287,7 +291,11 @@ fn _main() -> IoResult<()> {
         }
     }
 
-    if flag { std::process::exit(0) } else { std::process::exit(1) }
+    if flag {
+        std::process::exit(0)
+    } else {
+        std::process::exit(1)
+    }
 }
 
 fn array_string_members(value: &toml_edit::Item) -> Vec<&str> {
