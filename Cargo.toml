@@ -28,7 +28,10 @@ toml_edit = "0.21"
 [dev-dependencies]
 serde_json = "1"
 similar-asserts = "1.5.0"
-# The following is commented out for releases because of https://github.com/DevinR528/cargo-sort/issues/31 see also https://github.com/rust-lang/cargo/issues/8703
+
+# The following is commented out for releases because of
+# https://github.com/DevinR528/cargo-sort/issues/31
+# see also https://github.com/rust-lang/cargo/issues/8703
 
 # [[bin]]
 # name = "cargo-sort"

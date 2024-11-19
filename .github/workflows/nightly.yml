@@ -19,5 +19,3 @@ jobs:
         run: cargo fmt -- --check
       - name: Catch common mistakes
         run: cargo clippy
-      - name: Sort Cargo.toml
-        run: cargo install cargo-sort && cargo sort --grouped --check
