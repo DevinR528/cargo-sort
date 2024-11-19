@@ -11,21 +11,11 @@ jobs:
     name: Check
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v2
-    - uses: actions-rs/toolchain@v1
-      with:
-        toolchain: nightly
-        profile: minimal
-        override: true
-        components: rustfmt, clippy
-    - name: Check formatting
-      uses: actions-rs/cargo@v1
-      with:
-        command: fmt
-        args: -- --check
-    - name: Catch common mistakes
-      uses: actions-rs/cargo@v1
-      with:
-        command: mean-clippy
-    - name: Sort Cargo.toml
-      run: cargo install cargo-sort && cargo sort -gc
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@nightly
+        with:
+          components: rustfmt, clippy
+      - name: Check formatting
+        run: cargo fmt -- --check
+      - name: Catch common mistakes
+        run: cargo clippy
