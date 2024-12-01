@@ -19,6 +19,7 @@ const NEWLINE_PATTERN: &str = "\n";
 /// assert!(config.crlf);
 /// ```
 #[allow(dead_code)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Config {
     /// Use trailing comma where possible.
     ///
@@ -85,7 +86,11 @@ pub struct Config {
 impl Config {
     // Used in testing and fuzzing
     #[allow(dead_code)]
-    pub(crate) fn new() -> Self {
+    pub(crate) fn new() -> Self { Self::default() }
+}
+
+impl Default for Config {
+    fn default() -> Self {
         Self {
             always_trailing_comma: false,
             multiline_trailing_comma: true,
@@ -115,6 +120,9 @@ impl Config {
 impl FromStr for Config {
     type Err = &'static str;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
+        if s.is_empty() {
+            return Ok(Config::default());
+        }
         let toml = s.parse::<DocumentMut>().map_err(|_| "failed to parse as toml")?;
         Ok(Config {
             always_trailing_comma: toml
