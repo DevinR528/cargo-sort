@@ -7,6 +7,9 @@ const NEWLINE_PATTERN: &str = "\r\n";
 #[cfg(not(target_os = "windows"))]
 const NEWLINE_PATTERN: &str = "\n";
 
+static DEF_TABLE_ORDER: [&str; 5] =
+    ["package", "features", "dependencies", "build-dependencies", "dev-dependencies"];
+
 /// The config file for formatting toml after sorting.
 ///
 /// Use the `FromStr` to create a config from a string.
@@ -19,6 +22,7 @@ const NEWLINE_PATTERN: &str = "\n";
 /// assert!(config.crlf);
 /// ```
 #[allow(dead_code)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Config {
     /// Use trailing comma where possible.
     ///
@@ -85,7 +89,11 @@ pub struct Config {
 impl Config {
     // Used in testing and fuzzing
     #[allow(dead_code)]
-    pub(crate) fn new() -> Self {
+    pub(crate) fn new() -> Self { Self::default() }
+}
+
+impl Default for Config {
+    fn default() -> Self {
         Self {
             always_trailing_comma: false,
             multiline_trailing_comma: true,
@@ -98,16 +106,7 @@ impl Config {
             key_value_newlines: true,
             allowed_blank_lines: 1,
             crlf: false,
-            table_order: [
-                "package",
-                "features",
-                "dependencies",
-                "build-dependencies",
-                "dev-dependencies",
-            ]
-            .iter()
-            .map(|s| (*s).to_owned())
-            .collect(),
+            table_order: DEF_TABLE_ORDER.iter().map(|s| (*s).to_owned()).collect(),
         }
     }
 }
@@ -115,6 +114,9 @@ impl Config {
 impl FromStr for Config {
     type Err = &'static str;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
+        if s.is_empty() {
+            return Ok(Config::default());
+        }
         let toml = s.parse::<DocumentMut>().map_err(|_| "failed to parse as toml")?;
         Ok(Config {
             always_trailing_comma: toml
@@ -124,7 +126,7 @@ impl FromStr for Config {
             multiline_trailing_comma: toml
                 .get("multiline_trailing_comma")
                 .and_then(toml_edit::Item::as_bool)
-                .unwrap_or_default(),
+                .unwrap_or(true),
             max_array_line_len: toml
                 .get("max_array_line_len")
                 .and_then(toml_edit::Item::as_integer)
@@ -161,11 +163,15 @@ impl FromStr for Config {
             table_order: toml
                 .get("table_order")
                 .and_then(toml_edit::Item::as_array)
-                .into_iter()
-                .flatten()
-                .filter_map(|v| v.as_str())
-                .map(|s| s.to_string())
-                .collect(),
+                .map_or(
+                    DEF_TABLE_ORDER.iter().map(|s| (*s).to_owned()).collect(),
+                    |arr| {
+                        arr.into_iter()
+                            .filter_map(|v| v.as_str())
+                            .map(|s| s.to_string())
+                            .collect()
+                    },
+                ),
         })
     }
 }
