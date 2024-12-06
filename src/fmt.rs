@@ -7,6 +7,16 @@ const NEWLINE_PATTERN: &str = "\r\n";
 #[cfg(not(target_os = "windows"))]
 const NEWLINE_PATTERN: &str = "\n";
 
+static DEF_TABLE_ORDER: &[&str] = &[
+    "package",
+    "lib",
+    "bin",
+    "features",
+    "dependencies",
+    "build-dependencies",
+    "dev-dependencies",
+];
+
 /// The config file for formatting toml after sorting.
 ///
 /// Use the `FromStr` to create a config from a string.
@@ -83,12 +93,6 @@ pub struct Config {
     pub table_order: Vec<String>,
 }
 
-impl Config {
-    // Used in testing and fuzzing
-    #[allow(dead_code)]
-    pub(crate) fn new() -> Self { Self::default() }
-}
-
 impl Default for Config {
     fn default() -> Self {
         Self {
@@ -103,16 +107,7 @@ impl Default for Config {
             key_value_newlines: true,
             allowed_blank_lines: 1,
             crlf: false,
-            table_order: [
-                "package",
-                "features",
-                "dependencies",
-                "build-dependencies",
-                "dev-dependencies",
-            ]
-            .iter()
-            .map(|s| (*s).to_owned())
-            .collect(),
+            table_order: DEF_TABLE_ORDER.iter().map(|s| (*s).to_owned()).collect(),
         }
     }
 }
@@ -169,11 +164,15 @@ impl FromStr for Config {
             table_order: toml
                 .get("table_order")
                 .and_then(toml_edit::Item::as_array)
-                .into_iter()
-                .flatten()
-                .filter_map(|v| v.as_str())
-                .map(|s| s.to_string())
-                .collect(),
+                .map_or(
+                    DEF_TABLE_ORDER.iter().map(|s| (*s).to_owned()).collect(),
+                    |arr| {
+                        arr.into_iter()
+                            .filter_map(|v| v.as_str())
+                            .map(|s| s.to_string())
+                            .collect()
+                    },
+                ),
         })
     }
 }
@@ -339,7 +338,7 @@ mod test {
     fn toml_fmt_check() {
         let input = fs::read_to_string("examp/ruma.toml").unwrap();
         let mut toml = input.parse::<DocumentMut>().unwrap();
-        fmt_toml(&mut toml, &Config::new());
+        fmt_toml(&mut toml, &Config::default());
         assert_ne!(input, toml.to_string());
         // println!("{}", toml.to_string());
     }
@@ -348,7 +347,7 @@ mod test {
     fn fmt_correct() {
         let input = fs::read_to_string("examp/right.toml").unwrap();
         let mut toml = input.parse::<DocumentMut>().unwrap();
-        fmt_toml(&mut toml, &Config::new());
+        fmt_toml(&mut toml, &Config::default());
         #[cfg(target_os = "windows")]
         assert_eq!(input.replace("\r\n", "\n"), toml.to_string().replace("\r\n", "\n"));
         #[cfg(not(target_os = "windows"))]
@@ -365,7 +364,7 @@ mod test {
             "[package]\nname = \"priv-test\"\nversion = \"0.1.0\"\nedition = \"2021\"\nresolver = \"2\"\n# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html\n\n[dependencies]\nstructopt = \"0.3\"\n",
         );
         let mut toml = input.parse::<DocumentMut>().unwrap();
-        fmt_toml(&mut toml, &Config::new());
+        fmt_toml(&mut toml, &Config::default());
         assert_eq!(expected, toml.to_string());
     }
 
@@ -373,7 +372,7 @@ mod test {
     fn array() {
         let input = fs::read_to_string("examp/clippy.toml").unwrap();
         let mut toml = input.parse::<DocumentMut>().unwrap();
-        fmt_toml(&mut toml, &Config::new());
+        fmt_toml(&mut toml, &Config::default());
         assert_ne!(input, toml.to_string());
         // println!("{}", toml.to_string());
     }
@@ -382,7 +381,7 @@ mod test {
     fn trailing() {
         let input = fs::read_to_string("examp/trailing.toml").unwrap();
         let mut toml = input.parse::<DocumentMut>().unwrap();
-        fmt_toml(&mut toml, &Config::new());
+        fmt_toml(&mut toml, &Config::default());
         assert_ne!(input, toml.to_string());
         // println!("{}", toml.to_string());
     }
