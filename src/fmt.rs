@@ -7,6 +7,9 @@ const NEWLINE_PATTERN: &str = "\r\n";
 #[cfg(not(target_os = "windows"))]
 const NEWLINE_PATTERN: &str = "\n";
 
+static DEF_TABLE_ORDER: [&str; 5] =
+    ["package", "features", "dependencies", "build-dependencies", "dev-dependencies"];
+
 /// The config file for formatting toml after sorting.
 ///
 /// Use the `FromStr` to create a config from a string.
@@ -103,16 +106,7 @@ impl Default for Config {
             key_value_newlines: true,
             allowed_blank_lines: 1,
             crlf: false,
-            table_order: [
-                "package",
-                "features",
-                "dependencies",
-                "build-dependencies",
-                "dev-dependencies",
-            ]
-            .iter()
-            .map(|s| (*s).to_owned())
-            .collect(),
+            table_order: DEF_TABLE_ORDER.iter().map(|s| (*s).to_owned()).collect(),
         }
     }
 }
@@ -169,11 +163,15 @@ impl FromStr for Config {
             table_order: toml
                 .get("table_order")
                 .and_then(toml_edit::Item::as_array)
-                .into_iter()
-                .flatten()
-                .filter_map(|v| v.as_str())
-                .map(|s| s.to_string())
-                .collect(),
+                .map_or(
+                    DEF_TABLE_ORDER.iter().map(|s| (*s).to_owned()).collect(),
+                    |arr| {
+                        arr.into_iter()
+                            .filter_map(|v| v.as_str())
+                            .map(|s| s.to_string())
+                            .collect()
+                    },
+                ),
         })
     }
 }
