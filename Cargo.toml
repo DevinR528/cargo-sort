@@ -50,3 +50,5 @@ similar-asserts = "1.5.0"
 
 [profile.release]
 lto = true
+
+[workspace]
