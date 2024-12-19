@@ -1,0 +1,12 @@
+[package]
+name = "foobar"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+a = { workspace = true }
+c = { workspace = true }
+b = { workspace = true }
+
+e = { workspace = true }
+d = { workspace = true }

@@ -165,6 +165,7 @@ fn sort_by_group(table: &mut Table) {
     table.clear();
     let mut groups = BTreeMap::new();
     let mut curr = 0;
+
     for (idx, (k, v)) in table_clone.iter_mut().enumerate() {
         let blank_lines = k
             .leaf_decor()
@@ -175,9 +176,20 @@ fn sort_by_group(table: &mut Table) {
             .filter(|l| !l.starts_with('#'))
             .count();
 
-        let k = Key::new(&*k).with_leaf_decor(k.leaf_decor().clone());
+        let mut k = Key::new(&*k).with_leaf_decor(k.leaf_decor().clone());
 
         if blank_lines > 0 {
+            // remove the newline from the beginning of the new group in case it gets
+            // moved to a different place in the group
+            let decor = k.leaf_decor_mut();
+            if let Some(prefix) = decor.prefix().and_then(RawString::as_str) {
+                if let Some(stripped) = prefix.strip_prefix("\n") {
+                    decor.set_prefix(RawString::from(stripped));
+                } else if let Some(stripped) = prefix.strip_prefix("\r\n") {
+                    decor.set_prefix(RawString::from(stripped));
+                }
+            }
+
             groups.entry(idx).or_insert_with(|| vec![(k, v)]);
             curr = idx;
         } else {
@@ -185,8 +197,21 @@ fn sort_by_group(table: &mut Table) {
         }
     }
 
-    for (_, mut group) in groups {
+    for (i, mut group) in groups.into_values().enumerate() {
         group.sort_by(|a, b| a.0.cmp(&b.0));
+
+        // for sections after the first, attach a newline to the decor of the first
+        // element
+        if i != 0 {
+            if let Some((k, _)) = group.first_mut() {
+                let decor = k.leaf_decor_mut();
+                let prefix =
+                    decor.prefix().and_then(RawString::as_str).unwrap_or_default();
+                // converting to clrf gets handled later if necessary
+                decor.set_prefix(RawString::from(format!("\n{prefix}")));
+            }
+        }
+
         for (k, v) in group {
             table.insert_formatted(&k, v.clone());
         }
@@ -359,5 +384,20 @@ mod test {
             ],
         );
         assert_ne!(input, sorted.to_string());
+    }
+
+    #[test]
+    fn grouped_reorder() {
+        let input = fs::read_to_string("examp/grouped_reorder.toml").unwrap();
+        let expected_output =
+            fs::read_to_string("examp/grouped_reorder_output.toml").unwrap();
+        let sorted = super::sort_toml(&input, MATCHER, true, &[]).to_string();
+
+        #[cfg(target_os = "windows")]
+        let sorted = sorted.replace("\r\n", "\n");
+        #[cfg(target_os = "windows")]
+        let expected_output = expected_output.replace("\r\n", "\n");
+
+        assert_eq!(sorted, expected_output);
     }
 }
