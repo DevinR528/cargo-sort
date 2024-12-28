@@ -124,7 +124,7 @@ impl FromStr for Config {
             multiline_trailing_comma: toml
                 .get("multiline_trailing_comma")
                 .and_then(toml_edit::Item::as_bool)
-                .unwrap_or_default(),
+                .unwrap_or(true),
             max_array_line_len: toml
                 .get("max_array_line_len")
                 .and_then(toml_edit::Item::as_integer)
