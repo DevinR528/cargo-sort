@@ -207,10 +207,7 @@ fn fmt_value(value: &mut Value, config: &Config) {
         // get here from a headed table (`[header] key = val`)
         val => {
             if config.space_around_eq
-                && val
-                    .decor()
-                    .prefix()
-                    .map_or(true, |s| s.as_str().map_or(true, str::is_empty))
+                && val.decor().prefix().and_then(|r| r.as_str()).is_none_or(str::is_empty)
             {
                 val.decor_mut().set_prefix(" ");
             }
@@ -240,7 +237,7 @@ fn fmt_table(table: &mut Table, config: &Config) {
     let keys: Vec<_> = table.iter().map(|(k, _)| k.to_owned()).collect();
     for key in keys {
         let is_value_for_space = table.get(&key).is_some_and(|item| {
-            item.is_value() && item.as_inline_table().map_or(true, |t| !t.is_dotted())
+            item.is_value() && item.as_inline_table().is_none_or(|t| !t.is_dotted())
         });
 
         let mut dec = table.key_mut(&key).unwrap();
@@ -268,7 +265,7 @@ fn fmt_table(table: &mut Table, config: &Config) {
         // This is weirdly broken, inserts underscores into `[foo.bar]` table
         // headers. Revisit later.
         if config.space_around_eq
-            && dec.suffix().and_then(RawString::as_str).map_or(true, str::is_empty)
+            && dec.suffix().and_then(RawString::as_str).is_none_or(str::is_empty)
             && is_value_for_space
         {
             dec.set_suffix(format!(
