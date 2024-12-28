@@ -14,7 +14,7 @@ edition = "2021"
 readme = "README.md"
 exclude = ["examp", "fixtures"]
 default-run = "cargo-sort"
-rust-version = "1.70"
+rust-version = "1.82"
 
 # [features]
 # fuzz = ["afl"]
