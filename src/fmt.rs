@@ -115,6 +115,10 @@ impl Config {
 impl FromStr for Config {
     type Err = &'static str;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
+        if s.is_empty() {
+            return Ok(Self::new());
+        }
+
         let toml = s.parse::<DocumentMut>().map_err(|_| "failed to parse as toml")?;
         Ok(Config {
             always_trailing_comma: toml
