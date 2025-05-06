@@ -1,6 +1,6 @@
 use std::{cmp::Ordering, collections::BTreeMap, iter::FromIterator};
 
-use toml_edit::{Array, DocumentMut, Item, Key, RawString, Table, Value};
+use toml_edit::{Array, Decor, DocumentMut, Item, RawString, Table, Value};
 
 /// Each `Matcher` field when matched to a heading or key token
 /// will be matched with `.contains()`.
@@ -181,11 +181,16 @@ fn gather_headings(table: &Table, keys: &mut Vec<Heading>, depth: usize) {
 }
 
 fn sort_by_group(table: &mut Table) {
-    let mut table_clone = table.clone();
+    let table_clone = table.clone();
     table.clear();
+
     let mut groups = BTreeMap::new();
+    let mut group_decor = BTreeMap::default();
+
     let mut curr = 0;
-    for (idx, (k, v)) in table_clone.iter_mut().enumerate() {
+    for (idx, (k, _)) in table_clone.iter().enumerate() {
+        let (k, v) = table_clone.get_key_value(k).unwrap();
+
         let blank_lines = k
             .leaf_decor()
             .prefix()
@@ -195,19 +200,29 @@ fn sort_by_group(table: &mut Table) {
             .filter(|l| !l.starts_with('#'))
             .count();
 
-        let k = Key::new(&*k).with_leaf_decor(k.leaf_decor().clone());
-
         if blank_lines > 0 {
+            let decor = k.leaf_decor().clone();
+            let k = k.clone().with_leaf_decor(Decor::default());
+
             groups.entry(idx).or_insert_with(|| vec![(k, v)]);
+            group_decor.insert(idx, decor);
             curr = idx;
         } else {
-            groups.entry(curr).or_default().push((k, v));
+            groups.entry(curr).or_default().push((k.clone(), v));
         }
     }
 
-    for (_, mut group) in groups {
+    for (idx, mut group) in groups {
         group.sort_by(|a, b| a.0.cmp(&b.0));
-        for (k, v) in group {
+        let group_decor = group_decor.remove(&idx);
+
+        for (idx, (mut k, v)) in group.into_iter().enumerate() {
+            if idx == 0 {
+                if let Some(group_decor) = group_decor.clone() {
+                    k = k.with_leaf_decor(group_decor);
+                }
+            }
+
             table.insert_formatted(&k, v.clone());
         }
     }
@@ -329,9 +344,9 @@ mod test {
     #[test]
     fn grouped_check() {
         let input = fs::read_to_string("examp/ruma.toml").unwrap();
+        let expected = fs::read_to_string("examp/ruma.sorted.toml").unwrap();
         let sorted = super::sort_toml(&input, MATCHER, true, &[]);
-        assert_ne!(input, sorted.to_string());
-        // println!("{}", sorted.to_string());
+        assert_eq!(expected, sorted.to_string().replace("\r\n", "\n"));
     }
 
     #[test]
