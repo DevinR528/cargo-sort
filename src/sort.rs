@@ -58,7 +58,7 @@ pub fn sort_toml(
                         Item::Table(table) => {
                             sort_table(table, group);
                         }
-                        _ => unreachable!("{}.{} must be value or table", heading, key),
+                        _ => {}
                     }
                 }
             }
@@ -92,7 +92,7 @@ pub fn sort_toml(
                 sort_table(table, group);
             }
             Item::None => continue,
-            _ => unreachable!("Top level toml must be tables"),
+            _ => {}
         }
     }
 
