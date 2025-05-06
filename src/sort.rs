@@ -303,9 +303,9 @@ mod test {
     #[test]
     fn toml_edit_check() {
         let input = fs::read_to_string("examp/workspace.toml").unwrap();
+        let expected = fs::read_to_string("examp/workspace.sorted.toml").unwrap();
         let sorted = super::sort_toml(&input, MATCHER, false, &[]);
-        assert_ne!(input, sorted.to_string());
-        // println!("{}", sorted.to_string());
+        assert_eq!(expected, sorted.to_string().replace("\r\n", "\n"));
     }
 
     #[test]
