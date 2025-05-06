@@ -107,6 +107,8 @@ pub fn sort_toml(
 
 fn sort_array(arr: &mut Array) {
     let mut all_strings = true;
+    let trailing = arr.trailing().clone();
+
     let mut arr_copy = arr.iter().cloned().collect::<Vec<_>>();
     arr_copy.sort_by(|a, b| match (a, b) {
         (Value::String(a), Value::String(b)) => a.value().cmp(b.value()),
@@ -118,6 +120,8 @@ fn sort_array(arr: &mut Array) {
     if all_strings {
         *arr = Array::from_iter(arr_copy);
     }
+
+    arr.set_trailing(trailing);
 }
 
 fn sort_table(table: &mut Table, group: bool) {
