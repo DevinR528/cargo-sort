@@ -1,0 +1,5 @@
+[workspace]
+
+[workspace.dependencies]
+a = "1"
+b = "1"
