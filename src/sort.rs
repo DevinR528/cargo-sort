@@ -313,7 +313,7 @@ mod test {
         let input = fs::read_to_string("examp/workspace.toml").unwrap();
         let expected = fs::read_to_string("examp/workspace.sorted.toml").unwrap();
         let sorted = super::sort_toml(&input, MATCHER, false, &[]);
-        assert_eq!(expected, sorted.to_string().replace("\r\n", "\n"));
+        assert_eq(expected, sorted);
     }
 
     #[test]
@@ -321,18 +321,14 @@ mod test {
         let input = fs::read_to_string("examp/ruma.toml").unwrap();
         let expected = fs::read_to_string("examp/ruma.sorted.toml").unwrap();
         let sorted = super::sort_toml(&input, MATCHER, true, &[]);
-        assert_eq!(expected, sorted.to_string().replace("\r\n", "\n"));
+        assert_eq(expected, sorted);
     }
 
     #[test]
     fn sort_correct() {
         let input = fs::read_to_string("examp/right.toml").unwrap();
         let sorted = super::sort_toml(&input, MATCHER, true, &[]);
-        #[cfg(target_os = "windows")]
-        assert_eq!(input.replace("\r\n", "\n"), sorted.to_string().replace("\r\n", "\n"));
-        #[cfg(not(target_os = "windows"))]
-        assert_eq!(input, sorted.to_string());
-        // println!("{}", sorted.to_string());
+        assert_eq(input, sorted);
     }
 
     #[test]
@@ -347,19 +343,11 @@ mod test {
     fn sort_devfirst() {
         let input = fs::read_to_string("examp/reorder.toml").unwrap();
         let sorted = super::sort_toml(&input, MATCHER, true, &[]);
-        #[cfg(target_os = "windows")]
-        assert_eq!(input.replace("\r\n", "\n"), sorted.to_string().replace("\r\n", "\n"));
-        #[cfg(not(target_os = "windows"))]
-        assert_eq!(input, sorted.to_string());
-        // println!("{}", sorted.to_string());
+        assert_eq(input, sorted);
 
         let input = fs::read_to_string("examp/noreorder.toml").unwrap();
         let sorted = super::sort_toml(&input, MATCHER, true, &[]);
-        #[cfg(target_os = "windows")]
-        assert_eq!(input.replace("\r\n", "\n"), sorted.to_string().replace("\r\n", "\n"));
-        #[cfg(not(target_os = "windows"))]
-        assert_eq!(input, sorted.to_string());
-        // println!("{}", sorted.to_string());
+        assert_eq(input, sorted);
     }
 
     #[test]
@@ -378,5 +366,16 @@ mod test {
             ],
         );
         assert_ne!(input, sorted.to_string());
+    }
+
+    fn assert_eq<L: ToString, R: ToString>(left: L, right: R) {
+        let left = left.to_string();
+        let right = right.to_string();
+
+        #[cfg(windows)]
+        assert_eq!(left.replace("\r\n", "\n"), right.replace("\r\n", "\n"));
+
+        #[cfg(not(windows))]
+        assert_eq!(left, right);
     }
 }
