@@ -332,13 +332,7 @@ mod test {
         let input = fs::read_to_string("examp/workspace_deps.toml").unwrap();
         let expected = fs::read_to_string("examp/workspace_deps.sorted.toml").unwrap();
         let sorted = super::sort_toml(&input, MATCHER, false, &[]);
-        #[cfg(target_os = "windows")]
-        assert_eq!(
-            expected.replace("\r\n", "\n"),
-            sorted.to_string().replace("\r\n", "\n")
-        );
-        #[cfg(not(target_os = "windows"))]
-        assert_eq!(expected, sorted.to_string());
+        assert_eq(expected, sorted);
     }
 
     #[test]
