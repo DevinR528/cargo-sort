@@ -351,6 +351,14 @@ mod test {
     }
 
     #[test]
+    fn sort_comments() {
+        let input = fs::read_to_string("examp/comments.toml").unwrap();
+        let expected = fs::read_to_string("examp/comments.sorted.toml").unwrap();
+        let sorted = super::sort_toml(&input, MATCHER, true, &[]);
+        assert_eq(expected, sorted);
+    }
+
+    #[test]
     fn sort_tables() {
         let input = fs::read_to_string("examp/fend.toml").unwrap();
         let sorted = super::sort_toml(&input, MATCHER, true, &[]);
