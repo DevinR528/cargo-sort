@@ -108,6 +108,7 @@ pub fn sort_toml(
 fn sort_array(arr: &mut Array) {
     let mut all_strings = true;
     let trailing = arr.trailing().clone();
+    let trailing_comma = arr.trailing_comma();
 
     let mut arr_copy = arr.iter().cloned().collect::<Vec<_>>();
     arr_copy.sort_by(|a, b| match (a, b) {
@@ -122,6 +123,7 @@ fn sort_array(arr: &mut Array) {
     }
 
     arr.set_trailing(trailing);
+    arr.set_trailing_comma(trailing_comma);
 }
 
 fn sort_table(table: &mut Table, group: bool) {
