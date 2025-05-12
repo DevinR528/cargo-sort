@@ -221,22 +221,29 @@ fn fmt_value(value: &mut Value, config: &Config) {
 
 fn fmt_table(table: &mut Table, config: &Config) {
     // Checks the header decor for blank lines
-    let blank_header_lines = table
-        .decor()
-        .prefix()
-        .and_then(RawString::as_str)
-        .unwrap_or("")
-        .lines()
-        .filter(|l| !l.starts_with('#'))
-        .count();
-    if config.allowed_blank_lines < blank_header_lines {
-        let dec = table.decor_mut();
-        dec.set_prefix(dec.prefix().and_then(RawString::as_str).unwrap_or("").replacen(
-            NEWLINE_PATTERN,
-            "",
-            blank_header_lines - config.allowed_blank_lines,
-        ));
+
+    let current_decor = table.decor().prefix().and_then(RawString::as_str).unwrap_or("");
+    let mut new_decor = String::with_capacity(current_decor.len());
+
+    let mut num_consecutive_blank_lines = 0;
+
+    for line in current_decor.lines() {
+        if line.starts_with("#") {
+            new_decor.push_str(line);
+            new_decor.push_str(NEWLINE_PATTERN);
+            num_consecutive_blank_lines = 0;
+            continue;
+        }
+
+        num_consecutive_blank_lines += 1;
+
+        if num_consecutive_blank_lines <= config.allowed_blank_lines {
+            new_decor.push_str(line);
+            new_decor.push_str(NEWLINE_PATTERN);
+        }
     }
+
+    table.decor_mut().set_prefix(new_decor);
 
     let keys: Vec<_> = table.iter().map(|(k, _)| k.to_owned()).collect();
     for key in keys {
