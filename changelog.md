@@ -1,8 +1,24 @@
+# Unreleased
+
+This release is a big one! Special thanks go out to @thomaseizinger who fixed a lot of regressions
+from the initial `toml_edit` upgrade.
+
+Highlights
+
+  * Upgrade `toml_edit` to support more TOML syntax (in particular, `something.workspace = true`)
+  * Format `Cargo.toml` files by default
+    * Use `-n` or `--no-format` to disable this
+    * `--check` mode also verifies formatting unless you pass the abovementioned flag
+  * `workspace.dependencies` (and `build-` / `dev-` dependencies) are now also sorted
+
+Other Improvements
+
+  * Remove unused dependencies
+  * In non-check mode, report whether files were already sorted or not
+
 # 1.1.0
 
-Feature
-
-  * Upgrade `toml_edit` to support more TOML syntax
+Yanked, because it did invalid changes in many situations.
 
 # 1.0.9
 
