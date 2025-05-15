@@ -1,6 +1,6 @@
 use std::{cmp::Ordering, collections::BTreeMap, iter::FromIterator};
 
-use toml_edit::{Array, DocumentMut, Item, Key, RawString, Table, Value};
+use toml_edit::{Array, Decor, DocumentMut, Item, RawString, Table, Value};
 
 /// Each `Matcher` field when matched to a heading or key token
 /// will be matched with `.contains()`.
@@ -14,7 +14,13 @@ pub struct Matcher<'a> {
 
 pub const MATCHER: Matcher<'_> = Matcher {
     heading: &["dependencies", "dev-dependencies", "build-dependencies"],
-    heading_key: &[("workspace", "members"), ("workspace", "exclude")],
+    heading_key: &[
+        ("workspace", "members"),
+        ("workspace", "exclude"),
+        ("workspace", "dependencies"),
+        ("workspace", "dev-dependencies"),
+        ("workspace", "build-dependencies"),
+    ],
 };
 
 /// A state machine to track collection of headings.
@@ -45,8 +51,14 @@ pub fn sort_toml(
         if toml.as_table().contains_key(heading) {
             if let Item::Table(table) = &mut toml[heading] {
                 if table.contains_key(key) {
-                    if let Item::Value(Value::Array(arr)) = &mut table[key] {
-                        sort_array(arr);
+                    match &mut table[key] {
+                        Item::Value(Value::Array(arr)) => {
+                            sort_array(arr);
+                        }
+                        Item::Table(table) => {
+                            sort_table(table, group);
+                        }
+                        _ => {}
                     }
                 }
             }
@@ -77,14 +89,10 @@ pub fn sort_toml(
 
                 gather_headings(table, headings, 1);
                 headings.sort();
-                if group {
-                    sort_by_group(table);
-                } else {
-                    table.sort_values();
-                }
+                sort_table(table, group);
             }
             Item::None => continue,
-            _ => unreachable!("Top level toml must be tables"),
+            _ => {}
         }
     }
 
@@ -99,6 +107,9 @@ pub fn sort_toml(
 
 fn sort_array(arr: &mut Array) {
     let mut all_strings = true;
+    let trailing = arr.trailing().clone();
+    let trailing_comma = arr.trailing_comma();
+
     let mut arr_copy = arr.iter().cloned().collect::<Vec<_>>();
     arr_copy.sort_by(|a, b| match (a, b) {
         (Value::String(a), Value::String(b)) => a.value().cmp(b.value()),
@@ -109,6 +120,17 @@ fn sort_array(arr: &mut Array) {
     });
     if all_strings {
         *arr = Array::from_iter(arr_copy);
+    }
+
+    arr.set_trailing(trailing);
+    arr.set_trailing_comma(trailing_comma);
+}
+
+fn sort_table(table: &mut Table, group: bool) {
+    if group {
+        sort_by_group(table);
+    } else {
+        table.sort_values();
     }
 }
 
@@ -161,11 +183,16 @@ fn gather_headings(table: &Table, keys: &mut Vec<Heading>, depth: usize) {
 }
 
 fn sort_by_group(table: &mut Table) {
-    let mut table_clone = table.clone();
+    let table_clone = table.clone();
     table.clear();
+
     let mut groups = BTreeMap::new();
+    let mut group_decor = BTreeMap::default();
+
     let mut curr = 0;
-    for (idx, (k, v)) in table_clone.iter_mut().enumerate() {
+    for (idx, (k, _)) in table_clone.iter().enumerate() {
+        let (k, v) = table_clone.get_key_value(k).unwrap();
+
         let blank_lines = k
             .leaf_decor()
             .prefix()
@@ -175,19 +202,29 @@ fn sort_by_group(table: &mut Table) {
             .filter(|l| !l.starts_with('#'))
             .count();
 
-        let k = Key::new(&*k).with_leaf_decor(k.leaf_decor().clone());
-
         if blank_lines > 0 {
+            let decor = k.leaf_decor().clone();
+            let k = k.clone().with_leaf_decor(Decor::default());
+
             groups.entry(idx).or_insert_with(|| vec![(k, v)]);
+            group_decor.insert(idx, decor);
             curr = idx;
         } else {
-            groups.entry(curr).or_default().push((k, v));
+            groups.entry(curr).or_default().push((k.clone(), v));
         }
     }
 
-    for (_, mut group) in groups {
+    for (idx, mut group) in groups {
         group.sort_by(|a, b| a.0.cmp(&b.0));
-        for (k, v) in group {
+        let group_decor = group_decor.remove(&idx);
+
+        for (idx, (mut k, v)) in group.into_iter().enumerate() {
+            if idx == 0 {
+                if let Some(group_decor) = group_decor.clone() {
+                    k = k.with_leaf_decor(group_decor);
+                }
+            }
+
             table.insert_formatted(&k, v.clone());
         }
     }
@@ -282,38 +319,45 @@ mod test {
 
     use similar_asserts::assert_eq;
 
-    use super::Matcher;
-
-    const MATCHER: Matcher<'_> = Matcher {
-        heading: &["dependencies", "dev-dependencies", "build-dependencies"],
-        heading_key: &[("workspace", "members"), ("workspace", "exclude")],
-    };
+    use super::MATCHER;
 
     #[test]
     fn toml_edit_check() {
         let input = fs::read_to_string("examp/workspace.toml").unwrap();
+        let expected = fs::read_to_string("examp/workspace.sorted.toml").unwrap();
         let sorted = super::sort_toml(&input, MATCHER, false, &[]);
-        assert_ne!(input, sorted.to_string());
-        // println!("{}", sorted.to_string());
+        assert_eq(expected, sorted);
+    }
+
+    #[test]
+    fn toml_workspace_deps_edit_check() {
+        let input = fs::read_to_string("examp/workspace_deps.toml").unwrap();
+        let expected = fs::read_to_string("examp/workspace_deps.sorted.toml").unwrap();
+        let sorted = super::sort_toml(&input, MATCHER, false, &[]);
+        assert_eq(expected, sorted);
     }
 
     #[test]
     fn grouped_check() {
         let input = fs::read_to_string("examp/ruma.toml").unwrap();
+        let expected = fs::read_to_string("examp/ruma.sorted.toml").unwrap();
         let sorted = super::sort_toml(&input, MATCHER, true, &[]);
-        assert_ne!(input, sorted.to_string());
-        // println!("{}", sorted.to_string());
+        assert_eq(expected, sorted);
     }
 
     #[test]
     fn sort_correct() {
         let input = fs::read_to_string("examp/right.toml").unwrap();
         let sorted = super::sort_toml(&input, MATCHER, true, &[]);
-        #[cfg(target_os = "windows")]
-        assert_eq!(input.replace("\r\n", "\n"), sorted.to_string().replace("\r\n", "\n"));
-        #[cfg(not(target_os = "windows"))]
-        assert_eq!(input, sorted.to_string());
-        // println!("{}", sorted.to_string());
+        assert_eq(input, sorted);
+    }
+
+    #[test]
+    fn sort_comments() {
+        let input = fs::read_to_string("examp/comments.toml").unwrap();
+        let expected = fs::read_to_string("examp/comments.sorted.toml").unwrap();
+        let sorted = super::sort_toml(&input, MATCHER, true, &[]);
+        assert_eq(expected, sorted);
     }
 
     #[test]
@@ -328,19 +372,11 @@ mod test {
     fn sort_devfirst() {
         let input = fs::read_to_string("examp/reorder.toml").unwrap();
         let sorted = super::sort_toml(&input, MATCHER, true, &[]);
-        #[cfg(target_os = "windows")]
-        assert_eq!(input.replace("\r\n", "\n"), sorted.to_string().replace("\r\n", "\n"));
-        #[cfg(not(target_os = "windows"))]
-        assert_eq!(input, sorted.to_string());
-        // println!("{}", sorted.to_string());
+        assert_eq(input, sorted);
 
         let input = fs::read_to_string("examp/noreorder.toml").unwrap();
         let sorted = super::sort_toml(&input, MATCHER, true, &[]);
-        #[cfg(target_os = "windows")]
-        assert_eq!(input.replace("\r\n", "\n"), sorted.to_string().replace("\r\n", "\n"));
-        #[cfg(not(target_os = "windows"))]
-        assert_eq!(input, sorted.to_string());
-        // println!("{}", sorted.to_string());
+        assert_eq(input, sorted);
     }
 
     #[test]
@@ -359,5 +395,16 @@ mod test {
             ],
         );
         assert_ne!(input, sorted.to_string());
+    }
+
+    fn assert_eq<L: ToString, R: ToString>(left: L, right: R) {
+        let left = left.to_string();
+        let right = right.to_string();
+
+        #[cfg(windows)]
+        assert_eq!(left.replace("\r\n", "\n"), right.replace("\r\n", "\n"));
+
+        #[cfg(not(windows))]
+        assert_eq!(left, right);
     }
 }
