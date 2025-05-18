@@ -2,8 +2,30 @@ use std::{cmp::Ordering, collections::BTreeMap, iter::FromIterator};
 
 use toml_edit::{Array, Decor, DocumentMut, Item, RawString, Table, Value};
 
+// Leading string for combining keys such as
+// `[target.'cfg(target_os="linux")'.dependencies]` in Cargo.toml files.
+const TARGET: &str = "target";
+
+/// Stores the paths of target tables in a BTreeMap, the data structure looks like:
+/// ```plain
+/// target_tables: {
+/// 	"build-dependencies": [],
+/// 	"dependencies": [
+/// 		["target", "cfg(any(target_os = \"macos\", target_os = \"freebsd\"))", "dependencies"],
+/// 		["target", "cfg(target_os = \"windows\")", "dependencies"],
+/// 		["target", "cfg(unix)", "dependencies"]
+/// 	],
+/// 	"dev-dependencies": [
+/// 		["target", "cfg(target_os = \"windows\")", "dev-dependencies"],
+/// 		["target", "cfg(unix)", "dev-dependencies"]
+/// 	]
+/// }
+/// ```
+type TargetTablePaths = BTreeMap<String, Vec<Vec<String>>>;
+
 /// Each `Matcher` field when matched to a heading or key token
 /// will be matched with `.contains()`.
+#[derive(Debug)]
 pub struct Matcher<'a> {
     /// Toml headings with braces `[heading]`.
     pub heading: &'a [&'a str],
@@ -56,7 +78,7 @@ pub fn sort_toml(
                             sort_array(arr);
                         }
                         Item::Table(table) => {
-                            sort_table(table, group);
+                            sort_table(table, group, &BTreeMap::new());
                         }
                         _ => {}
                     }
@@ -68,7 +90,27 @@ pub fn sort_toml(
     let mut first_table = None;
     let mut heading_order: BTreeMap<_, Vec<Heading>> = BTreeMap::new();
     for (idx, (head, item)) in toml.as_table_mut().iter_mut().enumerate() {
-        if !matcher.heading.contains(&head.get()) {
+        let mut target_tables = BTreeMap::new();
+        let item_key = head.get();
+        if item_key == TARGET {
+            if let Some(table) = item.as_table() {
+                for key in matcher.heading {
+                    let mut path = vec![item_key];
+                    let mut deps_tables = vec![];
+                    collect_tables_with_key(table, &mut path, key, &mut deps_tables);
+                    let deps_tables = deps_tables
+                        .iter()
+                        .map(|p| p.iter().map(|s| s.to_string()).collect::<Vec<_>>())
+                        .collect::<Vec<_>>();
+                    target_tables
+                        .entry(key.to_string())
+                        .or_insert_with(Vec::new)
+                        .extend(deps_tables);
+                }
+            }
+        }
+
+        if !matcher.heading.contains(&item_key) && target_tables.is_empty() {
             if !ordering.contains(&head.to_owned()) && !ordering.is_empty() {
                 ordering.push(head.to_owned());
             }
@@ -80,16 +122,17 @@ pub fn sort_toml(
                     // The root table is always index 0 which we ignore so add 1
                     first_table = Some(idx + 1);
                 }
-                let headings = heading_order.entry((idx, head.to_string())).or_default();
+                let key = item_key.to_string();
+                let headings = heading_order.entry((idx, key.clone())).or_default();
                 // Push a `Heading::Complete` here incase the tables are ordered
                 // [heading.segs]
                 // [heading]
                 // It will just be ignored if not the case
-                headings.push(Heading::Complete(vec![head.to_string()]));
+                headings.push(Heading::Complete(vec![key]));
 
                 gather_headings(table, headings, 1);
                 headings.sort();
-                sort_table(table, group);
+                sort_table(table, group, &target_tables);
             }
             Item::None => continue,
             _ => {}
@@ -103,6 +146,24 @@ pub fn sort_toml(
     }
 
     toml
+}
+
+fn collect_tables_with_key<'a>(
+    table: &'a Table,
+    path: &mut Vec<&'a str>,
+    key_name: &str,
+    result: &mut Vec<Vec<&'a str>>,
+) {
+    for (key, item) in table.iter() {
+        path.push(key);
+        if let Item::Table(inner) = item {
+            if key == key_name {
+                result.push(path.clone());
+            }
+            collect_tables_with_key(inner, path, key_name, result);
+        }
+        path.pop();
+    }
 }
 
 fn sort_array(arr: &mut Array) {
@@ -126,11 +187,28 @@ fn sort_array(arr: &mut Array) {
     arr.set_trailing_comma(trailing_comma);
 }
 
-fn sort_table(table: &mut Table, group: bool) {
+fn sort_table(table: &mut Table, group: bool, target_tables: &TargetTablePaths) {
     if group {
         sort_by_group(table);
+    } else if !target_tables.is_empty() {
+        // The `table` name must be `target`
+        for (_key, paths) in target_tables {
+            for path in paths {
+                if path.len() > 1 {
+                    sort_table_by_path(table, &path[1..]);
+                }
+            }
+        }
     } else {
         table.sort_values();
+    }
+}
+
+fn sort_table_by_path(table: &mut Table, path: &[String]) {
+    if path.is_empty() {
+        table.sort_values();
+    } else if let Some(Item::Table(inner_table)) = table.get_mut(&path[0]) {
+        sort_table_by_path(inner_table, &path[1..]);
     }
 }
 
@@ -262,19 +340,87 @@ fn sort_by_ordering(
 ) {
     let mut idx = 0;
     for heading in ordering {
-        if let Some((_, to_sort_headings)) =
-            heading_order.iter().find(|((_, key), _)| key == heading)
-        {
-            for h in to_sort_headings {
-                if let Heading::Complete(segs) = h {
-                    let mut table = Some(toml.as_table_mut());
-                    for seg in segs {
-                        table = table.and_then(|t| t[seg].as_table_mut());
+        let mut matches: Vec<(&(usize, String), &Vec<Heading>)> = heading_order
+            .iter()
+            .filter(|((_s, key), headings)| {
+                key == heading
+                    || headings.iter().any(|h| {
+                        if let Heading::Complete(segs) = h {
+                            segs.iter().any(|seg| seg == heading)
+                        } else {
+                            false
+                        }
+                    })
+            })
+            .collect();
+
+        matches.sort_by(|a, b| {
+            let a1_longest =
+                a.1.iter()
+                    .filter_map(|h| {
+                        if let Heading::Complete(segs) = h {
+                            if segs.iter().last() != Some(heading) {
+                                return None;
+                            }
+                            Some(segs.iter().rev().cloned().collect::<Vec<_>>().join("."))
+                        } else {
+                            None
+                        }
+                    })
+                    .max_by_key(|s| s.len());
+            let b1_longest =
+                b.1.iter()
+                    .filter_map(|h| {
+                        if let Heading::Complete(segs) = h {
+                            if segs.iter().last() != Some(heading) {
+                                return None;
+                            }
+                            Some(segs.iter().rev().cloned().collect::<Vec<_>>().join("."))
+                        } else {
+                            None
+                        }
+                    })
+                    .max_by_key(|s| s.len());
+
+            let ord = a1_longest.unwrap_or_default().cmp(&b1_longest.unwrap_or_default());
+            if ord == Ordering::Equal {
+                a.0 .1.cmp(&b.0 .1)
+            } else {
+                ord
+            }
+        });
+
+        if !matches.is_empty() {
+            for &(_k, to_sort_headings) in &matches {
+                let mut to_sort_headings = to_sort_headings
+                    .iter()
+                    .filter_map(|h| {
+                        if let Heading::Complete(segs) = h {
+                            if segs.last() == Some(heading) {
+                                return Some(h);
+                            }
+                        }
+                        None
+                    })
+                    .collect::<Vec<_>>();
+                to_sort_headings.sort_by_key(|h| {
+                    if let Heading::Complete(segs) = h {
+                        segs.iter().rev().cloned().collect::<Vec<_>>().join(".")
+                    } else {
+                        String::new()
                     }
-                    // Do not reorder the unsegmented tables
-                    if let Some(table) = table {
-                        table.set_position(idx);
-                        idx += 1;
+                });
+                for h in to_sort_headings {
+                    if let Heading::Complete(segs) = h {
+                        let mut table = Some(toml.as_table_mut());
+                        for seg in segs {
+                            table = table.and_then(|t| t[seg].as_table_mut());
+                        }
+                        // Do not reorder the unsegmented tables
+                        if let Some(table) = table {
+                            table.set_position(idx);
+                            idx += 1;
+                        }
                     }
                 }
             }
