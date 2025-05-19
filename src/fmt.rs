@@ -331,9 +331,8 @@ pub fn fmt_toml(toml: &mut DocumentMut, config: &Config) {
 mod test {
     use std::fs;
 
-    use similar_asserts::assert_eq;
-
     use super::{fmt_toml, Config, DocumentMut};
+    use crate::test_utils::assert_eq;
 
     #[test]
     fn toml_fmt_check() {
@@ -349,10 +348,7 @@ mod test {
         let input = fs::read_to_string("examp/right.toml").unwrap();
         let mut toml = input.parse::<DocumentMut>().unwrap();
         fmt_toml(&mut toml, &Config::new());
-        #[cfg(target_os = "windows")]
-        assert_eq!(input.replace("\r\n", "\n"), toml.to_string().replace("\r\n", "\n"));
-        #[cfg(not(target_os = "windows"))]
-        assert_eq!(input, toml.to_string());
+        assert_eq(input, toml);
     }
 
     #[cfg(target_os = "windows")]
@@ -366,7 +362,7 @@ mod test {
         );
         let mut toml = input.parse::<DocumentMut>().unwrap();
         fmt_toml(&mut toml, &Config::new());
-        assert_eq!(expected, toml.to_string());
+        similar_asserts::assert_eq!(expected, toml.to_string());
     }
 
     #[test]
