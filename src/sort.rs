@@ -476,6 +476,19 @@ mod test {
     }
 
     #[test]
+    fn toml_combined_key_check() {
+        let input = fs::read_to_string("examp/tun.toml").unwrap();
+        let expected = fs::read_to_string("examp/tun.sorted.toml").unwrap();
+        let o = crate::fmt::DEF_TABLE_ORDER
+            .iter()
+            .map(|s| (*s).to_owned())
+            .collect::<Vec<_>>();
+        let sorted = super::sort_toml(&input, MATCHER, false, &o);
+
+        assert_eq(expected, sorted);
+    }
+
+    #[test]
     fn toml_workspace_deps_edit_check() {
         let input = fs::read_to_string("examp/workspace_deps.toml").unwrap();
         let expected = fs::read_to_string("examp/workspace_deps.sorted.toml").unwrap();
