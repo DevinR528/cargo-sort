@@ -6,7 +6,7 @@ authors = [
     "Andre Bogus <bogusandre@gmail.com>",
     "Georg Brandl <georg@python.org>",
     "Martin Carton <cartonmartin@gmail.com>",
-    "Oliver Schneider <clippy-iethah7aipeen8neex1a@oli-obk.de>"
+    "Oliver Schneider <clippy-iethah7aipeen8neex1a@oli-obk.de>",
 ]
 description = "A bunch of helpful lints to avoid common pitfalls in Rust"
 repository = "https://github.com/rust-lang/rust-clippy"
@@ -36,7 +36,7 @@ clippy_lints = { version = "0.0.212", path = "clippy_lints" }
 # end automatic update
 regex = "1"
 semver = "0.9"
-rustc_tools_util = { version = "0.2.0", path = "rustc_tools_util"}
+rustc_tools_util = { version = "0.2.0", path = "rustc_tools_util" }
 git2 = { version = "0.12", optional = true }
 tempfile = { version = "3.1.0", optional = true }
 lazy_static = "1.0"
@@ -56,20 +56,14 @@ derive-new = "0.5"
 rustc-workspace-hack = "1.0.0"
 
 [build-dependencies]
-rustc_tools_util = { version = "0.2.0", path = "rustc_tools_util"}
+rustc_tools_util = { version = "0.2.0", path = "rustc_tools_util" }
 
 [features]
 deny-warnings = []
 integration = [
-
-
-
-
     # A feature comment that makes this line very long.
     "git2",
-
-
-    "tempfile", # Here is another comment.
-
-    "abc"
+    "tempfile",
+    # Here is another comment.
+    "abc",
 ]

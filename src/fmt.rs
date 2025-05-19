@@ -178,22 +178,33 @@ fn fmt_value(value: &mut Value, config: &Config) {
     match value {
         Value::Array(arr) => {
             if arr.to_string().len() > config.max_array_line_len {
-                let arr_has_trailing_newline =
-                    arr.trailing().as_str().is_some_and(|s| s.contains('\n'));
-                let len = arr.len();
-                for (i, val) in arr.iter_mut().enumerate() {
-                    val.decor_mut().set_prefix(format!(
-                        "{}{}",
-                        NEWLINE_PATTERN,
-                        " ".repeat(config.indent_count)
-                    ));
-                    if i == (len - 1) {
-                        val.decor_mut().set_suffix(format!(
-                            "{}{}",
-                            if config.multiline_trailing_comma { "," } else { "" },
-                            if !arr_has_trailing_newline { NEWLINE_PATTERN } else { "" }
-                        ));
+                let indent = " ".repeat(config.indent_count);
+
+                // Move all array elements onto a new line and indent them.
+                for val in arr.iter_mut() {
+                    // Trim exessive whitespace.
+                    let mut prefix = val.prefix().trim().to_owned();
+                    let suffix = val.suffix().trim().to_owned();
+
+                    // Handle prefix comments. Put them on a dedicated line.
+                    if !prefix.is_empty() {
+                        prefix.push_str(NEWLINE_PATTERN);
+                        prefix.push_str(&indent);
                     }
+
+                    val.decor_mut()
+                        .set_prefix(format!("{NEWLINE_PATTERN}{indent}{prefix}"));
+                    val.decor_mut().set_suffix(suffix);
+                }
+
+                // Fix up the last one.
+                if let Some(last) = arr.iter_mut().last() {
+                    let suffix = last.suffix().to_owned();
+
+                    let comma = if config.multiline_trailing_comma { "," } else { "" };
+
+                    last.decor_mut()
+                        .set_suffix(format!("{comma}{suffix}{NEWLINE_PATTERN}"));
                 }
             } else {
                 arr.fmt();
@@ -327,6 +338,21 @@ pub fn fmt_toml(toml: &mut DocumentMut, config: &Config) {
     }
 }
 
+trait ValueExt {
+    fn prefix(&self) -> &str;
+    fn suffix(&self) -> &str;
+}
+
+impl ValueExt for Value {
+    fn prefix(&self) -> &str {
+        self.decor().prefix().and_then(RawString::as_str).unwrap_or_default()
+    }
+
+    fn suffix(&self) -> &str {
+        self.decor().suffix().and_then(RawString::as_str).unwrap_or_default()
+    }
+}
+
 #[cfg(test)]
 mod test {
     use std::fs;
@@ -368,10 +394,10 @@ mod test {
     #[test]
     fn array() {
         let input = fs::read_to_string("examp/clippy.toml").unwrap();
+        let expected = fs::read_to_string("examp/clippy.fmt.toml").unwrap();
         let mut toml = input.parse::<DocumentMut>().unwrap();
         fmt_toml(&mut toml, &Config::new());
-        assert_ne!(input, toml.to_string());
-        // println!("{}", toml.to_string());
+        assert_eq(expected, toml);
     }
 
     #[test]
