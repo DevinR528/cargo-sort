@@ -9,16 +9,16 @@ const TARGET: &str = "target";
 /// Stores the paths of target tables in a BTreeMap, the data structure looks like:
 /// ```plain
 /// target_tables: {
-/// 	"build-dependencies": [],
-/// 	"dependencies": [
-/// 		["target", "cfg(any(target_os = \"macos\", target_os = \"freebsd\"))", "dependencies"],
-/// 		["target", "cfg(target_os = \"windows\")", "dependencies"],
-/// 		["target", "cfg(unix)", "dependencies"]
-/// 	],
-/// 	"dev-dependencies": [
-/// 		["target", "cfg(target_os = \"windows\")", "dev-dependencies"],
-/// 		["target", "cfg(unix)", "dev-dependencies"]
-/// 	]
+///     "build-dependencies": [],
+///     "dependencies": [
+///         ["target", "cfg(any(target_os = \"macos\", target_os = \"freebsd\"))", "dependencies"],
+///         ["target", "cfg(target_os = \"windows\")", "dependencies"],
+///         ["target", "cfg(unix)", "dependencies"]
+///     ],
+///     "dev-dependencies": [
+///         ["target", "cfg(target_os = \"windows\")", "dev-dependencies"],
+///         ["target", "cfg(unix)", "dev-dependencies"]
+///     ]
 /// }
 /// ```
 type TargetTablePaths = BTreeMap<String, Vec<Vec<String>>>;
@@ -392,12 +392,12 @@ fn sort_by_ordering(
 
         if !matches.is_empty() {
             for &(key, to_sort_headings) in &matches {
-                // Get rid of the items that do not contain the heading
                 let mut to_sort_headings = to_sort_headings
                     .iter()
                     .filter_map(|h| {
                         if let Heading::Complete(segs) = h {
                             if key.1 == TARGET {
+                                // Get rid of the items that do not contain the heading
                                 if segs.last() == Some(heading) {
                                     return Some(h);
                                 }
@@ -408,10 +408,10 @@ fn sort_by_ordering(
                         None
                     })
                     .collect::<Vec<_>>();
-                // Sort the headings by the segments in reverse order
                 to_sort_headings.sort_by_key(|h| {
                     if let Heading::Complete(segs) = h {
                         if key.1 == TARGET {
+                            // Sort the headings by the segments in reverse order
                             segs.iter().rev().cloned().collect::<Vec<_>>().join(".")
                         } else {
                             segs.iter().cloned().collect::<Vec<_>>().join(".")
@@ -489,10 +489,8 @@ mod test {
     fn toml_combined_key_check() {
         let input = fs::read_to_string("examp/tun.toml").unwrap();
         let expected = fs::read_to_string("examp/tun.sorted.toml").unwrap();
-        let o = crate::fmt::DEF_TABLE_ORDER
-            .iter()
-            .map(|s| (*s).to_owned())
-            .collect::<Vec<_>>();
+        let o = crate::fmt::DEF_TABLE_ORDER;
+        let o = o.iter().map(|s| (*s).to_owned()).collect::<Vec<_>>();
         let sorted = super::sort_toml(&input, MATCHER, false, &o);
 
         assert_eq(expected, sorted);
