@@ -17,6 +17,8 @@ use toml_edit::{DocumentMut, Item};
 
 mod fmt;
 mod sort;
+#[cfg(test)]
+mod test_utils;
 
 const EXTRA_HELP: &str = "\
     NOTE: formatting is applied after the check for sorting so \

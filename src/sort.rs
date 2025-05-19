@@ -317,9 +317,8 @@ fn walk_tables_set_position(table: &mut Table, idx: &mut usize) {
 mod test {
     use std::fs;
 
-    use similar_asserts::assert_eq;
-
     use super::MATCHER;
+    use crate::test_utils::assert_eq;
 
     #[test]
     fn toml_edit_check() {
@@ -395,16 +394,5 @@ mod test {
             ],
         );
         assert_ne!(input, sorted.to_string());
-    }
-
-    fn assert_eq<L: ToString, R: ToString>(left: L, right: R) {
-        let left = left.to_string();
-        let right = right.to_string();
-
-        #[cfg(windows)]
-        assert_eq!(left.replace("\r\n", "\n"), right.replace("\r\n", "\n"));
-
-        #[cfg(not(windows))]
-        assert_eq!(left, right);
     }
 }
