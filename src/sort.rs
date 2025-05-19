@@ -391,13 +391,17 @@ fn sort_by_ordering(
         });
 
         if !matches.is_empty() {
-            for &(_k, to_sort_headings) in &matches {
+            for &(key, to_sort_headings) in &matches {
                 // Get rid of the items that do not contain the heading
                 let mut to_sort_headings = to_sort_headings
                     .iter()
                     .filter_map(|h| {
                         if let Heading::Complete(segs) = h {
-                            if segs.last() == Some(heading) {
+                            if key.1 == TARGET {
+                                if segs.last() == Some(heading) {
+                                    return Some(h);
+                                }
+                            } else {
                                 return Some(h);
                             }
                         }
@@ -407,7 +411,11 @@ fn sort_by_ordering(
                 // Sort the headings by the segments in reverse order
                 to_sort_headings.sort_by_key(|h| {
                     if let Heading::Complete(segs) = h {
-                        segs.iter().rev().cloned().collect::<Vec<_>>().join(".")
+                        if key.1 == TARGET {
+                            segs.iter().rev().cloned().collect::<Vec<_>>().join(".")
+                        } else {
+                            segs.iter().cloned().collect::<Vec<_>>().join(".")
+                        }
                     } else {
                         String::new()
                     }
