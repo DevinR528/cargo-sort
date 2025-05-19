@@ -97,7 +97,7 @@ pub fn sort_toml(
                 for key in matcher.heading {
                     let mut path = vec![item_key];
                     let mut deps_tables = vec![];
-                    collect_tables_with_key(table, &mut path, key, &mut deps_tables);
+                    nested_tables_with_key(table, &mut path, key, &mut deps_tables);
                     let deps_tables = deps_tables
                         .iter()
                         .map(|p| p.iter().map(|s| s.to_string()).collect::<Vec<_>>())
@@ -148,7 +148,7 @@ pub fn sort_toml(
     toml
 }
 
-fn collect_tables_with_key<'a>(
+fn nested_tables_with_key<'a>(
     table: &'a Table,
     path: &mut Vec<&'a str>,
     key_name: &str,
@@ -160,7 +160,7 @@ fn collect_tables_with_key<'a>(
             if key == key_name {
                 result.push(path.clone());
             }
-            collect_tables_with_key(inner, path, key_name, result);
+            nested_tables_with_key(inner, path, key_name, result);
         }
         path.pop();
     }
@@ -354,7 +354,7 @@ fn sort_by_ordering(
             })
             .collect();
 
-        matches.sort_by(|a, b| {
+        matches.sort_by(|a: &(&(usize, String), &Vec<Heading>), b| {
             let a1_longest =
                 a.1.iter()
                     .filter_map(|h| {
@@ -392,6 +392,7 @@ fn sort_by_ordering(
 
         if !matches.is_empty() {
             for &(_k, to_sort_headings) in &matches {
+                // Get rid of the items that do not contain the heading
                 let mut to_sort_headings = to_sort_headings
                     .iter()
                     .filter_map(|h| {
@@ -403,6 +404,7 @@ fn sort_by_ordering(
                         None
                     })
                     .collect::<Vec<_>>();
+                // Sort the headings by the segments in reverse order
                 to_sort_headings.sort_by_key(|h| {
                     if let Heading::Complete(segs) = h {
                         segs.iter().rev().cloned().collect::<Vec<_>>().join(".")
