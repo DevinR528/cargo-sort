@@ -158,7 +158,7 @@ fn nested_tables_with_key<'a>(
     for (key, item) in table.iter() {
         path.push(key);
         if let Item::Table(inner) = item {
-            if key == key_name {
+            if key == key_name && inner.position().is_some() {
                 result.push(path.clone());
             }
             nested_tables_with_key(inner, path, key_name, result);
@@ -359,16 +359,32 @@ fn sort_by_ordering(
             })
             .collect();
 
+        /// Use `heading` as the split point, and divide `segs` into two parts:
+        /// - Traverse left (backward) to the start (including `heading`)
+        /// - Traverse right (forward) to the end (after `heading`)
+        /// Then join both parts into a dot-separated string, for example:
+        /// `[target.'cfg(windows)'.dependencies.windows-sys]` will be
+        /// `[dependencies.'cfg(windows)'.target.windows-sys]`
+        fn join_segs_around_heading(segs: &[String], heading: &str) -> Option<String> {
+            if let Some(pos) = segs.iter().position(|seg| seg == heading) {
+                let mut left: Vec<_> = segs[..=pos].iter().rev().cloned().collect();
+                let right: Vec<_> = if pos + 1 < segs.len() {
+                    segs[pos + 1..].iter().cloned().collect()
+                } else {
+                    Vec::new()
+                };
+                left.extend(right);
+                return Some(left.join("."));
+            }
+            None
+        }
+
         fn extract_heading_segments(headings: &[Heading], heading: &str) -> String {
             headings
                 .iter()
                 .filter_map(|h| {
                     if let Heading::Complete(segs) = h {
-                        if segs.iter().last() == Some(&heading.to_string()) {
-                            return Some(
-                                segs.iter().rev().cloned().collect::<Vec<_>>().join("."),
-                            );
-                        }
+                        return join_segs_around_heading(segs, heading);
                     }
                     None
                 })
@@ -395,9 +411,7 @@ fn sort_by_ordering(
                         if let Heading::Complete(segs) = h {
                             if key == TARGET {
                                 // Get rid of the items that do not contain the heading
-                                if segs.last() == Some(heading) {
-                                    return Some(h);
-                                }
+                                return segs.iter().any(|seg| seg == heading).then(|| h);
                             } else {
                                 return Some(h);
                             }
@@ -408,8 +422,7 @@ fn sort_by_ordering(
                 to_sort_headings.sort_by_key(|h| {
                     if let Heading::Complete(segs) = h {
                         if key == TARGET {
-                            // Sort the headings by the segments in reverse order
-                            segs.iter().rev().cloned().collect::<Vec<_>>().join(".")
+                            join_segs_around_heading(segs, heading).unwrap_or_default()
                         } else {
                             segs.iter().cloned().collect::<Vec<_>>().join(".")
                         }
