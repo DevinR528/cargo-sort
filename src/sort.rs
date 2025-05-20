@@ -90,7 +90,7 @@ pub fn sort_toml(
     let mut first_table = None;
     let mut heading_order: BTreeMap<_, Vec<Heading>> = BTreeMap::new();
     for (idx, (head, item)) in toml.as_table_mut().iter_mut().enumerate() {
-        let mut target_tables = BTreeMap::new();
+        let mut target_tables: TargetTablePaths = BTreeMap::new();
         let item_key = head.get();
         if item_key == TARGET {
             if let Some(table) = item.as_table() {
@@ -388,12 +388,12 @@ fn sort_by_ordering(
         });
 
         if !matches.is_empty() {
-            for &(key, to_sort_headings) in &matches {
+            for &((_, key), to_sort_headings) in &matches {
                 let mut to_sort_headings = to_sort_headings
                     .iter()
                     .filter_map(|h| {
                         if let Heading::Complete(segs) = h {
-                            if key.1 == TARGET {
+                            if key == TARGET {
                                 // Get rid of the items that do not contain the heading
                                 if segs.last() == Some(heading) {
                                     return Some(h);
@@ -407,7 +407,7 @@ fn sort_by_ordering(
                     .collect::<Vec<_>>();
                 to_sort_headings.sort_by_key(|h| {
                     if let Heading::Complete(segs) = h {
-                        if key.1 == TARGET {
+                        if key == TARGET {
                             // Sort the headings by the segments in reverse order
                             segs.iter().rev().cloned().collect::<Vec<_>>().join(".")
                         } else {
