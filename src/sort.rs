@@ -205,9 +205,11 @@ fn sort_table(table: &mut Table, group: bool, target_tables: &TargetTablePaths) 
 }
 
 fn sort_table_by_path(table: &mut Table, path: &[String]) {
-    if path.is_empty() {
+    let Some(first) = path.first() else {
         table.sort_values();
-    } else if let Some(Item::Table(inner_table)) = table.get_mut(&path[0]) {
+        return;
+    };
+    if let Some(Item::Table(inner_table)) = table.get_mut(first) {
         sort_table_by_path(inner_table, &path[1..]);
     }
 }
