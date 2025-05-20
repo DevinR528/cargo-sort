@@ -78,7 +78,7 @@ pub fn sort_toml(
                             sort_array(arr);
                         }
                         Item::Table(table) => {
-                            sort_table(table, group, &BTreeMap::new());
+                            sort_table(table, group);
                         }
                         _ => {}
                     }
@@ -132,7 +132,8 @@ pub fn sort_toml(
 
                 gather_headings(table, headings, 1);
                 headings.sort();
-                sort_table(table, group, &target_tables);
+                sort_table(table, group);
+                sort_nested_table(table, &target_tables);
             }
             Item::None => continue,
             _ => {}
@@ -187,20 +188,22 @@ fn sort_array(arr: &mut Array) {
     arr.set_trailing_comma(trailing_comma);
 }
 
-fn sort_table(table: &mut Table, group: bool, target_tables: &TargetTablePaths) {
+fn sort_table(table: &mut Table, group: bool) {
     if group {
         sort_by_group(table);
-    } else if !target_tables.is_empty() {
-        // The `table` name must be `target`
-        for (_key, paths) in target_tables {
-            for path in paths {
-                if path.len() > 1 {
-                    sort_table_by_path(table, &path[1..]);
-                }
-            }
-        }
     } else {
         table.sort_values();
+    }
+}
+
+fn sort_nested_table(table: &mut Table, target_tables: &TargetTablePaths) {
+    // The `table` name must be `target`
+    for (_key, paths) in target_tables {
+        for path in paths {
+            if path.len() > 1 {
+                sort_table_by_path(table, &path[1..]);
+            }
+        }
     }
 }
 
