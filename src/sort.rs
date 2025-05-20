@@ -354,37 +354,29 @@ fn sort_by_ordering(
             })
             .collect();
 
-        matches.sort_by(|a: &(&(usize, String), &Vec<Heading>), b| {
-            let a1_longest =
-                a.1.iter()
-                    .filter_map(|h| {
-                        if let Heading::Complete(segs) = h {
-                            if segs.iter().last() != Some(heading) {
-                                return None;
-                            }
-                            Some(segs.iter().rev().cloned().collect::<Vec<_>>().join("."))
-                        } else {
-                            None
+        fn extract_heading_segments(headings: &[Heading], heading: &str) -> String {
+            headings
+                .iter()
+                .filter_map(|h| {
+                    if let Heading::Complete(segs) = h {
+                        if segs.iter().last() == Some(&heading.to_string()) {
+                            return Some(
+                                segs.iter().rev().cloned().collect::<Vec<_>>().join("."),
+                            );
                         }
-                    })
-                    .max_by_key(|s| s.len());
-            let b1_longest =
-                b.1.iter()
-                    .filter_map(|h| {
-                        if let Heading::Complete(segs) = h {
-                            if segs.iter().last() != Some(heading) {
-                                return None;
-                            }
-                            Some(segs.iter().rev().cloned().collect::<Vec<_>>().join("."))
-                        } else {
-                            None
-                        }
-                    })
-                    .max_by_key(|s| s.len());
+                    }
+                    None
+                })
+                .max_by_key(|s| s.len())
+                .unwrap_or_default()
+        }
 
-            let ord = a1_longest.unwrap_or_default().cmp(&b1_longest.unwrap_or_default());
+        matches.sort_by(|((_, a_key), a_headings), ((_, b_key), b_headings)| {
+            let a1_longest = extract_heading_segments(a_headings, heading);
+            let b1_longest = extract_heading_segments(b_headings, heading);
+            let ord = a1_longest.cmp(&b1_longest);
             if ord == Ordering::Equal {
-                a.0 .1.cmp(&b.0 .1)
+                a_key.cmp(&b_key)
             } else {
                 ord
             }
