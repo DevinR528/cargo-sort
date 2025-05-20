@@ -1,0 +1,98 @@
+[package]
+name = "tun"
+version = "0.7.19"
+edition = "2024"
+authors = ["meh. <meh@schizofreni.co>", "@ssrlive"]
+license = "WTFPL"
+description = "TUN device creation and handling."
+repository = "https://github.com/meh/rust-tun"
+keywords = ["tun", "network", "tunnel", "bindings"]
+# rust-version = "1.85"
+
+[package.metadata.docs.rs]
+all-features = true
+
+[lib]
+crate-type = ["staticlib", "lib"]
+
+[features]
+# default = ["async"]
+async = [
+    "tokio",
+    "futures-core",
+    "futures",
+    "tokio-util",
+    "wintun-bindings/async",
+]
+
+[dependencies]
+bytes = { version = "1" }
+cfg-if = "1"
+futures-core = { version = "0.3", optional = true }
+libc = { version = "0.2", features = ["extra_traits"] }
+log = "0.4"
+thiserror = "2"
+tokio = { version = "1", features = [
+    "net",
+    "macros",
+    "io-util",
+], optional = true }
+tokio-util = { version = "0.7", features = ["codec"], optional = true }
+
+[target.'cfg(any(target_os = "macos", target_os = "freebsd"))'.dependencies]
+ipnet = "2"
+abcd = "9"
+
+[target.'cfg(target_os = "windows")'.dependencies]
+windows-sys = { version = "0.59", features = [
+    "Win32_Foundation",
+    "Win32_Security",
+    "Win32_Security_WinTrust",
+    "Win32_Security_Cryptography",
+    "Win32_System_Threading",
+    "Win32_UI_WindowsAndMessaging",
+    "Win32_System_LibraryLoader",
+] }
+wintun-bindings = { version = "^0.7.7", features = [
+    "panic_on_unsent_packets",
+    "verify_binary_signature",
+    "async",
+    "enable_inner_logging",
+    "winreg",
+] }
+futures = { version = "0.3", optional = true }
+
+[dev-dependencies]
+packet = "0.1"
+serde_json = "1"
+tokio = { version = "1", features = ["rt-multi-thread"] }
+
+[[example]]
+name = "read-async"
+required-features = ["async"]
+
+[[example]]
+name = "read-async-codec"
+required-features = ["async"]
+
+[[example]]
+name = "ping-tun"
+required-features = ["async"]
+
+[target.'cfg(unix)'.dependencies]
+nix = { version = "0.30", features = ["ioctl"] }
+
+[target.'cfg(unix)'.dev-dependencies]
+nix = { version = "0.30", features = ["ioctl"] }
+
+[target.'cfg(target_os = "windows")'.dev-dependencies]
+ctrlc2 = { version = "3", features = ["tokio", "termination"] }
+env_logger = "0.11"
+futures = "0.3"
+
+[target.'cfg(unix)'.build-dependencies]
+abcde = { version = "0.30", features = ["edfg"] }
+
+[build-dependencies]
+serde_json = "1"
+serde = { version = "1", features = ["derive"] }
