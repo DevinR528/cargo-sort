@@ -192,13 +192,17 @@ fn fmt_value(value: &mut Value, config: &Config) {
                     let prefix = val.prefix().trim().to_owned();
                     let suffix = val.suffix();
 
+                    let n_i = format!("{NEWLINE_PATTERN}{indent}");
+
                     // Handle prefix: Add newline and indent, preserve comments.
                     let new_prefix = if !prefix.is_empty() {
-                        format!(
-                            "{NEWLINE_PATTERN}{indent}{prefix}{NEWLINE_PATTERN}{indent}"
-                        )
+                        prefix
+                            .lines()
+                            .map(|line| format!("{n_i}{}", line.trim()))
+                            .collect::<String>()
+                            + &n_i
                     } else {
-                        format!("{NEWLINE_PATTERN}{indent}")
+                        n_i
                     };
 
                     // Handle suffix: Add comma for the last elements only.
