@@ -185,40 +185,47 @@ fn fmt_value(value: &mut Value, config: &Config) {
         Value::Array(arr) => {
             if arr.to_string().len() > config.max_array_line_len {
                 let indent = " ".repeat(config.indent_count);
+                let arr_len = arr.len();
 
-                // Move all array elements onto a new line and indent them.
-                for val in arr.iter_mut() {
-                    // Trim exessive whitespace.
-                    let mut prefix = val.prefix().trim().to_owned();
-                    let suffix = val.suffix().trim().to_owned();
+                // Process all elements' prefix and suffix.
+                for (i, val) in arr.iter_mut().enumerate() {
+                    let prefix = val.prefix().trim().to_owned();
+                    let suffix = val.suffix();
 
-                    // Handle prefix comments. Put them on a dedicated line.
-                    if !prefix.is_empty() {
-                        prefix.push_str(NEWLINE_PATTERN);
-                        prefix.push_str(&indent);
-                    }
+                    // Handle prefix: Add newline and indent, preserve comments.
+                    let new_prefix = if !prefix.is_empty() {
+                        format!(
+                            "{NEWLINE_PATTERN}{indent}{prefix}{NEWLINE_PATTERN}{indent}"
+                        )
+                    } else {
+                        format!("{NEWLINE_PATTERN}{indent}")
+                    };
 
-                    val.decor_mut()
-                        .set_prefix(format!("{NEWLINE_PATTERN}{indent}{prefix}"));
-                    val.decor_mut().set_suffix(suffix);
-                }
+                    // Handle suffix: Add comma for the last elements only.
+                    // Here the logic is very strange.
+                    let new_suffix = if i == arr_len - 1 && suffix.contains('\n') {
+                        let suffix = suffix.trim();
+                        let comma =
+                            if config.multiline_trailing_comma { "," } else { "" };
+                        format!("{comma}{suffix}{NEWLINE_PATTERN}")
+                    } else {
+                        suffix.trim().to_owned()
+                    };
 
-                // Fix up the last one.
-                if let Some(last) = arr.iter_mut().last() {
-                    let suffix = last.suffix().to_owned();
-
-                    let comma = if config.multiline_trailing_comma { "," } else { "" };
-
-                    last.decor_mut()
-                        .set_suffix(format!("{comma}{suffix}{NEWLINE_PATTERN}"));
+                    val.decor_mut().set_prefix(new_prefix);
+                    val.decor_mut().set_suffix(new_suffix);
                 }
             } else {
+                // Single-line array: Ensure no extra commas.
+                // Clear suffixes first to remove input commas.
+                for val in arr.iter_mut() {
+                    val.decor_mut().set_suffix("");
+                }
                 arr.fmt();
+                arr.decor_mut().set_prefix(" ");
+                // Apply trailing comma to the last element if configured.
+                arr.set_trailing_comma(config.always_trailing_comma);
             }
-            // TODO: this is most likely after an equal sign but not always...
-            arr.decor_mut().set_prefix(" ");
-            // TODO: can this be moved into the else of the above if/else
-            arr.set_trailing_comma(config.always_trailing_comma);
         }
         Value::InlineTable(table) => {
             table.decor_mut().set_prefix(" ");
@@ -228,7 +235,11 @@ fn fmt_value(value: &mut Value, config: &Config) {
         // get here from a headed table (`[header] key = val`)
         val => {
             if config.space_around_eq
-                && val.decor().prefix().and_then(|r| r.as_str()).is_none_or(str::is_empty)
+                && val
+                    .decor()
+                    .prefix()
+                    .and_then(RawString::as_str)
+                    .is_none_or(str::is_empty)
             {
                 val.decor_mut().set_prefix(" ");
             }
@@ -413,5 +424,50 @@ mod test {
         fmt_toml(&mut toml, &Config::new());
         assert_ne!(input, toml.to_string());
         // println!("{}", toml.to_string());
+    }
+
+    #[test]
+    fn array_integration() {
+        let input = r#"
+[package]
+authors = [
+    "Manish Goregaokar <manishsmail@gmail.com>",
+    "Andre Bogus <bogusandre@gmail.com>",
+    "Oliver Schneider <clippy-iethah7aipeen8neex1a@oli-obk.de>"
+]
+xyzabc = [
+    "foo",
+    "bar",
+    "baz",
+    ]
+integration = [
+
+    # A feature comment that makes this line very long.
+    "git2",
+
+
+    "tempfile", # Here is another comment.
+    "abc",
+]
+"#;
+        let expected = r#"
+[package]
+authors = [
+    "Manish Goregaokar <manishsmail@gmail.com>",
+    "Andre Bogus <bogusandre@gmail.com>",
+    "Oliver Schneider <clippy-iethah7aipeen8neex1a@oli-obk.de>",
+]
+xyzabc = ["foo", "bar", "baz"]
+integration = [
+    # A feature comment that makes this line very long.
+    "git2",
+    "tempfile",
+    # Here is another comment.
+    "abc",
+]
+"#;
+        let mut toml = input.parse::<DocumentMut>().unwrap();
+        fmt_toml(&mut toml, &Config::new());
+        similar_asserts::assert_eq!(expected, toml.to_string());
     }
 }

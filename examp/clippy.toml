@@ -71,5 +71,5 @@ integration = [
 
     "tempfile", # Here is another comment.
 
-    "abc"
+    "abc",
 ]
