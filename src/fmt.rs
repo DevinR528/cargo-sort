@@ -184,41 +184,88 @@ fn fmt_value(value: &mut Value, config: &Config) {
     match value {
         Value::Array(arr) => {
             if arr.to_string().len() > config.max_array_line_len {
+                let old_trailing_comma = arr.trailing_comma();
+                let new_trailing_comma = config.multiline_trailing_comma;
+
+                let trailing = arr.trailing().as_str().unwrap_or_default().to_owned();
+
                 let indent = " ".repeat(config.indent_count);
+                let arr_len = arr.len();
 
-                // Move all array elements onto a new line and indent them.
-                for val in arr.iter_mut() {
-                    // Trim exessive whitespace.
+                // Process all elements' prefix and suffix.
+                for (i, val) in arr.iter_mut().enumerate() {
                     let mut prefix = val.prefix().trim().to_owned();
-                    let suffix = val.suffix().trim().to_owned();
+                    let suffix = val.suffix();
 
-                    // Handle prefix comments. Put them on a dedicated line.
-                    if !prefix.is_empty() {
-                        prefix.push_str(NEWLINE_PATTERN);
-                        prefix.push_str(&indent);
+                    let mut last_suffix = None;
+
+                    // Handle suffix: Add comma for the last element only.
+                    let new_suffix = if i == arr_len - 1 {
+                        if old_trailing_comma != new_trailing_comma {
+                            // The last line's suffix must be cleared anyway,
+                            // and append it to the prefix.
+                            if !suffix.trim().is_empty() {
+                                last_suffix = Some(suffix.trim());
+                            }
+                            if new_trailing_comma {
+                                "".to_owned()
+                            } else {
+                                "".to_owned() + NEWLINE_PATTERN
+                            }
+                        } else {
+                            suffix.to_owned()
+                        }
+                    } else {
+                        suffix.trim_end().to_owned()
+                    };
+
+                    if let Some(s) = last_suffix {
+                        prefix.push_str(&format!("{NEWLINE_PATTERN}{s}"));
+                        prefix = prefix.trim().to_owned();
                     }
 
-                    val.decor_mut()
-                        .set_prefix(format!("{NEWLINE_PATTERN}{indent}{prefix}"));
-                    val.decor_mut().set_suffix(suffix);
+                    if i == arr_len - 1 && !new_trailing_comma {
+                        prefix.push_str(&format!("{NEWLINE_PATTERN}{}", trailing.trim()));
+                        prefix = prefix.trim().to_owned();
+                    }
+
+                    let n_i = format!("{NEWLINE_PATTERN}{indent}");
+
+                    // Handle prefix: Add newline and indent, preserve comments.
+                    let new_prefix = if !prefix.is_empty() {
+                        prefix
+                            .lines()
+                            .map(|line| format!("{n_i}{}", line.trim()))
+                            .collect::<String>()
+                            + &n_i
+                    } else {
+                        n_i
+                    };
+
+                    val.decor_mut().set_prefix(new_prefix);
+                    val.decor_mut().set_suffix(new_suffix);
                 }
 
-                // Fix up the last one.
-                if let Some(last) = arr.iter_mut().last() {
-                    let suffix = last.suffix().to_owned();
-
-                    let comma = if config.multiline_trailing_comma { "," } else { "" };
-
-                    last.decor_mut()
-                        .set_suffix(format!("{comma}{suffix}{NEWLINE_PATTERN}"));
+                if old_trailing_comma != new_trailing_comma {
+                    if new_trailing_comma {
+                        let trailing = trailing.trim_end().to_owned();
+                        arr.set_trailing(trailing + NEWLINE_PATTERN);
+                    } else {
+                        arr.set_trailing("".to_owned());
+                    }
                 }
+                arr.set_trailing_comma(new_trailing_comma);
             } else {
+                // Single-line array: Ensure no extra commas.
+                // Clear suffixes first to remove input commas.
+                for val in arr.iter_mut() {
+                    val.decor_mut().set_suffix("");
+                }
                 arr.fmt();
+                arr.decor_mut().set_prefix(" ");
+                // Apply trailing comma to the last element if configured.
+                arr.set_trailing_comma(config.always_trailing_comma);
             }
-            // TODO: this is most likely after an equal sign but not always...
-            arr.decor_mut().set_prefix(" ");
-            // TODO: can this be moved into the else of the above if/else
-            arr.set_trailing_comma(config.always_trailing_comma);
         }
         Value::InlineTable(table) => {
             table.decor_mut().set_prefix(" ");
@@ -228,7 +275,11 @@ fn fmt_value(value: &mut Value, config: &Config) {
         // get here from a headed table (`[header] key = val`)
         val => {
             if config.space_around_eq
-                && val.decor().prefix().and_then(|r| r.as_str()).is_none_or(str::is_empty)
+                && val
+                    .decor()
+                    .prefix()
+                    .and_then(RawString::as_str)
+                    .is_none_or(str::is_empty)
             {
                 val.decor_mut().set_prefix(" ");
             }
@@ -413,5 +464,73 @@ mod test {
         fmt_toml(&mut toml, &Config::new());
         assert_ne!(input, toml.to_string());
         // println!("{}", toml.to_string());
+    }
+
+    #[test]
+    fn array_integration() {
+        let input = r#"
+[package]
+authors = [
+    "Manish Goregaokar <manishsmail@gmail.com>",
+    "Andre Bogus <bogusandre@gmail.com>",
+    "Oliver Schneider <clippy-iethah7aipeen8neex1a@oli-obk.de>" # Here is a comment
+]
+xyzabc = [
+    "foo",
+    "bar",
+    "baz",
+    ]
+integration = [
+
+    # A feature comment that makes this line very long.
+    "git2",
+
+
+    "tempfile", # Here is another comment.
+    "abc", # Here is another comment at the end of the array.
+]
+"#;
+        let expected = r#"
+[package]
+authors = [
+    "Manish Goregaokar <manishsmail@gmail.com>",
+    "Andre Bogus <bogusandre@gmail.com>",
+    # Here is a comment
+    "Oliver Schneider <clippy-iethah7aipeen8neex1a@oli-obk.de>",
+]
+xyzabc = ["foo", "bar", "baz"]
+integration = [
+    # A feature comment that makes this line very long.
+    "git2",
+    "tempfile",
+    # Here is another comment.
+    "abc", # Here is another comment at the end of the array.
+]
+"#;
+        let mut toml = input.parse::<DocumentMut>().unwrap();
+        fmt_toml(&mut toml, &Config::new());
+        similar_asserts::assert_eq!(expected, toml.to_string());
+
+        let expected2 = r#"
+[package]
+authors = [
+    "Manish Goregaokar <manishsmail@gmail.com>",
+    "Andre Bogus <bogusandre@gmail.com>",
+    "Oliver Schneider <clippy-iethah7aipeen8neex1a@oli-obk.de>" # Here is a comment
+]
+xyzabc = ["foo", "bar", "baz"]
+integration = [
+    # A feature comment that makes this line very long.
+    "git2",
+    "tempfile",
+    # Here is another comment.
+    # Here is another comment at the end of the array.
+    "abc"
+]
+"#;
+        let mut toml = input.parse::<DocumentMut>().unwrap();
+        let cfg = Config { multiline_trailing_comma: false, ..Config::new() };
+        fmt_toml(&mut toml, &cfg);
+        similar_asserts::assert_eq!(expected2, toml.to_string());
     }
 }
