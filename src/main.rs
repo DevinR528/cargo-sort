@@ -2,9 +2,9 @@ use std::{
     borrow::Cow,
     env,
     fmt::Display,
-    fs::{read_to_string, OpenOptions},
+    fs::{self, read_to_string},
     io::Write,
-    path::{Path, PathBuf},
+    path::PathBuf,
 };
 
 use clap::{
@@ -47,11 +47,6 @@ fn write_green<S: Display>(highlight: &str, msg: S) -> IoResult<()> {
     write!(stdout, "{}", highlight)?;
     stdout.reset()?;
     writeln!(stdout, "{}", msg).map_err(Into::into)
-}
-
-fn write_file<P: AsRef<Path>>(path: P, toml: &str) -> IoResult<()> {
-    let mut fd = OpenOptions::new().write(true).create(true).truncate(true).open(path)?;
-    write!(fd, "{}", toml).map_err(Into::into)
 }
 
 fn check_toml(path: &str, matches: &ArgMatches, config: &Config) -> IoResult<bool> {
@@ -117,7 +112,7 @@ fn check_toml(path: &str, matches: &ArgMatches, config: &Config) -> IoResult<boo
     }
 
     if !is_sorted {
-        write_file(&path, &sorted_str)?;
+        fs::write(&path, &sorted_str)?;
         write_green(
             "Finished: ",
             format!("Cargo.toml for {:?} has been rewritten", krate.to_string_lossy()),
