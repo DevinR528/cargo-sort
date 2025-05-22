@@ -36,17 +36,17 @@ fn flag_set(flag: &str, matches: &ArgMatches) -> bool {
 fn write_red<S: Display>(highlight: &str, msg: S) -> IoResult<()> {
     let mut stderr = StandardStream::stderr(ColorChoice::Auto);
     stderr.set_color(ColorSpec::new().set_fg(Some(Color::Red)))?;
-    write!(stderr, "{}", highlight)?;
+    write!(stderr, "{highlight}")?;
     stderr.reset()?;
-    writeln!(stderr, "{}", msg).map_err(Into::into)
+    writeln!(stderr, "{msg}").map_err(Into::into)
 }
 
 fn write_green<S: Display>(highlight: &str, msg: S) -> IoResult<()> {
     let mut stdout = StandardStream::stdout(ColorChoice::Auto);
     stdout.set_color(ColorSpec::new().set_fg(Some(Color::Green)))?;
-    write!(stdout, "{}", highlight)?;
+    write!(stdout, "{highlight}")?;
     stdout.reset()?;
-    writeln!(stdout, "{}", msg).map_err(Into::into)
+    writeln!(stdout, "{msg}").map_err(Into::into)
 }
 
 fn check_toml(path: &str, matches: &ArgMatches, config: &Config) -> IoResult<bool> {
@@ -88,7 +88,7 @@ fn check_toml(path: &str, matches: &ArgMatches, config: &Config) -> IoResult<boo
     }
 
     if flag_set("print", matches) {
-        print!("{}", sorted_str);
+        print!("{sorted_str}");
         return Ok(true);
     }
 
@@ -196,7 +196,7 @@ fn _main() -> IoResult<()> {
             .get_matches();
 
     let cwd =
-        env::current_dir().map_err(|e| format!("no current directory found: {}", e))?;
+        env::current_dir().map_err(|e| format!("no current directory found: {e}"))?;
     let dir = cwd.to_string_lossy();
 
     // remove "sort" when invoked `cargo sort` sort is the first arg
@@ -230,9 +230,9 @@ fn _main() -> IoResult<()> {
             for member in ws.get("members").map_or_else(Vec::new, array_string_members) {
                 // TODO: a better test wether to glob?
                 if member.contains('*') || member.contains('?') {
-                    'globs: for entry in glob::glob(&format!("{}/{}", dir, member))
+                    'globs: for entry in glob::glob(&format!("{dir}/{member}"))
                         .unwrap_or_else(|e| {
-                            write_red("error: ", format!("Glob failed: {}", e)).unwrap();
+                            write_red("error: ", format!("Glob failed: {e}")).unwrap();
                             std::process::exit(1);
                         })
                     {
@@ -257,7 +257,7 @@ fn _main() -> IoResult<()> {
                         filtered_matches.push(Cow::Owned(path.display().to_string()));
                     }
                 } else {
-                    filtered_matches.push(Cow::Owned(format!("{}/{}", dir, member)));
+                    filtered_matches.push(Cow::Owned(format!("{dir}/{member}")));
                 }
             }
         }
