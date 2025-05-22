@@ -184,13 +184,40 @@ fn fmt_value(value: &mut Value, config: &Config) {
     match value {
         Value::Array(arr) => {
             if arr.to_string().len() > config.max_array_line_len {
+                let old_trailing_comma = arr.trailing_comma();
+                let new_trailing_comma = config.multiline_trailing_comma;
+
                 let indent = " ".repeat(config.indent_count);
                 let arr_len = arr.len();
 
                 // Process all elements' prefix and suffix.
                 for (i, val) in arr.iter_mut().enumerate() {
-                    let prefix = val.prefix().trim().to_owned();
+                    let mut prefix = val.prefix().trim().to_owned();
                     let suffix = val.suffix();
+
+                    let mut last_suffix = None;
+
+                    // Handle suffix: Add comma for the last element only.
+                    let new_suffix =
+                        if i == arr_len - 1 && old_trailing_comma != new_trailing_comma {
+                            if new_trailing_comma {
+                                // The last line's suffix must be cleared anyway,
+                                // and append it to the prefix.
+                                if !suffix.trim().is_empty() {
+                                    last_suffix = Some(suffix.trim());
+                                }
+                                "".to_owned()
+                            } else {
+                                suffix.trim_end().to_owned() + NEWLINE_PATTERN
+                            }
+                        } else {
+                            suffix.trim_end().to_owned()
+                        };
+
+                    last_suffix.map(|s| {
+                        prefix.push_str(&format!("{NEWLINE_PATTERN}{s}"));
+                        prefix = prefix.trim().to_owned();
+                    });
 
                     let n_i = format!("{NEWLINE_PATTERN}{indent}");
 
@@ -205,20 +232,19 @@ fn fmt_value(value: &mut Value, config: &Config) {
                         n_i
                     };
 
-                    // Handle suffix: Add comma for the last elements only.
-                    // Here the logic is very strange.
-                    let new_suffix = if i == arr_len - 1 && suffix.contains('\n') {
-                        let suffix = suffix.trim();
-                        let comma =
-                            if config.multiline_trailing_comma { "," } else { "" };
-                        format!("{comma}{suffix}{NEWLINE_PATTERN}")
-                    } else {
-                        suffix.trim().to_owned()
-                    };
-
                     val.decor_mut().set_prefix(new_prefix);
                     val.decor_mut().set_suffix(new_suffix);
                 }
+
+                if old_trailing_comma != new_trailing_comma {
+                    let trailing = arr.trailing().as_str().unwrap_or_default().trim_end();
+                    if new_trailing_comma {
+                        arr.set_trailing(trailing.to_owned() + NEWLINE_PATTERN);
+                    } else {
+                        arr.set_trailing(trailing.to_owned());
+                    }
+                }
+                arr.set_trailing_comma(new_trailing_comma);
             } else {
                 // Single-line array: Ensure no extra commas.
                 // Clear suffixes first to remove input commas.
@@ -437,7 +463,7 @@ mod test {
 authors = [
     "Manish Goregaokar <manishsmail@gmail.com>",
     "Andre Bogus <bogusandre@gmail.com>",
-    "Oliver Schneider <clippy-iethah7aipeen8neex1a@oli-obk.de>"
+    "Oliver Schneider <clippy-iethah7aipeen8neex1a@oli-obk.de>" # Here is a comment
 ]
 xyzabc = [
     "foo",
@@ -451,7 +477,7 @@ integration = [
 
 
     "tempfile", # Here is another comment.
-    "abc",
+    "abc", # Here is another comment at the end of the array.
 ]
 "#;
         let expected = r#"
@@ -459,6 +485,7 @@ integration = [
 authors = [
     "Manish Goregaokar <manishsmail@gmail.com>",
     "Andre Bogus <bogusandre@gmail.com>",
+    # Here is a comment
     "Oliver Schneider <clippy-iethah7aipeen8neex1a@oli-obk.de>",
 ]
 xyzabc = ["foo", "bar", "baz"]
@@ -467,7 +494,7 @@ integration = [
     "git2",
     "tempfile",
     # Here is another comment.
-    "abc",
+    "abc", # Here is another comment at the end of the array.
 ]
 "#;
         let mut toml = input.parse::<DocumentMut>().unwrap();
