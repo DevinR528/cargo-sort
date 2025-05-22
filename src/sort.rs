@@ -102,10 +102,7 @@ pub fn sort_toml(
                         .iter()
                         .map(|p| p.iter().map(|s| s.to_string()).collect::<Vec<_>>())
                         .collect::<Vec<_>>();
-                    target_tables
-                        .entry(key.to_string())
-                        .or_insert_with(Vec::new)
-                        .extend(deps_tables);
+                    target_tables.entry(key.to_string()).or_default().extend(deps_tables);
                 }
             }
         }
@@ -198,7 +195,7 @@ fn sort_table(table: &mut Table, group: bool) {
 
 fn sort_nested_table(table: &mut Table, target_tables: &TargetTablePaths) {
     // The `table` name must be `target`
-    for (_key, paths) in target_tables {
+    for paths in target_tables.values() {
         for path in paths {
             if path.len() > 1 {
                 sort_table_by_path(table, &path[1..]);
@@ -362,6 +359,7 @@ fn sort_by_ordering(
         /// Use `heading` as the split point, and divide `segs` into two parts:
         /// - Traverse left (backward) to the start (including `heading`)
         /// - Traverse right (forward) to the end (after `heading`)
+        ///
         /// Then join both parts into a dot-separated string, for example:
         /// `[target.'cfg(windows)'.dependencies.windows-sys]` will be
         /// `[dependencies.'cfg(windows)'.target.windows-sys]`
@@ -369,7 +367,7 @@ fn sort_by_ordering(
             if let Some(pos) = segs.iter().position(|seg| seg == heading) {
                 let mut left: Vec<_> = segs[..=pos].iter().rev().cloned().collect();
                 let right: Vec<_> = if pos + 1 < segs.len() {
-                    segs[pos + 1..].iter().cloned().collect()
+                    segs[pos + 1..].to_vec()
                 } else {
                     Vec::new()
                 };
@@ -397,7 +395,7 @@ fn sort_by_ordering(
             let b1_longest = extract_heading_segments(b_headings, heading);
             let ord = a1_longest.cmp(&b1_longest);
             if ord == Ordering::Equal {
-                a_key.cmp(&b_key)
+                a_key.cmp(b_key)
             } else {
                 ord
             }
@@ -407,16 +405,16 @@ fn sort_by_ordering(
             for &((_, key), to_sort_headings) in &matches {
                 let mut to_sort_headings = to_sort_headings
                     .iter()
-                    .filter_map(|h| {
+                    .filter(|h| {
                         if let Heading::Complete(segs) = h {
                             if key == TARGET {
                                 // Get rid of the items that do not contain the heading
-                                return segs.iter().any(|seg| seg == heading).then(|| h);
+                                return segs.iter().any(|seg| seg == heading);
                             } else {
-                                return Some(h);
+                                return true;
                             }
                         }
-                        None
+                        false
                     })
                     .collect::<Vec<_>>();
                 to_sort_headings.sort_by_key(|h| {
@@ -424,7 +422,7 @@ fn sort_by_ordering(
                         if key == TARGET {
                             join_segs_around_heading(segs, heading).unwrap_or_default()
                         } else {
-                            segs.iter().cloned().collect::<Vec<_>>().join(".")
+                            segs.to_vec().join(".")
                         }
                     } else {
                         String::new()
