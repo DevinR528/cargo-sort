@@ -1,5 +1,5 @@
 FROM lukemathwalker/cargo-chef:latest-rust-latest AS chef
-WORKDIR app
+WORKDIR /app
 
 FROM chef AS planner
 COPY . .
@@ -13,7 +13,7 @@ RUN cargo build --verbose --locked --release
 RUN strip /app/target/release/cargo-sort
 
 FROM debian:buster-slim AS runtime
-WORKDIR app
+WORKDIR /app
 COPY --from=builder /app/target/release/cargo-sort /usr/local/bin
 USER 1000:1000
 ENTRYPOINT ["cargo-sort"]
