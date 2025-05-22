@@ -101,3 +101,7 @@ features = [
     "Win32_System_Memory",
     "Win32_System_Threading",
 ]
+
+[target.'cfg(unix)'.dependencies.somegoodlib]
+version = "0.30"
+features = ["ioctl"]
