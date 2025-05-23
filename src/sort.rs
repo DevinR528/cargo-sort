@@ -273,8 +273,17 @@ fn sort_by_group(table: &mut Table) {
     for (idx, (k, _)) in table_clone.iter().enumerate() {
         let (k, v) = table_clone.get_key_value(k).unwrap();
 
-        let blank_lines = k
-            .leaf_decor()
+        // If the item is a dotted table, grab the decor of the first item of the table
+        // instead.
+        let decor = if let Some(first_in_dotted) =
+            v.as_table().filter(|t| t.is_dotted()).and_then(|t| t.key(t.iter().next()?.0))
+        {
+            first_in_dotted.leaf_decor()
+        } else {
+            k.leaf_decor()
+        };
+
+        let blank_lines = decor
             .prefix()
             .and_then(RawString::as_str)
             .unwrap_or("")
@@ -549,6 +558,13 @@ mod test {
         assert_eq(input, sorted);
 
         let input = fs::read_to_string("examp/noreorder.toml").unwrap();
+        let sorted = super::sort_toml(&input, MATCHER, true, &[]);
+        assert_eq(input, sorted);
+    }
+
+    #[test]
+    fn issue_104() {
+        let input = fs::read_to_string("regressions/104.toml").unwrap();
         let sorted = super::sort_toml(&input, MATCHER, true, &[]);
         assert_eq(input, sorted);
     }
