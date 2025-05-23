@@ -1,3 +1,9 @@
+# 2.0.1
+
+Bug fixes
+
+* Fix unintended merging of dependency groups with `--grouped` when dotted key syntax was used
+
 # 2.0.0
 
 This release is a big one! Special thanks go out to @thomaseizinger who fixed a lot of regressions
