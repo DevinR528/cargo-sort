@@ -1,0 +1,9 @@
+[package]
+name = "cargo-sort-test"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+doesnotexistb.workspace = true
+
+doesnotexista.workspace = true
