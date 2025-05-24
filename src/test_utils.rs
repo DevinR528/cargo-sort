@@ -1,4 +1,4 @@
-pub fn assert_eq<L: ToString, R: ToString>(left: L, right: R) {
+pub(crate) fn assert_eq<L: ToString, R: ToString>(left: L, right: R) {
     let left = left.to_string();
     let right = right.to_string();
 

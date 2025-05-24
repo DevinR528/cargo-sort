@@ -26,7 +26,7 @@ type TargetTablePaths = BTreeMap<String, Vec<Vec<String>>>;
 /// Each `Matcher` field when matched to a heading or key token
 /// will be matched with `.contains()`.
 #[derive(Debug)]
-pub struct Matcher<'a> {
+pub(crate) struct Matcher<'a> {
     /// Toml headings with braces `[heading]`.
     pub heading: &'a [&'a str],
     /// Toml heading with braces `[heading]` and the key
@@ -34,7 +34,7 @@ pub struct Matcher<'a> {
     pub heading_key: &'a [(&'a str, &'a str)],
 }
 
-pub const MATCHER: Matcher<'_> = Matcher {
+pub(crate) const MATCHER: Matcher<'_> = Matcher {
     heading: &["dependencies", "dev-dependencies", "build-dependencies"],
     heading_key: &[
         ("workspace", "members"),
@@ -57,7 +57,7 @@ enum Heading {
 }
 
 /// Returns a sorted toml `DocumentMut`.
-pub fn sort_toml(
+pub(crate) fn sort_toml(
     input: &str,
     matcher: Matcher<'_>,
     group: bool,
@@ -94,15 +94,15 @@ pub fn sort_toml(
         let item_key = head.get();
         if item_key == TARGET {
             if let Some(table) = item.as_table() {
-                for key in matcher.heading {
+                for &key in matcher.heading {
                     let mut path = vec![item_key];
                     let mut deps_tables = vec![];
                     nested_tables_with_key(table, &mut path, key, &mut deps_tables);
                     let deps_tables = deps_tables
                         .iter()
-                        .map(|p| p.iter().map(|s| s.to_string()).collect::<Vec<_>>())
+                        .map(|p| p.iter().map(|&s| s.to_owned()).collect::<Vec<_>>())
                         .collect::<Vec<_>>();
-                    target_tables.entry(key.to_string()).or_default().extend(deps_tables);
+                    target_tables.entry(key.to_owned()).or_default().extend(deps_tables);
                 }
             }
         }
@@ -119,7 +119,7 @@ pub fn sort_toml(
                     // The root table is always index 0 which we ignore so add 1
                     first_table = Some(idx + 1);
                 }
-                let key = item_key.to_string();
+                let key = item_key.to_owned();
                 let headings = heading_order.entry((idx, key.clone())).or_default();
                 // Push a `Heading::Complete` here incase the tables are ordered
                 // [heading.segs]
@@ -454,7 +454,7 @@ fn sort_by_ordering(
         } else if let Some(tab) = toml.as_table_mut()[heading].as_table_mut() {
             tab.set_position(idx);
             idx += 1;
-            walk_tables_set_position(tab, &mut idx)
+            walk_tables_set_position(tab, &mut idx);
         } else if let Some(arrtab) = toml.as_table_mut()[heading].as_array_of_tables_mut()
         {
             for tab in arrtab.iter_mut() {
@@ -472,13 +472,13 @@ fn walk_tables_set_position(table: &mut Table, idx: &mut usize) {
             Item::Table(tab) => {
                 tab.set_position(*idx);
                 *idx += 1;
-                walk_tables_set_position(tab, idx)
+                walk_tables_set_position(tab, idx);
             }
             Item::ArrayOfTables(arr) => {
                 for tab in arr.iter_mut() {
                     tab.set_position(*idx);
                     *idx += 1;
-                    walk_tables_set_position(tab, idx)
+                    walk_tables_set_position(tab, idx);
                 }
             }
             _ => {}
