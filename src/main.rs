@@ -84,7 +84,7 @@ fn check_toml(path: &str, matches: &ArgMatches, config: &Config) -> IoResult<boo
         };
 
     if (config.crlf || crlf) && !sorted_str.contains("\r\n") {
-        sorted_str = sorted_str.replace('\n', "\r\n")
+        sorted_str = sorted_str.replace('\n', "\r\n");
     }
 
     if flag_set("print", matches) {
@@ -303,7 +303,7 @@ fn main() {
     _main().unwrap_or_else(|e| {
         write_red("error: ", e).unwrap();
         std::process::exit(1);
-    })
+    });
 }
 
 // #[test]
