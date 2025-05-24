@@ -3,9 +3,9 @@ use std::str::FromStr;
 use toml_edit::{DocumentMut, Item, RawString, Table, Value};
 
 #[cfg(target_os = "windows")]
-const NEWLINE_PATTERN: &str = "\r\n";
+pub const DEF_CRLF: bool = true;
 #[cfg(not(target_os = "windows"))]
-const NEWLINE_PATTERN: &str = "\n";
+pub const DEF_CRLF: bool = false;
 
 pub(crate) const DEF_TABLE_ORDER: &[&str] = &[
     "package",
@@ -30,6 +30,7 @@ pub(crate) const DEF_TABLE_ORDER: &[&str] = &[
 /// assert!(config.crlf);
 /// ```
 #[allow(dead_code)]
+#[derive(Clone)]
 pub struct Config {
     /// Use trailing comma where possible.
     ///
@@ -85,7 +86,7 @@ pub struct Config {
     /// Use CRLF line endings
     ///
     /// Defaults to `false`.
-    pub crlf: bool,
+    pub crlf: Option<bool>,
 
     /// The user specified ordering of tables in a document.
     ///
@@ -108,7 +109,7 @@ impl Config {
             trailing_newline: true,
             key_value_newlines: true,
             allowed_blank_lines: 1,
-            crlf: false,
+            crlf: None,
             table_order: DEF_TABLE_ORDER.iter().map(|s| (*s).to_owned()).collect(),
         }
     }
@@ -163,7 +164,7 @@ impl FromStr for Config {
                 .get("allowed_blank_lines")
                 .and_then(toml_edit::Item::as_integer)
                 .unwrap_or(1) as usize,
-            crlf: toml.get("crlf").and_then(toml_edit::Item::as_bool).unwrap_or_default(),
+            crlf: toml.get("crlf").and_then(toml_edit::Item::as_bool),
             table_order: toml
                 .get("table_order")
                 .and_then(toml_edit::Item::as_array)
@@ -181,6 +182,7 @@ impl FromStr for Config {
 }
 
 fn fmt_value(value: &mut Value, config: &Config) {
+    let newline_pattern = if config.crlf.unwrap_or(DEF_CRLF) { "\r\n" } else { "\n" };
     match value {
         Value::Array(arr) => {
             if arr.to_string().len() > config.max_array_line_len {
@@ -210,7 +212,7 @@ fn fmt_value(value: &mut Value, config: &Config) {
                             if new_trailing_comma {
                                 "".to_owned()
                             } else {
-                                "".to_owned() + NEWLINE_PATTERN
+                                "".to_owned() + newline_pattern
                             }
                         } else {
                             suffix.to_owned()
@@ -220,16 +222,16 @@ fn fmt_value(value: &mut Value, config: &Config) {
                     };
 
                     if let Some(s) = last_suffix {
-                        prefix.push_str(&format!("{NEWLINE_PATTERN}{s}"));
+                        prefix.push_str(&format!("{newline_pattern}{s}"));
                         prefix = prefix.trim().to_owned();
                     }
 
                     if i == arr_len - 1 && !new_trailing_comma {
-                        prefix.push_str(&format!("{NEWLINE_PATTERN}{}", trailing.trim()));
+                        prefix.push_str(&format!("{newline_pattern}{}", trailing.trim()));
                         prefix = prefix.trim().to_owned();
                     }
 
-                    let n_i = format!("{NEWLINE_PATTERN}{indent}");
+                    let n_i = format!("{newline_pattern}{indent}");
 
                     // Handle prefix: Add newline and indent, preserve comments.
                     let new_prefix = if !prefix.is_empty() {
@@ -249,7 +251,7 @@ fn fmt_value(value: &mut Value, config: &Config) {
                 if old_trailing_comma != new_trailing_comma {
                     if new_trailing_comma {
                         let trailing = trailing.trim_end().to_owned();
-                        arr.set_trailing(trailing + NEWLINE_PATTERN);
+                        arr.set_trailing(trailing + newline_pattern);
                     } else {
                         arr.set_trailing("".to_owned());
                     }
@@ -288,6 +290,8 @@ fn fmt_value(value: &mut Value, config: &Config) {
 }
 
 fn fmt_table(table: &mut Table, config: &Config) {
+    let newline_pattern = if config.crlf.unwrap_or(DEF_CRLF) { "\r\n" } else { "\n" };
+
     // Checks the header decor for blank lines
 
     let current_decor = table.decor().prefix().and_then(RawString::as_str).unwrap_or("");
@@ -298,7 +302,7 @@ fn fmt_table(table: &mut Table, config: &Config) {
     for line in current_decor.lines() {
         if line.starts_with("#") {
             new_decor.push_str(line);
-            new_decor.push_str(NEWLINE_PATTERN);
+            new_decor.push_str(newline_pattern);
             num_consecutive_blank_lines = 0;
             continue;
         }
@@ -307,7 +311,7 @@ fn fmt_table(table: &mut Table, config: &Config) {
 
         if num_consecutive_blank_lines <= config.allowed_blank_lines {
             new_decor.push_str(line);
-            new_decor.push_str(NEWLINE_PATTERN);
+            new_decor.push_str(newline_pattern);
         }
     }
 
@@ -328,14 +332,14 @@ fn fmt_table(table: &mut Table, config: &Config) {
         if config.key_value_newlines {
             if config.allowed_blank_lines < blank_lines {
                 dec.set_prefix(prefix.replacen(
-                    NEWLINE_PATTERN,
+                    newline_pattern,
                     "",
                     blank_lines - config.allowed_blank_lines,
                 ));
             }
         } else {
             dec.set_prefix(if prefix.contains('#') {
-                prefix.replacen(NEWLINE_PATTERN, "", blank_lines)
+                prefix.replacen(newline_pattern, "", blank_lines)
             } else {
                 "".to_string()
             });
