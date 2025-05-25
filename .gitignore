@@ -1,4 +1,5 @@
 .VSCodeCounter/
+/.vs
 /target
 **/*.rs.bk
 
