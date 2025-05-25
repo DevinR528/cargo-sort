@@ -95,10 +95,8 @@ pub(crate) struct Config {
     pub table_order: Vec<String>,
 }
 
-impl Config {
-    // Used in testing and fuzzing
-    #[allow(dead_code)]
-    pub(crate) fn new() -> Self {
+impl Default for Config {
+    fn default() -> Self {
         Self {
             always_trailing_comma: false,
             multiline_trailing_comma: true,
@@ -120,7 +118,7 @@ impl FromStr for Config {
     type Err = &'static str;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         if s.is_empty() {
-            return Ok(Self::new());
+            return Ok(Self::default());
         }
 
         let toml = s.parse::<DocumentMut>().map_err(|_| "failed to parse as toml")?;
@@ -421,7 +419,7 @@ mod test {
     fn toml_fmt_check() {
         let input = fs::read_to_string("examp/ruma.toml").unwrap();
         let mut toml = input.parse::<DocumentMut>().unwrap();
-        fmt_toml(&mut toml, &Config::new());
+        fmt_toml(&mut toml, &Config::default());
         assert_ne!(input, toml.to_string());
         // println!("{}", toml.to_string());
     }
@@ -430,7 +428,7 @@ mod test {
     fn fmt_correct() {
         let input = fs::read_to_string("examp/right.toml").unwrap();
         let mut toml = input.parse::<DocumentMut>().unwrap();
-        fmt_toml(&mut toml, &Config::new());
+        fmt_toml(&mut toml, &Config::default());
         assert_eq(input, toml);
     }
 
@@ -444,7 +442,7 @@ mod test {
             "[package]\nname = \"priv-test\"\nversion = \"0.1.0\"\nedition = \"2021\"\nresolver = \"2\"\n\n# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html\n\n[dependencies]\nstructopt = \"0.3\"\n",
         );
         let mut toml = input.parse::<DocumentMut>().unwrap();
-        fmt_toml(&mut toml, &Config::new());
+        fmt_toml(&mut toml, &Config::default());
         similar_asserts::assert_eq!(expected, toml.to_string());
     }
 
@@ -453,7 +451,7 @@ mod test {
         let input = fs::read_to_string("examp/clippy.toml").unwrap();
         let expected = fs::read_to_string("examp/clippy.fmt.toml").unwrap();
         let mut toml = input.parse::<DocumentMut>().unwrap();
-        fmt_toml(&mut toml, &Config::new());
+        fmt_toml(&mut toml, &Config::default());
         assert_eq(expected, toml);
     }
 
@@ -461,7 +459,7 @@ mod test {
     fn trailing() {
         let input = fs::read_to_string("examp/trailing.toml").unwrap();
         let mut toml = input.parse::<DocumentMut>().unwrap();
-        fmt_toml(&mut toml, &Config::new());
+        fmt_toml(&mut toml, &Config::default());
         assert_ne!(input, toml.to_string());
         // println!("{}", toml.to_string());
     }
@@ -508,7 +506,7 @@ integration = [
 ]
 "#;
         let mut toml = input.parse::<DocumentMut>().unwrap();
-        fmt_toml(&mut toml, &Config::new());
+        fmt_toml(&mut toml, &Config::default());
         similar_asserts::assert_eq!(expected, toml.to_string());
 
         let expected2 = r#"
@@ -529,7 +527,7 @@ integration = [
 ]
 "#;
         let mut toml = input.parse::<DocumentMut>().unwrap();
-        let cfg = Config { multiline_trailing_comma: false, ..Config::new() };
+        let cfg = Config { multiline_trailing_comma: false, ..Config::default() };
         fmt_toml(&mut toml, &cfg);
         similar_asserts::assert_eq!(expected2, toml.to_string());
     }
