@@ -2,8 +2,8 @@ use std::{cmp::Ordering, collections::BTreeMap, iter::FromIterator};
 
 use toml_edit::{Array, Decor, DocumentMut, Item, RawString, Table, Value};
 
-// Leading string for combining keys such as
-// `[target.'cfg(target_os="linux")'.dependencies]` in Cargo.toml files.
+/// Leading string for combining keys such as
+/// `[target.'cfg(target_os="linux")'.dependencies]` in Cargo.toml files.
 const TARGET: &str = "target";
 
 /// Stores the paths of target tables in a BTreeMap, the data structure looks like:
@@ -506,7 +506,7 @@ mod test {
         let input = fs::read_to_string("examp/tun.toml").unwrap();
         let expected = fs::read_to_string("examp/tun.sorted.toml").unwrap();
         let o = crate::fmt::DEF_TABLE_ORDER;
-        let o = o.iter().map(|s| (*s).to_owned()).collect::<Vec<_>>();
+        let o = o.iter().map(|&s| s.to_owned()).collect::<Vec<_>>();
         let sorted = super::sort_toml(&input, MATCHER, false, &o);
 
         assert_eq(expected, sorted);

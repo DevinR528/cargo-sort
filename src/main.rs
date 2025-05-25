@@ -64,6 +64,11 @@ fn check_toml(path: &str, matches: &ArgMatches, config: &Config) -> IoResult<boo
 
     let crlf = toml_raw.contains("\r\n");
 
+    let mut config = config.clone();
+    if config.crlf.is_none() {
+        config.crlf = Some(crlf);
+    }
+
     let mut sorted = sort::sort_toml(
         &toml_raw,
         sort::MATCHER,
@@ -76,14 +81,14 @@ fn check_toml(path: &str, matches: &ArgMatches, config: &Config) -> IoResult<boo
         // if no-format is not found apply formatting
         if !flag_set("no-format", matches) || flag_set("check-format", matches) {
             let original = sorted_str.clone();
-            fmt::fmt_toml(&mut sorted, config);
+            fmt::fmt_toml(&mut sorted, &config);
             sorted_str = sorted.to_string();
             original == sorted_str
         } else {
             true
         };
 
-    if (config.crlf || crlf) && !sorted_str.contains("\r\n") {
+    if config.crlf.unwrap_or(fmt::DEF_CRLF) && !sorted_str.contains("\r\n") {
         sorted_str = sorted_str.replace('\n', "\r\n");
     }
 
