@@ -21,7 +21,7 @@ rust-version = "1.82"
 
 [dependencies]
 # afl = { version = "0.10", optional = true }
-clap = { version = "4.0.10", features = ["wrap_help", "cargo"] }
+clap = { version = "4.0.10", features = ["wrap_help", "cargo", "derive"] }
 glob = "0.3"
 termcolor = "1.1"
 toml_edit = "0.22"
