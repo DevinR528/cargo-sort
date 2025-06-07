@@ -1,16 +1,6 @@
-use std::{
-    borrow::Cow,
-    env,
-    fmt::Display,
-    fs::{self, read_to_string},
-    io::Write,
-    path::PathBuf,
-};
+use std::{fmt::Display, fs::read_to_string, io::Write, path::PathBuf};
 
-use clap::{
-    crate_authors, crate_name, crate_version, parser::ValueSource, Arg, ArgAction,
-    ArgMatches, Command,
-};
+use clap::{crate_authors, crate_name, crate_version};
 use fmt::Config;
 use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
 use toml_edit::{DocumentMut, Item};
@@ -26,11 +16,64 @@ const EXTRA_HELP: &str = "\
 
 type IoResult<T> = Result<T, Box<dyn std::error::Error>>;
 
-fn flag_set(flag: &str, matches: &ArgMatches) -> bool {
-    matches!(
-        matches.value_source(flag),
-        Some(ValueSource::CommandLine | ValueSource::EnvVariable)
+#[macro_export]
+macro_rules! version_0 {
+    () => {
+        concat!("v", crate_version!())
+    };
+}
+
+#[macro_export]
+macro_rules! version_info {
+    () => {
+        concat!(crate_name!(), " ", $crate::version_0!())
+    };
+}
+
+fn about_info() -> String {
+    format!(
+        "{}\n{}\n{}",
+        version_info!(),
+        crate_authors!(", "),
+        "Ensure Cargo.toml dependency tables are sorted.",
     )
+}
+
+#[derive(clap::Parser, Debug)]
+#[command(author = crate_authors!(", "), version = version_0!(), about = about_info(), bin_name = "cargo sort", after_help = EXTRA_HELP)]
+pub struct Cli {
+    /// sets cwd, must contain a Cargo.toml file
+    #[arg(value_name = "CWD")]
+    pub cwd: Vec<String>,
+
+    /// Returns non-zero exit code if Cargo.toml is unsorted, overrides default behavior
+    #[arg(short, long)]
+    pub check: bool,
+
+    /// Prints Cargo.toml, lexically sorted, to stdout
+    #[arg(short, long, conflicts_with = "check")]
+    pub print: bool,
+
+    /// Skips formatting after sorting
+    #[arg(short = 'n', long)]
+    pub no_format: bool,
+
+    /// Also returns non-zero exit code if formatting changes
+    #[arg(long, requires = "check")]
+    pub check_format: bool,
+
+    /// Checks every crate in a workspace
+    #[arg(short, long)]
+    pub workspace: bool,
+
+    /// Keep blank lines when sorting groups of key value pairs
+    #[arg(short, long)]
+    pub grouped: bool,
+
+    /// List the order tables should be written out
+    /// (--order package,dependencies,features)
+    #[arg(short, long, value_delimiter = ',')]
+    pub order: Vec<String>,
 }
 
 fn write_red<S: Display>(highlight: &str, msg: S) -> IoResult<()> {
@@ -49,7 +92,7 @@ fn write_green<S: Display>(highlight: &str, msg: S) -> IoResult<()> {
     writeln!(stdout, "{msg}").map_err(Into::into)
 }
 
-fn check_toml(path: &str, matches: &ArgMatches, config: &Config) -> IoResult<bool> {
+fn check_toml(path: &str, cli: &Cli, config: &Config) -> IoResult<bool> {
     let mut path = PathBuf::from(path);
     if path.extension().is_none() {
         path.push("Cargo.toml");
@@ -69,17 +112,13 @@ fn check_toml(path: &str, matches: &ArgMatches, config: &Config) -> IoResult<boo
         config.crlf = Some(crlf);
     }
 
-    let mut sorted = sort::sort_toml(
-        &toml_raw,
-        sort::MATCHER,
-        flag_set("grouped", matches),
-        &config.table_order,
-    );
+    let mut sorted =
+        sort::sort_toml(&toml_raw, sort::MATCHER, cli.grouped, &config.table_order);
     let mut sorted_str = sorted.to_string();
 
     let is_formatted =
         // if no-format is not found apply formatting
-        if !flag_set("no-format", matches) || flag_set("check-format", matches) {
+        if !cli.no_format || cli.check_format {
             let original = sorted_str.clone();
             fmt::fmt_toml(&mut sorted, &config);
             sorted_str = sorted.to_string();
@@ -92,13 +131,13 @@ fn check_toml(path: &str, matches: &ArgMatches, config: &Config) -> IoResult<boo
         sorted_str = sorted_str.replace('\n', "\r\n");
     }
 
-    if flag_set("print", matches) {
+    if cli.print {
         print!("{sorted_str}");
         return Ok(true);
     }
 
     let is_sorted = toml_raw == sorted_str;
-    if flag_set("check", matches) {
+    if cli.check {
         if !is_sorted {
             write_red(
                 "error: ",
@@ -117,7 +156,7 @@ fn check_toml(path: &str, matches: &ArgMatches, config: &Config) -> IoResult<boo
     }
 
     if !is_sorted {
-        fs::write(&path, &sorted_str)?;
+        std::fs::write(&path, &sorted_str)?;
         write_green(
             "Finished: ",
             format!("Cargo.toml for {:?} has been rewritten", krate.to_string_lossy()),
@@ -136,87 +175,25 @@ fn check_toml(path: &str, matches: &ArgMatches, config: &Config) -> IoResult<boo
 }
 
 fn _main() -> IoResult<()> {
-    let matches =
-        Command::new(crate_name!())
-            .author(crate_authors!())
-            .version(crate_version!())
-            .about("Ensure Cargo.toml dependency tables are sorted.")
-            .arg(
-                Arg::new("cwd")
-                    .value_name("CWD")
-                    .action(ArgAction::Append)
-                    .help("sets cwd, must contain a Cargo.toml file"),
-            )
-            .arg(Arg::new("check").short('c').long("check")
-            .action(ArgAction::SetTrue)
-            .help(
-                "Returns non-zero exit code if Cargo.toml is unsorted, overrides default behavior",
-            ))
-            .arg(
-                Arg::new("print")
-                    .short('p')
-                    .long("print")
-                    .action(ArgAction::SetTrue)
-                    // No printing if we are running a --check
-                    .conflicts_with("check")
-                    .help("Prints Cargo.toml, lexically sorted, to stdout"),
-            )
-            .arg(
-                Arg::new("no-format")
-                    .short('n')
-                    .long("no-format")
-                    .action(ArgAction::SetTrue)
-                    .help("Skips formatting after sorting"),
-            )
-            .arg(
-                Arg::new("check-format")
-                    .requires("check")
-                    .long("check-format")
-                    .action(ArgAction::SetTrue)
-                    .help("Also returns non-zero exit code if formatting changes"),
-            )
-            .arg(
-                Arg::new("workspace")
-                    .short('w')
-                    .long("workspace")
-                    .action(ArgAction::SetTrue)
-                    .help("Checks every crate in a workspace"),
-            )
-            .arg(
-                Arg::new("grouped")
-                    .short('g')
-                    .long("grouped")
-                    .action(ArgAction::SetTrue)
-                    .help("Keep blank lines when sorting groups of key value pairs"),
-            )
-            .arg(
-                Arg::new("order")
-                    .short('o')
-                    .long("order")
-                    .action(ArgAction::Append)
-                    .value_delimiter(',')
-                    .help("List the order tables should be written out (--order package,dependencies,features)"),
-            )
-            .after_help(EXTRA_HELP)
-            .get_matches();
-
-    let cwd =
-        env::current_dir().map_err(|e| format!("no current directory found: {e}"))?;
-    let dir = cwd.to_string_lossy();
-
+    let mut args: Vec<String> = std::env::args().collect();
     // remove "sort" when invoked `cargo sort` sort is the first arg
     // https://github.com/rust-lang/cargo/issues/7653
-    let (is_posible_workspace, mut filtered_matches) =
-        matches.get_many::<String>("cwd").map_or((true, vec![dir.clone()]), |s| {
-            let args = s.filter(|it| *it != "sort").map(Into::into).collect::<Vec<_>>();
-            if args.is_empty() {
-                (true, vec![dir])
-            } else {
-                (args.len() == 1, args)
-            }
-        });
+    if args.len() > 1 && args[1] == "sort" {
+        args.remove(1);
+    }
+    let cli = <Cli as clap::Parser>::parse_from(args);
 
-    if flag_set("workspace", &matches) && is_posible_workspace {
+    let cwd = std::env::current_dir()
+        .map_err(|e| format!("no current directory found: {e}"))?;
+    let dir = cwd.to_string_lossy();
+
+    let mut filtered_matches: Vec<String> = cli.cwd.clone();
+    let is_posible_workspace = filtered_matches.is_empty() || filtered_matches.len() == 1;
+    if filtered_matches.is_empty() {
+        filtered_matches.push(dir.to_string());
+    }
+
+    if cli.workspace && is_posible_workspace {
         let dir = filtered_matches[0].to_string();
         let mut path = PathBuf::from(&dir);
         if path.extension().is_none() {
@@ -259,10 +236,10 @@ fn _main() -> IoResult<()> {
                             }
                         }
 
-                        filtered_matches.push(Cow::Owned(path.display().to_string()));
+                        filtered_matches.push(path.display().to_string());
                     }
                 } else {
-                    filtered_matches.push(Cow::Owned(format!("{dir}/{member}")));
+                    filtered_matches.push(format!("{dir}/{member}"));
                 }
             }
         }
@@ -279,25 +256,21 @@ fn _main() -> IoResult<()> {
         .unwrap_or_default()
         .parse::<Config>()?;
 
-    if let Some(ordering) =
-        matches.get_many::<String>("order").map(|v| v.collect::<Vec<_>>())
-    {
-        config.table_order = ordering.into_iter().map(|s| s.to_string()).collect();
+    if !cli.order.is_empty() {
+        config.table_order = cli.order.clone();
     }
 
     let mut flag = true;
-    for sorted in filtered_matches.iter().map(|path| check_toml(path, &matches, &config))
-    {
+    for sorted in filtered_matches.iter().map(|path| check_toml(path, &cli, &config)) {
         if !(sorted?) {
             flag = false;
         }
     }
 
-    if flag {
-        std::process::exit(0)
-    } else {
-        std::process::exit(1)
+    if !flag {
+        return Err("Some Cargo.toml files are not sorted or formatted".into());
     }
+    Ok(())
 }
 
 fn array_string_members(value: &Item) -> Vec<&str> {
