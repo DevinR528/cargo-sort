@@ -1,6 +1,5 @@
 use std::{fmt::Display, fs::read_to_string, io::Write, path::PathBuf};
 
-use clap::{crate_authors, crate_name, crate_version};
 use fmt::Config;
 use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
 use toml_edit::{DocumentMut, Item};
@@ -16,31 +15,9 @@ const EXTRA_HELP: &str = "\
 
 type IoResult<T> = Result<T, Box<dyn std::error::Error>>;
 
-#[macro_export]
-macro_rules! version_0 {
-    () => {
-        concat!("v", crate_version!())
-    };
-}
-
-#[macro_export]
-macro_rules! version_info {
-    () => {
-        concat!(crate_name!(), " ", $crate::version_0!())
-    };
-}
-
-fn about_info() -> String {
-    format!(
-        "{}\n{}\n{}",
-        version_info!(),
-        crate_authors!(", "),
-        "Ensure Cargo.toml dependency tables are sorted.",
-    )
-}
-
+/// Ensure Cargo.toml dependency tables are sorted.
 #[derive(clap::Parser, Debug)]
-#[command(author = crate_authors!(", "), version = version_0!(), about = about_info(), bin_name = "cargo sort", after_help = EXTRA_HELP)]
+#[command(author, version, bin_name = "cargo sort", after_help = EXTRA_HELP)]
 pub struct Cli {
     /// sets cwd, must contain a Cargo.toml file
     #[arg(value_name = "CWD")]
