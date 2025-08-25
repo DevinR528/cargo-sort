@@ -1,3 +1,9 @@
+# 2.0.2
+
+Bug fixes
+
+* Set the Ubuntu release builder to ubuntu-22.04 to ensure that pre-built cargo-sort binaries can run on ubuntu-22.04 GitHub Actions runners and not get an error message about `GLIBC_2.38` not found.
+
 # 2.0.1
 
 Bug fixes
