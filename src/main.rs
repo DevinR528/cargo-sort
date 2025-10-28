@@ -28,8 +28,12 @@ pub struct Cli {
     pub check: bool,
 
     /// Prints Cargo.toml, lexically sorted, to stdout
-    #[arg(short, long, conflicts_with = "check")]
+    #[arg(short, long)]
     pub print: bool,
+
+    /// Rewrite the Cargo.toml if it is unsorted.
+    #[arg(short, long)]
+    pub rewrite: bool,
 
     /// Skips formatting after sorting
     #[arg(short = 'n', long)]
@@ -110,7 +114,6 @@ fn check_toml(path: &str, cli: &Cli, config: &Config) -> IoResult<bool> {
 
     if cli.print {
         print!("{sorted_str}");
-        return Ok(true);
     }
 
     let is_sorted = toml_raw == sorted_str;
@@ -128,27 +131,35 @@ fn check_toml(path: &str, cli: &Cli, config: &Config) -> IoResult<bool> {
                 format!("Cargo.toml for {} is not formatted", krate.to_string_lossy()),
             )?;
         }
-
-        return Ok(is_sorted && is_formatted);
     }
 
-    if !is_sorted {
-        std::fs::write(&path, &sorted_str)?;
-        write_green(
-            "Finished: ",
-            format!("Cargo.toml for {:?} has been rewritten", krate.to_string_lossy()),
-        )?;
+    if cli.rewrite {
+        if !is_sorted {
+            std::fs::write(&path, &sorted_str)?;
+            write_green(
+                "Finished: ",
+                format!(
+                    "Cargo.toml for {:?} has been rewritten",
+                    krate.to_string_lossy()
+                ),
+            )?;
+        } else {
+            write_green(
+                "Finished: ",
+                format!(
+                    "Cargo.toml for {} is sorted already, no changes made",
+                    krate.to_string_lossy()
+                ),
+            )?;
+        }
+    }
+
+    if cli.check {
+        Ok(is_sorted && is_formatted)
     } else {
-        write_green(
-            "Finished: ",
-            format!(
-                "Cargo.toml for {} is sorted already, no changes made",
-                krate.to_string_lossy()
-            ),
-        )?;
+        // We're not checking so just say it was sorted
+        Ok(true)
     }
-
-    Ok(true)
 }
 
 fn _main() -> IoResult<()> {
