@@ -169,7 +169,11 @@ fn _main() -> IoResult<()> {
     if args.len() > 1 && args[1] == "sort" {
         args.remove(1);
     }
-    let cli = <Cli as clap::Parser>::parse_from(args);
+    let mut cli = <Cli as clap::Parser>::parse_from(args);
+    if !cli.check && !cli.print && !cli.rewrite {
+        // If no option is specified, default to rewrite
+        cli.rewrite = true;
+    }
 
     let cwd = std::env::current_dir()
         .map_err(|e| format!("no current directory found: {e}"))?;

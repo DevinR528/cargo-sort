@@ -23,6 +23,8 @@ There are three modes cargo-sort can be used in:
     The `key_value_newlines` config option needs to be `true` for this to have any effect.
  * **-p or --print**
     - Write the sorted toml file to stdout.
+ * **-r or --rewrite**
+    - Rewrite the toml file in place if it was unsorted.
  * **-w or --workspace**
     - Checks every crate in the workspace based on flags. Only one root may be given.
  * **-o or --order**
