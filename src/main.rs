@@ -178,6 +178,11 @@ fn parse_workspace_member(member: &str, dir: &str) -> IoResult<Vec<String>> {
     }
 }
 
+/// Reads the workspace members, expands any wild cards and excludes members that should not be
+/// processed by `cargo sort`. All members that are either in the `exclude` section of the
+/// workspace section or that are specified in the `ignore` parameter will be removed.
+/// Returns an error if [`parse_workspace_member`] failed to parse a glob pattern in any workspace
+/// member.
 fn parse_and_filter_workspace_members(
     ws: &Table,
     dir: &str,
