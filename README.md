@@ -117,6 +117,12 @@ Finally cargo sort has the --workspace flag and will sort each Cargo.toml file i
 cargo-sort -w/--workspace
 ```
 
+If your workspace contains a Cargo.toml that should not be sorted, for example if it has been automatically generated, it can
+be ignored with the ignore flag:
+```bash
+cargo-sort -w --ignore "workspace-hack" .
+```
+
 These are all valid. File names and extensions can be used on some of the paths but not others, if
 left off the tool will default to Cargo.toml.
 
