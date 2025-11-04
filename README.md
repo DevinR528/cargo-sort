@@ -27,6 +27,8 @@ There are three modes cargo-sort can be used in:
     - Checks every crate in the workspace based on flags. Only one root may be given.
  * **-o or --order**
     - Specify an ordering of tables. All nested tables will be sorted and appear after the specified table. Any unspecified table will be after specified.
+ * **-i or --ignore**
+    - Specify workspace members to ignore during check or format. The ignored workspace members will be skipped and kept as is. Only works in combination with `-w`.
 
 ### Config
 

@@ -2,7 +2,7 @@ use std::{fmt::Display, fs::read_to_string, io::Write, path::PathBuf};
 
 use fmt::Config;
 use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
-use toml_edit::{DocumentMut, Item};
+use toml_edit::{DocumentMut, Item, Table};
 
 mod fmt;
 mod sort;
@@ -51,6 +51,12 @@ pub struct Cli {
     /// (--order package,dependencies,features)
     #[arg(short, long, value_delimiter = ',')]
     pub order: Vec<String>,
+
+    /// List of workspace members to ignore while checking/formatting. Supports glob patterns `*`
+    /// and `?`.
+    /// (--ignore member_to_ignore,"ignore*")
+    #[arg(short, long, requires = "workspace", value_delimiter = ',')]
+    pub ignore: Vec<String>,
 }
 
 fn write_red<S: Display>(highlight: &str, msg: S) -> IoResult<()> {
@@ -151,6 +157,58 @@ fn check_toml(path: &str, cli: &Cli, config: &Config) -> IoResult<bool> {
     Ok(true)
 }
 
+/// Expand workspace member definition, if it contains the `*` or `?` glob patterns. If a pattern
+/// is present, use it to glob the provided `dir` and return all subdirectories that match the
+/// pattern. If the member definition does not contain a pattern a vec containing `<dir>/member` is
+/// returned.
+/// Returns an error if the `member` contains a pattern that could not be used in the [`glob::glob`].
+fn parse_workspace_member(member: &str, dir: &str) -> IoResult<Vec<String>> {
+    let base_path = format!("{dir}/{member}");
+    if member.contains('*') || member.contains('?') {
+        let parsed_members = glob::glob(&base_path)?
+            .filter_map(|globbed_path| match globbed_path {
+                Ok(path) if path.is_dir() => Some(path.display().to_string()),
+                _ => None,
+            })
+            .collect();
+
+        Ok(parsed_members)
+    } else {
+        Ok(vec![base_path])
+    }
+}
+
+fn parse_and_filter_workspace_members(
+    ws: &Table,
+    dir: &str,
+    ignore: &[String],
+) -> IoResult<Vec<String>> {
+    // The workspace excludes, used to filter members by
+    let mut excludes: Vec<&str> =
+        ws.get("exclude").map_or_else(Vec::new, array_string_members);
+    let members_to_ignore = ignore
+        .iter()
+        .map(|to_ignore| parse_workspace_member(to_ignore, dir))
+        .collect::<IoResult<Vec<_>>>()?;
+    excludes
+        .extend(members_to_ignore.iter().flatten().map(|to_ignore| to_ignore.as_str()));
+
+    let members: Vec<String> = ws
+        .get("members")
+        .map_or_else(Vec::new, array_string_members)
+        .iter()
+        .map(|member| parse_workspace_member(member, dir))
+        .collect::<IoResult<Vec<_>>>()?
+        .into_iter()
+        .flatten()
+        .filter(|parsed_member| {
+            !excludes.iter().any(|excl| parsed_member.ends_with(excl))
+        })
+        .collect();
+
+    Ok(members)
+}
+
 fn _main() -> IoResult<()> {
     let mut args: Vec<String> = std::env::args().collect();
     // remove "sort" when invoked `cargo sort` sort is the first arg
@@ -183,42 +241,18 @@ fn _main() -> IoResult<()> {
         let toml = raw_toml.parse::<DocumentMut>()?;
         let workspace = toml.get("workspace");
         if let Some(Item::Table(ws)) = workspace {
-            // The workspace excludes, used to filter members by
-            let excludes: Vec<&str> =
-                ws.get("exclude").map_or_else(Vec::new, array_string_members);
-            for member in ws.get("members").map_or_else(Vec::new, array_string_members) {
-                // TODO: a better test wether to glob?
-                if member.contains('*') || member.contains('?') {
-                    'globs: for entry in glob::glob(&format!("{dir}/{member}"))
-                        .unwrap_or_else(|e| {
-                            write_red("error: ", format!("Glob failed: {e}")).unwrap();
-                            std::process::exit(1);
-                        })
-                    {
-                        let path = entry?;
+            let members =
+                parse_and_filter_workspace_members(ws, &dir, cli.ignore.as_slice())
+                    // NOTE:: The `parse_and_filter_workspace_members` currently only returns errors
+                    // from `glob::glob` (via `parse_workspace_member`) so it is okay to print the glob
+                    // error here. Should this change, the content or placement of the error message (printing)
+                    // needs to be updated.
+                    .unwrap_or_else(|e| {
+                        write_red("error: ", format!("Glob failed: {e}")).unwrap();
+                        std::process::exit(1);
+                    });
 
-                        // The `check_toml` function expects only folders that it appends
-                        // `Cargo.toml` onto
-                        if path.is_file() {
-                            continue;
-                        }
-
-                        // Since the glob function gives us actual paths we need to only
-                        // check if the relevant parts match so we can't just do
-                        // `excludes.contains(..)`
-                        let path_str = path.to_string_lossy();
-                        for excl in &excludes {
-                            if path_str.ends_with(excl) {
-                                continue 'globs;
-                            }
-                        }
-
-                        filtered_matches.push(path.display().to_string());
-                    }
-                } else {
-                    filtered_matches.push(format!("{dir}/{member}"));
-                }
-            }
+            filtered_matches.extend(members);
         }
     }
 
@@ -273,3 +307,112 @@ fn main() {
 //         s.parse::<DocumentMut>().unwrap();
 //     }
 // }
+//
+#[cfg(test)]
+mod test {
+    use std::fs::read_to_string;
+    use std::path::Path;
+
+    use toml_edit::{DocumentMut, Item};
+
+    use crate::{parse_and_filter_workspace_members, parse_workspace_member};
+
+    #[test]
+    fn member_name_expansion_without_wildcard() {
+        similar_asserts::assert_eq!(
+            parse_workspace_member("mock_data", "mock_workspace").unwrap(),
+            vec!["mock_workspace/mock_data".to_owned()],
+        );
+    }
+
+    #[test]
+    fn member_name_expansion_question_mark() {
+        similar_asserts::assert_eq!(
+            parse_workspace_member("m?ck_data", "mock_workspace").unwrap(),
+            vec!["mock_workspace/mock_data".to_owned()],
+        );
+    }
+
+    #[test]
+    fn member_name_expansion_star() {
+        similar_asserts::assert_eq!(
+            parse_workspace_member("mock*", "mock_workspace").unwrap(),
+            vec![
+                "mock_workspace/mock_cli".to_owned(),
+                "mock_workspace/mock_data".to_owned()
+            ],
+        );
+    }
+
+    #[test]
+    fn parse_workspace_without_ignores() {
+        let raw_toml = read_to_string(Path::new("mock_workspace/Cargo.toml"))
+            .expect("No file found at: mock_workspace/Cargo.toml");
+
+        let toml = raw_toml.parse::<DocumentMut>().expect("Failed to parse raw_toml.");
+
+        if let Some(Item::Table(workspace)) = toml.get("workspace") {
+            let workspace_members =
+                parse_and_filter_workspace_members(workspace, "mock_workspace", &[])
+                    .expect("Failed to parse workspace members.");
+
+            similar_asserts::assert_eq!(
+                workspace_members,
+                vec![
+                    "mock_workspace/mock_cli".to_owned(),
+                    "mock_workspace/mock_data".to_owned()
+                ],
+            );
+        } else {
+            panic!("Failed to get workspace from TOML file")
+        }
+    }
+
+    #[test]
+    fn parse_workspace_with_ignores() {
+        let raw_toml = read_to_string(Path::new("mock_workspace/Cargo.toml"))
+            .expect("No file found at: mock_workspace/Cargo.toml");
+
+        let toml = raw_toml.parse::<DocumentMut>().expect("Failed to parse raw_toml.");
+
+        if let Some(Item::Table(workspace)) = toml.get("workspace") {
+            let workspace_members = parse_and_filter_workspace_members(
+                workspace,
+                "mock_workspace",
+                &["mock_data".to_owned()],
+            )
+            .expect("Failed to parse workspace members.");
+
+            similar_asserts::assert_eq!(
+                workspace_members,
+                vec!["mock_workspace/mock_cli".to_owned()],
+            );
+        } else {
+            panic!("Failed to get workspace from TOML file")
+        }
+    }
+
+    #[test]
+    fn parse_workspace_with_wildcard_ignores() {
+        let raw_toml = read_to_string(Path::new("mock_workspace/Cargo.toml"))
+            .expect("No file found at: mock_workspace/Cargo.toml");
+
+        let toml = raw_toml.parse::<DocumentMut>().expect("Failed to parse raw_toml.");
+
+        if let Some(Item::Table(workspace)) = toml.get("workspace") {
+            let workspace_members = parse_and_filter_workspace_members(
+                workspace,
+                "mock_workspace",
+                &["mock_c??".to_owned()],
+            )
+            .expect("Failed to parse workspace members.");
+
+            similar_asserts::assert_eq!(
+                workspace_members,
+                vec!["mock_workspace/mock_data".to_owned()],
+            );
+        } else {
+            panic!("Failed to get workspace from TOML file")
+        }
+    }
+}
