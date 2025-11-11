@@ -1,0 +1,4 @@
+[package]
+name = "mock-data"
+version = "0.0.1"
+description = "Mock data module used for testing."
