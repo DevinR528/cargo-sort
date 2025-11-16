@@ -58,7 +58,16 @@ allowed_blank_lines = 1
 crlf = false
 # The user specified ordering of tables in a document.
 # All unspecified tables will come after these.
-table_order = []
+table_order = [
+    "package",
+    "workspace",
+    "lib",
+    "bin",
+    "features",
+    "dependencies",
+    "build-dependencies",
+    "dev-dependencies",
+]
 ```
 
 included in sort check is:
