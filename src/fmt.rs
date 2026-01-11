@@ -1,6 +1,6 @@
 use std::str::FromStr;
 
-use toml_edit::{DocumentMut, Item, RawString, Table, Value};
+use toml_edit::{Array, DocumentMut, Item, RawString, Table, Value};
 
 #[cfg(target_os = "windows")]
 pub(crate) const DEF_CRLF: bool = true;
@@ -93,6 +93,9 @@ pub(crate) struct Config {
     ///
     /// All unspecified tables will come after these.
     pub table_order: Vec<String>,
+
+    /// Sort feature lists in dependencies.
+    pub sort_feature_list: bool,
 }
 
 impl Default for Config {
@@ -110,6 +113,7 @@ impl Default for Config {
             allowed_blank_lines: 1,
             crlf: None,
             table_order: DEF_TABLE_ORDER.iter().map(|&s| s.to_owned()).collect(),
+            sort_feature_list: false,
         }
     }
 }
@@ -171,14 +175,76 @@ impl FromStr for Config {
                         .collect()
                 },
             ),
+            sort_feature_list: toml
+                .get("sort_feature_list")
+                .and_then(Item::as_bool)
+                .unwrap_or_default(),
         })
     }
 }
 
-fn fmt_value(value: &mut Value, config: &Config) {
+#[derive(Debug)]
+struct Context {
+    current_path: Vec<String>,
+}
+
+impl Context {
+    fn inside_dependency_section(&self) -> bool {
+        match self.current_path.as_slice() {
+            [section, ..]
+                if (section == "dependencies"
+                    || section == "dev-dependencies"
+                    || section == "build-dependencies") =>
+            {
+                true
+            }
+            [workspace, dependencies, ..]
+                if (workspace == "workspace" && dependencies == "dependencies") =>
+            {
+                true
+            }
+            [section, _target, key, ..]
+                if (section == "target" && key == "dependencies") =>
+            {
+                true
+            }
+            _ => false,
+        }
+    }
+}
+
+fn sort_feature_array(array: &mut Array) {
+    array.sort_by_key(|v| {
+        // the `.trim` is needed because othersise `.to_string` includes the prefix.
+        v.to_string().trim().to_owned()
+    });
+}
+
+fn format_single_line_array(array: &mut Array, config: &Config) {
+    // Single-line array: Ensure no extra commas.
+    // Clear suffixes first to remove input commas.
+    for value in array.iter_mut() {
+        value.decor_mut().set_suffix("");
+    }
+    array.fmt();
+    array.decor_mut().set_prefix(" ");
+    // Apply trailing comma to the last element if configured.
+    array.set_trailing_comma(config.always_trailing_comma);
+}
+
+fn fmt_value(value: &mut Value, config: &Config, ctx: &mut Context) {
     let newline_pattern = if config.crlf.unwrap_or(DEF_CRLF) { "\r\n" } else { "\n" };
     match value {
         Value::Array(arr) => {
+            if config.sort_feature_list
+                && ctx.inside_dependency_section()
+                && ctx.current_path.last().map(|name| name == "features").unwrap_or(false)
+            {
+                // sorts the feature list in "expanded" representation, where each
+                // dependency is in a separate section.
+                sort_feature_array(arr);
+            }
+
             if arr.to_string().len() > config.max_array_line_len {
                 let old_trailing_comma = arr.trailing_comma();
                 let new_trailing_comma = config.multiline_trailing_comma;
@@ -252,18 +318,24 @@ fn fmt_value(value: &mut Value, config: &Config) {
                 }
                 arr.set_trailing_comma(new_trailing_comma);
             } else {
-                // Single-line array: Ensure no extra commas.
-                // Clear suffixes first to remove input commas.
-                for val in arr.iter_mut() {
-                    val.decor_mut().set_suffix("");
-                }
-                arr.fmt();
-                arr.decor_mut().set_prefix(" ");
-                // Apply trailing comma to the last element if configured.
-                arr.set_trailing_comma(config.always_trailing_comma);
+                format_single_line_array(arr, config);
             }
         }
         Value::InlineTable(table) => {
+            for (key, val) in table.iter_mut() {
+                if let Value::Array(array) = val {
+                    if config.sort_feature_list
+                        && ctx.inside_dependency_section()
+                        && key == "features"
+                    {
+                        sort_feature_array(array);
+                    }
+
+                    // has to come after sorting the array, otherwise prefixes
+                    // are messed up.
+                    format_single_line_array(array, config);
+                }
+            }
             table.decor_mut().set_prefix(" ");
             table.fmt();
         }
@@ -283,7 +355,7 @@ fn fmt_value(value: &mut Value, config: &Config) {
     }
 }
 
-fn fmt_table(table: &mut Table, config: &Config) {
+fn fmt_table(table: &mut Table, config: &Config, ctx: &mut Context) {
     let newline_pattern = if config.crlf.unwrap_or(DEF_CRLF) { "\r\n" } else { "\n" };
 
     // Checks the header decor for blank lines
@@ -313,6 +385,7 @@ fn fmt_table(table: &mut Table, config: &Config) {
 
     let keys: Vec<_> = table.iter().map(|(k, _)| k.to_owned()).collect();
     for key in keys {
+        ctx.current_path.push(key.clone());
         let is_value_for_space = table.get(&key).is_some_and(|item| {
             item.is_value() && item.as_inline_table().is_none_or(|t| !t.is_dotted())
         });
@@ -354,32 +427,33 @@ fn fmt_table(table: &mut Table, config: &Config) {
 
         match table.get_mut(&key).unwrap() {
             Item::Table(table) => {
-                // stuff
-                fmt_table(table, config);
+                fmt_table(table, config, ctx);
             }
             Item::Value(val) => {
-                fmt_value(val, config);
+                fmt_value(val, config, ctx);
             }
             Item::ArrayOfTables(_) => {}
             Item::None => {}
         }
+        ctx.current_path.pop();
     }
 }
 
 /// Formats a toml `DocumentMut` according to `tomlfmt.toml`.
 pub(crate) fn fmt_toml(toml: &mut DocumentMut, config: &Config) {
-    for (_key, item) in toml.as_table_mut().iter_mut() {
+    for (key, item) in toml.as_table_mut().iter_mut() {
+        let mut ctx = Context { current_path: vec![key.to_string()] };
         match item {
             Item::ArrayOfTables(table) => {
                 for tab in table.iter_mut() {
-                    fmt_table(tab, config);
+                    fmt_table(tab, config, &mut ctx);
                 }
             }
             Item::Table(table) => {
-                fmt_table(table, config);
+                fmt_table(table, config, &mut ctx);
             }
             Item::Value(val) => {
-                fmt_value(val, config);
+                fmt_value(val, config, &mut ctx);
             }
             Item::None => {}
         }
@@ -530,5 +604,22 @@ integration = [
         let cfg = Config { multiline_trailing_comma: false, ..Config::default() };
         fmt_toml(&mut toml, &cfg);
         similar_asserts::assert_eq!(expected2, toml.to_string());
+    }
+
+    #[test]
+    fn sort_and_format_feature_lists() {
+        let config = Config {
+            sort_feature_list: true,
+            // 30 is chosen here so the feature list in one expanded dependency stays
+            // single-line, and the other stays multi-line.
+            max_array_line_len: 30,
+            ..Default::default()
+        };
+        let input = fs::read_to_string("examp/features.toml").unwrap();
+        let expected = fs::read_to_string("examp/features.sorted.toml").unwrap();
+
+        let mut toml = input.parse::<DocumentMut>().unwrap();
+        fmt_toml(&mut toml, &config);
+        similar_asserts::assert_eq!(expected, toml.to_string());
     }
 }

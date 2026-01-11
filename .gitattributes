@@ -2,3 +2,5 @@
 * text=auto
 
 *win.toml text eol=crlf
+examp/features.toml text eol=lf
+examp/features.sorted.toml text eol=lf
