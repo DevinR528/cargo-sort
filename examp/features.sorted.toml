@@ -1,0 +1,22 @@
+[dependencies]
+some_dep = { version = "1.0", features = ["feat1", "feat2", "feat3"] }
+
+[dependencies.expanded_dep]
+version = "1.0"
+features = ["feat1", "feat2", "feat3"]
+
+[dependencies.expanded_dep_multiline]
+version = "1.0"
+features = [
+    "feat1",
+    "feat2",
+    "feat3",
+    "feat4",
+]
+
+[target.'cfg(windows)'.dependencies]
+target_dep = { version = "1.0", features = ["feat1", "feat2", "feat3"] }
+
+[target.'cfg(windows)'.dependencies.expanded_target_dep]
+version = "1.0"
+features = ["feat1", "feat2", "feat3"]
