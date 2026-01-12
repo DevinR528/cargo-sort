@@ -71,7 +71,7 @@ fn write_green<S: Display>(highlight: &str, msg: S) -> IoResult<()> {
 
 fn check_toml(path: &str, cli: &Cli, config: &Config) -> IoResult<bool> {
     let mut path = PathBuf::from(path);
-    if path.extension().is_none() {
+    if path.is_dir() {
         path.push("Cargo.toml");
     }
 
@@ -173,7 +173,7 @@ fn _main() -> IoResult<()> {
     if cli.workspace && is_posible_workspace {
         let dir = filtered_matches[0].to_string();
         let mut path = PathBuf::from(&dir);
-        if path.extension().is_none() {
+        if path.is_dir() {
             path.push("Cargo.toml");
         }
 
