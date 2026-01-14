@@ -1,0 +1,4 @@
+[package]
+name = "mock-cli"
+version = "0.0.1"
+description = "Mock cli module used for testing."

@@ -1,0 +1,12 @@
+[package]
+name = "cargo-sort-mock-workspace"
+version = "0.0.1"
+description = "Mock workspace structure used for testing."
+
+[dependencies]
+
+[workspace]
+members = [
+    "mock_cli",
+    "mock_data"
+]

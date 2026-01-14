@@ -27,6 +27,8 @@ There are three modes cargo-sort can be used in:
     - Checks every crate in the workspace based on flags. Only one root may be given.
  * **-o or --order**
     - Specify an ordering of tables. All nested tables will be sorted and appear after the specified table. Any unspecified table will be after specified.
+ * **-i or --ignore**
+    - Specify workspace members to ignore during check or format. The ignored workspace members will be skipped and kept as is. Only works in combination with `-w`.
 
 ### Config
 
@@ -122,6 +124,12 @@ cargo-sort [FLAGS] path/to/a path/to/b path/to/c/Cargo.toml
 Finally cargo sort has the --workspace flag and will sort each Cargo.toml file in a workspace
 ```bash
 cargo-sort -w/--workspace
+```
+
+If your workspace contains a Cargo.toml that should not be sorted, for example if it has been automatically generated, it can
+be ignored with the ignore flag:
+```bash
+cargo-sort -w --ignore "workspace-hack" .
 ```
 
 These are all valid. File names and extensions can be used on some of the paths but not others, if
