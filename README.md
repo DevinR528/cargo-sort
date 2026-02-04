@@ -27,11 +27,18 @@ There are three modes cargo-sort can be used in:
     - Checks every crate in the workspace based on flags. Only one root may be given.
  * **-o or --order**
     - Specify an ordering of tables. All nested tables will be sorted and appear after the specified table. Any unspecified table will be after specified.
+ * **--config**
+    - Specify a custom path to the `tomlfmt.toml` configuration file. Useful for projects that organize config files in a dedicated directory (e.g., `.config/tomlfmt.toml`).
 
 ### Config
 
 `cargo sort` uses a config file when formatting called `tomlfmt.toml`. This is optional and defaults will
-be used if not found in the current working dir.
+be used if not found in the current working dir. You can also specify a custom config path using the
+`--config` flag:
+
+```bash
+cargo sort --config .config/tomlfmt.toml
+```
 
 Here are the defaults when no `tomlfmt.toml` is found
 ```toml
@@ -129,24 +136,24 @@ left off the tool will default to Cargo.toml.
 
 
 ```bash
-cargo sort 1.0.0
-Devin R <devin.ragotzy@gmail.com>
-Ensure Cargo.toml dependency tables are sorted.
+Ensure Cargo.toml dependency tables are sorted
 
-USAGE:
-    cargo-sort [FLAGS] [CWD]
+Usage: cargo sort [OPTIONS] [CWD]...
 
-FLAGS:
-    -c, --check        exit with non-zero if Cargo.toml is unsorted, overrides default behavior
-    -f, --format       formats the given Cargo.toml according to tomlfmt.toml
-    -g, --grouped      when sorting groups of key value pairs blank lines are kept
-    -h, --help         Prints help information
-    -p, --print        prints Cargo.toml, lexically sorted, to stdout
-    -V, --version      Prints version information
-    -w, --workspace    checks every crate in a workspace
+Arguments:
+  [CWD]...  sets cwd, must contain a Cargo.toml file
 
-ARGS:
-    <CWD>...    sets cwd, must contain a Cargo.toml file
+Options:
+  -c, --check          Returns non-zero exit code if Cargo.toml is unsorted
+  -p, --print          Prints Cargo.toml, lexically sorted, to stdout
+  -n, --no-format      Skips formatting after sorting
+      --check-format   Also returns non-zero exit code if formatting changes
+  -w, --workspace      Checks every crate in a workspace
+  -g, --grouped        Keep blank lines when sorting groups of key value pairs
+  -o, --order <ORDER>  List the order tables should be written out
+      --config <PATH>  Path to a custom config file (tomlfmt.toml)
+  -h, --help           Print help
+  -V, --version        Print version
 ```
 
 # Docker

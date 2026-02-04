@@ -1,0 +1,6 @@
+# Custom config file for testing --config flag
+always_trailing_comma = true
+multiline_trailing_comma = false
+space_around_eq = false
+compact_arrays = true
+indent_count = 2

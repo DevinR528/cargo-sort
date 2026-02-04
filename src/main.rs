@@ -51,6 +51,10 @@ pub struct Cli {
     /// (--order package,dependencies,features)
     #[arg(short, long, value_delimiter = ',')]
     pub order: Vec<String>,
+
+    /// Path to a custom config file (tomlfmt.toml)
+    #[arg(long, value_name = "PATH")]
+    pub config: Option<PathBuf>,
 }
 
 fn write_red<S: Display>(highlight: &str, msg: S) -> IoResult<()> {
@@ -222,16 +226,22 @@ fn _main() -> IoResult<()> {
         }
     }
 
-    let mut cwd = cwd.clone();
-    cwd.push("tomlfmt.toml");
-    let mut config = read_to_string(&cwd)
-        .or_else(|_err| {
-            cwd.pop();
-            cwd.push(".tomlfmt.toml");
-            read_to_string(&cwd)
-        })
-        .unwrap_or_default()
-        .parse::<Config>()?;
+    let mut config = if let Some(config_path) = &cli.config {
+        read_to_string(config_path)
+            .map_err(|_| format!("config file not found: {}", config_path.display()))?
+            .parse::<Config>()?
+    } else {
+        let mut config_path = cwd.clone();
+        config_path.push("tomlfmt.toml");
+        read_to_string(&config_path)
+            .or_else(|_err| {
+                config_path.pop();
+                config_path.push(".tomlfmt.toml");
+                read_to_string(&config_path)
+            })
+            .unwrap_or_default()
+            .parse::<Config>()?
+    };
 
     if !cli.order.is_empty() {
         config.table_order = cli.order.clone();
@@ -259,6 +269,51 @@ fn main() {
         write_red("error: ", e).unwrap();
         std::process::exit(1);
     });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn cli_config_flag_parsing() {
+        let args = vec!["cargo-sort", "--config", "custom.toml"];
+        let cli = <Cli as clap::Parser>::try_parse_from(args).unwrap();
+        assert_eq!(cli.config, Some(PathBuf::from("custom.toml")));
+    }
+
+    #[test]
+    fn cli_config_flag_with_other_flags() {
+        let args = vec!["cargo-sort", "--check", "--config", "/path/to/config.toml", "."];
+        let cli = <Cli as clap::Parser>::try_parse_from(args).unwrap();
+        assert!(cli.check);
+        assert_eq!(cli.config, Some(PathBuf::from("/path/to/config.toml")));
+        assert_eq!(cli.cwd, vec!["."]);
+    }
+
+    #[test]
+    fn cli_without_config_flag() {
+        let args = vec!["cargo-sort", "--check", "."];
+        let cli = <Cli as clap::Parser>::try_parse_from(args).unwrap();
+        assert_eq!(cli.config, None);
+    }
+
+    #[test]
+    fn custom_config_loads_correctly() {
+        let config_content = read_to_string("examp/custom_config.toml").unwrap();
+        let config: Config = config_content.parse().unwrap();
+        assert!(config.always_trailing_comma);
+        assert!(!config.multiline_trailing_comma);
+        assert!(!config.space_around_eq);
+        assert!(config.compact_arrays);
+        assert_eq!(config.indent_count, 2);
+    }
+
+    #[test]
+    fn config_error_on_missing_file() {
+        let result = read_to_string("nonexistent_config.toml");
+        assert!(result.is_err());
+    }
 }
 
 // #[test]
