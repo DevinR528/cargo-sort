@@ -28,7 +28,7 @@ There are three modes cargo-sort can be used in:
  * **-o or --order**
     - Specify an ordering of tables. All nested tables will be sorted and appear after the specified table. Any unspecified table will be after specified.
  * **--config**
-    - Specify a custom path to the `tomlfmt.toml` configuration file. Useful for projects that organize config files in a dedicated directory (e.g., `.config/tomlfmt.toml`).
+    - Specify a custom path to the `tomlfmt.toml` configuration file.
 
 ### Config
 
