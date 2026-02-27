@@ -620,6 +620,6 @@ integration = [
 
         let mut toml = input.parse::<DocumentMut>().unwrap();
         fmt_toml(&mut toml, &config);
-        similar_asserts::assert_eq!(expected, toml.to_string());
+        assert_eq(expected, toml.to_string());
     }
 }
