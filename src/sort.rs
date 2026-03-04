@@ -337,7 +337,7 @@ fn sort_lexicographical(
             // Do not reorder the unsegmented tables
             if nested > 1 {
                 if let Some(table) = table {
-                    table.set_position((first_table_idx + idx) as isize);
+                    table.set_position(Some((first_table_idx + idx) as isize));
                 }
             }
         }
@@ -445,20 +445,20 @@ fn sort_by_ordering(
                         }
                         // Do not reorder the unsegmented tables
                         if let Some(table) = table {
-                            table.set_position(idx);
+                            table.set_position(Some(idx));
                             idx += 1;
                         }
                     }
                 }
             }
         } else if let Some(tab) = toml.as_table_mut()[heading].as_table_mut() {
-            tab.set_position(idx);
+            tab.set_position(Some(idx));
             idx += 1;
             walk_tables_set_position(tab, &mut idx);
         } else if let Some(arrtab) = toml.as_table_mut()[heading].as_array_of_tables_mut()
         {
             for tab in arrtab.iter_mut() {
-                tab.set_position(idx);
+                tab.set_position(Some(idx));
                 idx += 1;
                 walk_tables_set_position(tab, &mut idx);
             }
@@ -470,13 +470,13 @@ fn walk_tables_set_position(table: &mut Table, idx: &mut isize) {
     for (_, item) in table.iter_mut() {
         match item {
             Item::Table(tab) => {
-                tab.set_position(*idx);
+                tab.set_position(Some(*idx));
                 *idx += 1;
                 walk_tables_set_position(tab, idx);
             }
             Item::ArrayOfTables(arr) => {
                 for tab in arr.iter_mut() {
-                    tab.set_position(*idx);
+                    tab.set_position(Some(*idx));
                     *idx += 1;
                     walk_tables_set_position(tab, idx);
                 }
