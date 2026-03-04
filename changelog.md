@@ -1,3 +1,24 @@
+# 2.1.0
+
+Bug Fixes
+
+* Fix workspace discovery & sorting when directory name has an extension ([#121])
+* Apply formatting to arrays inside inline tables as well ([#122])
+
+Additions
+
+* Add support for sorting feature lists (behind the new config option `sort_feature_list`) ([#122])
+* `--config` flag for specifying a custom config file ([#124])
+
+Other Improvements
+
+* Upgrade the toml crate to 0.25, bringing support for TOML 1.1 ([#126])
+
+[#121]: https://github.com/DevinR528/cargo-sort/pull/121
+[#122]: https://github.com/DevinR528/cargo-sort/pull/122
+[#124]: https://github.com/DevinR528/cargo-sort/pull/124
+[#126]: https://github.com/DevinR528/cargo-sort/pull/126
+
 # 2.0.2
 
 Bug fixes
