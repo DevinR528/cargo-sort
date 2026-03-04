@@ -337,7 +337,7 @@ fn sort_lexicographical(
             // Do not reorder the unsegmented tables
             if nested > 1 {
                 if let Some(table) = table {
-                    table.set_position(first_table_idx + idx);
+                    table.set_position((first_table_idx + idx) as isize);
                 }
             }
         }
@@ -466,7 +466,7 @@ fn sort_by_ordering(
     }
 }
 
-fn walk_tables_set_position(table: &mut Table, idx: &mut usize) {
+fn walk_tables_set_position(table: &mut Table, idx: &mut isize) {
     for (_, item) in table.iter_mut() {
         match item {
             Item::Table(tab) => {
