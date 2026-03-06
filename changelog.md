@@ -1,3 +1,11 @@
+# 2.1.1
+
+Bug Fixes
+
+* Formatting of arrays in inline tables is more conservative now
+  * In particular, such arrays are no longer converted to a single line,
+  * and comments inside of them are now preserved
+
 # 2.1.0
 
 Bug Fixes
