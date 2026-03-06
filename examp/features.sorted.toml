@@ -1,5 +1,19 @@
 [dependencies]
-some_dep = { version = "1.0", features = ["feat1", "feat2", "feat3"] }
+# The comments should prevent this short array from being put on a single line
+# and they should stay on the proper feature.
+first_dep = { version = "1.0", features = [
+    # important!
+    # other stuff
+    "feat1",
+    "feat2",
+] }
+# The choice of single- vs multi-line should be preserved for arrays in inline
+# tables.
+second_dep = { version = "1.0", features = [
+    "feat1",
+    "feat2",
+] }
+third_dep = { version = "1.0", features = ["feat1", "feat2"] }
 
 [dependencies.expanded_dep]
 version = "1.0"
@@ -8,8 +22,11 @@ features = ["feat1", "feat2", "feat3"]
 [dependencies.expanded_dep_multiline]
 version = "1.0"
 features = [
+    # This comment will end up on `feat1`.
     "feat1",
+    # This comment should stay with `feat2`.
     "feat2",
+    # This comment should stay with `feat3`.
     "feat3",
     "feat4",
 ]
