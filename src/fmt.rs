@@ -18,6 +18,8 @@ pub(crate) const DEF_TABLE_ORDER: &[&str] = &[
     "dev-dependencies",
 ];
 
+const NEWLINE_CHARS: &[char] = &['\r', '\n'];
+
 /// The config file for formatting toml after sorting.
 ///
 /// Use the `FromStr` to create a config from a string.
@@ -213,127 +215,161 @@ impl Context {
     }
 }
 
+/// Sort an array of cargo features.
+///
+/// Panics if a feature is not a string.
 fn sort_feature_array(array: &mut Array) {
     array.sort_by_key(|v| {
-        // the `.trim` is needed because othersise `.to_string` includes the prefix.
-        v.to_string().trim().to_owned()
+        v.as_str().expect("cargo feature should be a string").to_owned()
     });
 }
 
+/// Format an array to fit on a single line.
 fn format_single_line_array(array: &mut Array, config: &Config) {
-    // Single-line array: Ensure no extra commas.
-    // Clear suffixes first to remove input commas.
-    for value in array.iter_mut() {
+    // This method formats the array in a single line with only the necessary
+    // whitespaces between elements.
+    array.fmt();
+
+    // Set the trailing comma according to the config.
+    array.set_trailing_comma(config.always_trailing_comma);
+
+    // Clean up the prefix and suffix of the array.
+    array.decor_mut().set_prefix(" ");
+    array.decor_mut().set_suffix("");
+}
+
+/// Format an array to fit on multiple lines.
+fn format_multi_line_array(array: &mut Array, config: &Config) {
+    let newline_pattern = if config.crlf.unwrap_or(DEF_CRLF) { "\r\n" } else { "\n" };
+    let indent = " ".repeat(config.indent_count);
+    let newline_and_indent = format!("{newline_pattern}{indent}");
+
+    let array_len = array.len();
+    // Comments after the comma of the last value ends up in the "trailing" parameter of
+    // the array.
+    let trailing_comments =
+        array.trailing().as_str().unwrap_or_default().trim().to_owned();
+
+    // First, we must enforce the formatting of comments on all elements. Since we update
+    // the prefixes anyway, we set them as if we were splitting the array on multiple
+    // lines because setting everything on a single line can be done easily with a single
+    // method call later.
+    for (i, value) in array.iter_mut().enumerate() {
+        let is_last_item = i == array_len - 1;
+
+        // For consistency we don't support comments in the suffix for elements of arrays,
+        // we move them to the prefix. It allows to have the same behavior whether the
+        // element has a trailing comma or not and whether the element is at the end of
+        // the array or not.
+        let prefix_comments = value.prefix().trim();
+        let suffix_comments = value.suffix().trim();
+        let trailing_comments = is_last_item.then(|| &trailing_comments);
+
+        // Trim each line of comments to enforce the same identation and concatenate them
+        // to build the new prefix.
+        let mut new_prefix = prefix_comments
+            .lines()
+            .chain(suffix_comments.lines())
+            .chain(trailing_comments.iter().flat_map(|s| s.lines()))
+            .flat_map(|line| [&newline_and_indent, line.trim()])
+            .collect::<String>();
+
+        // Finally, add a newline and indentation before the element.
+        new_prefix.push_str(&newline_and_indent);
+        value.decor_mut().set_prefix(new_prefix);
+
+        // Clear the suffix because we moved everything to the prefix.
         value.decor_mut().set_suffix("");
     }
-    array.fmt();
+
+    // Update the trailing comma.
+    array.set_trailing_comma(config.multiline_trailing_comma);
+
+    // Clean up the array, remove any extra whitespaces or comments.
+    array.set_trailing(newline_pattern);
     array.decor_mut().set_prefix(" ");
-    // Apply trailing comma to the last element if configured.
-    array.set_trailing_comma(config.always_trailing_comma);
+    array.decor_mut().set_suffix("");
 }
 
 fn fmt_value(value: &mut Value, config: &Config, ctx: &mut Context) {
-    let newline_pattern = if config.crlf.unwrap_or(DEF_CRLF) { "\r\n" } else { "\n" };
     match value {
-        Value::Array(arr) => {
-            if config.sort_feature_list
+        Value::Array(array) => {
+            let has_comments = array.has_comments();
+
+            // Sorts the feature list in "expanded" representation, where each dependency
+            // is in a separate section.
+            let sort_features = config.sort_feature_list
                 && ctx.inside_dependency_section()
-                && ctx.current_path.last().map(|name| name == "features").unwrap_or(false)
-            {
-                // sorts the feature list in "expanded" representation, where each
-                // dependency is in a separate section.
-                sort_feature_array(arr);
-            }
+                && ctx
+                    .current_path
+                    .last()
+                    .map(|name| name == "features")
+                    .unwrap_or(false);
 
-            if arr.to_string().len() > config.max_array_line_len {
-                let old_trailing_comma = arr.trailing_comma();
-                let new_trailing_comma = config.multiline_trailing_comma;
+            if has_comments {
+                // If the array contains comments, we always split the array on multiple
+                // lines to preserve them.
+                format_multi_line_array(array, config);
 
-                let trailing = arr.trailing().as_str().unwrap_or_default().to_owned();
-
-                let indent = " ".repeat(config.indent_count);
-                let arr_len = arr.len();
-
-                // Process all elements' prefix and suffix.
-                for (i, val) in arr.iter_mut().enumerate() {
-                    let mut prefix = val.prefix().trim().to_owned();
-                    let suffix = val.suffix();
-
-                    let mut last_suffix = None;
-
-                    // Handle suffix: Add comma for the last element only.
-                    let new_suffix = if i == arr_len - 1 {
-                        if old_trailing_comma != new_trailing_comma {
-                            // The last line's suffix must be cleared anyway,
-                            // and append it to the prefix.
-                            if !suffix.trim().is_empty() {
-                                last_suffix = Some(suffix.trim());
-                            }
-                            if new_trailing_comma {
-                                "".to_owned()
-                            } else {
-                                "".to_owned() + newline_pattern
-                            }
-                        } else {
-                            suffix.to_owned()
-                        }
-                    } else {
-                        suffix.trim_end().to_owned()
-                    };
-
-                    if let Some(s) = last_suffix {
-                        prefix.push_str(&format!("{newline_pattern}{s}"));
-                        prefix = prefix.trim().to_owned();
-                    }
-
-                    if i == arr_len - 1 && !new_trailing_comma {
-                        prefix.push_str(&format!("{newline_pattern}{}", trailing.trim()));
-                        prefix = prefix.trim().to_owned();
-                    }
-
-                    let n_i = format!("{newline_pattern}{indent}");
-
-                    // Handle prefix: Add newline and indent, preserve comments.
-                    let new_prefix = if !prefix.is_empty() {
-                        prefix
-                            .lines()
-                            .map(|line| format!("{n_i}{}", line.trim()))
-                            .collect::<String>()
-                            + &n_i
-                    } else {
-                        n_i
-                    };
-
-                    val.decor_mut().set_prefix(new_prefix);
-                    val.decor_mut().set_suffix(new_suffix);
+                // After formatting the array, all the comments are in the prefix of their
+                // element, we can sort them without risking to separate a comment from
+                // its element.
+                if sort_features {
+                    sort_feature_array(array);
                 }
-
-                if old_trailing_comma != new_trailing_comma {
-                    if new_trailing_comma {
-                        let trailing = trailing.trim_end().to_owned();
-                        arr.set_trailing(trailing + newline_pattern);
-                    } else {
-                        arr.set_trailing("".to_owned());
-                    }
-                }
-                arr.set_trailing_comma(new_trailing_comma);
             } else {
-                format_single_line_array(arr, config);
+                // There are no comments, we can reorder the features right away. We must
+                // do it before calling `format_single_line_array()` because
+                // `Array::fmt()` removes whitespaces around the first element, so the
+                // array must already be sorted.
+                if sort_features {
+                    sort_feature_array(array);
+                }
+
+                // If the array doesn't contain comments, we check if its length on a
+                // single line would fit the current configuration. If it is too long, we
+                // split it on multiple lines.
+                format_single_line_array(array, config);
+
+                if array.to_string().len() > config.max_array_line_len {
+                    format_multi_line_array(array, config);
+                }
             }
         }
         Value::InlineTable(table) => {
             for (key, val) in table.iter_mut() {
                 if let Value::Array(array) = val {
-                    if config.sort_feature_list
-                        && ctx.inside_dependency_section()
-                        && key == "features"
-                    {
-                        sort_feature_array(array);
-                    }
+                    let is_multi_line = array.is_multi_line();
 
-                    // has to come after sorting the array, otherwise prefixes
-                    // are messed up.
-                    format_single_line_array(array, config);
+                    // Sorts the features in inline tables.
+                    let sort_features = config.sort_feature_list
+                        && ctx.inside_dependency_section()
+                        && key == "features";
+
+                    // We preserve the choice of single- vs multi-line from the original
+                    // manifest.
+                    if is_multi_line {
+                        format_multi_line_array(array, config);
+
+                        // After formatting the array, all the comments are in the prefix
+                        // of their element, we can sort them
+                        // without risking to separate a comment from
+                        // its element.
+                        if sort_features {
+                            sort_feature_array(array);
+                        }
+                    } else {
+                        // There are no comments, we can reorder the features right away.
+                        // We must do it before calling
+                        // `format_single_line_array()` because
+                        // `Array::fmt()` removes whitespaces around the first element, so
+                        // the array must already be sorted.
+                        if sort_features {
+                            sort_feature_array(array);
+                        }
+
+                        format_single_line_array(array, config);
+                    }
                 }
             }
             table.decor_mut().set_prefix(" ");
@@ -468,7 +504,10 @@ pub(crate) fn fmt_toml(toml: &mut DocumentMut, config: &Config) {
 }
 
 trait ValueExt {
+    /// The prefix of this value.
     fn prefix(&self) -> &str;
+
+    /// The suffix of this value.
     fn suffix(&self) -> &str;
 }
 
@@ -479,6 +518,33 @@ impl ValueExt for Value {
 
     fn suffix(&self) -> &str {
         self.decor().suffix().and_then(RawString::as_str).unwrap_or_default()
+    }
+}
+
+trait ArrayExt {
+    /// Whether this array is split on multiple lines.
+    fn is_multi_line(&self) -> bool;
+
+    /// Whether this array contains comments.
+    fn has_comments(&self) -> bool;
+}
+
+impl ArrayExt for Array {
+    fn is_multi_line(&self) -> bool {
+        self.trailing().as_str().is_some_and(|trailing| trailing.contains(NEWLINE_CHARS))
+            || self.iter().any(|value| {
+                value.prefix().contains(NEWLINE_CHARS)
+                    || value.suffix().contains(NEWLINE_CHARS)
+            })
+    }
+
+    fn has_comments(&self) -> bool {
+        // The only non-whitespace characters in the prefixes and suffixes should be
+        // comments.
+        self.trailing().as_str().is_some_and(|trailing| !trailing.trim().is_empty())
+            || self.iter().any(|value| {
+                !value.prefix().trim().is_empty() || !value.suffix().trim().is_empty()
+            })
     }
 }
 
@@ -561,6 +627,21 @@ integration = [
     "tempfile", # Here is another comment.
     "abc", # Here is another comment at the end of the array.
 ]
+
+# Test arrays in inline tables too.
+[inline_tables]
+unexpected_cfgs = { level = "warn", check-cfg = [
+        # This comment indentation should be fixed.
+    'cfg(custom_cfg_backend, values("foo"))',
+    'cfg(custom_cfg_frontend, values("bar"))', # This trailing comment will be on a new line.
+    'cfg(custom_cfg_flag)', # This trailing comment will be moved.
+] }
+# The choice of single- vs multi-line should be preserved.
+include = { files = [  "*.rs",   "*.toml"]}
+exclude = { files = [
+        "config.rs",
+    "tomledit.toml"]
+}
 "#;
         let expected = r#"
 [package]
@@ -576,8 +657,26 @@ integration = [
     "git2",
     "tempfile",
     # Here is another comment.
-    "abc", # Here is another comment at the end of the array.
+    # Here is another comment at the end of the array.
+    "abc",
 ]
+
+# Test arrays in inline tables too.
+[inline_tables]
+unexpected_cfgs = { level = "warn", check-cfg = [
+    # This comment indentation should be fixed.
+    'cfg(custom_cfg_backend, values("foo"))',
+    'cfg(custom_cfg_frontend, values("bar"))',
+    # This trailing comment will be on a new line.
+    # This trailing comment will be moved.
+    'cfg(custom_cfg_flag)',
+] }
+# The choice of single- vs multi-line should be preserved.
+include = { files = ["*.rs", "*.toml"] }
+exclude = { files = [
+    "config.rs",
+    "tomledit.toml",
+] }
 "#;
         let mut toml = input.parse::<DocumentMut>().unwrap();
         fmt_toml(&mut toml, &Config::default());
@@ -588,7 +687,8 @@ integration = [
 authors = [
     "Manish Goregaokar <manishsmail@gmail.com>",
     "Andre Bogus <bogusandre@gmail.com>",
-    "Oliver Schneider <clippy-iethah7aipeen8neex1a@oli-obk.de>" # Here is a comment
+    # Here is a comment
+    "Oliver Schneider <clippy-iethah7aipeen8neex1a@oli-obk.de>"
 ]
 xyzabc = ["foo", "bar", "baz"]
 integration = [
@@ -599,6 +699,23 @@ integration = [
     # Here is another comment at the end of the array.
     "abc"
 ]
+
+# Test arrays in inline tables too.
+[inline_tables]
+unexpected_cfgs = { level = "warn", check-cfg = [
+    # This comment indentation should be fixed.
+    'cfg(custom_cfg_backend, values("foo"))',
+    'cfg(custom_cfg_frontend, values("bar"))',
+    # This trailing comment will be on a new line.
+    # This trailing comment will be moved.
+    'cfg(custom_cfg_flag)'
+] }
+# The choice of single- vs multi-line should be preserved.
+include = { files = ["*.rs", "*.toml"] }
+exclude = { files = [
+    "config.rs",
+    "tomledit.toml"
+] }
 "#;
         let mut toml = input.parse::<DocumentMut>().unwrap();
         let cfg = Config { multiline_trailing_comma: false, ..Config::default() };
