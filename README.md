@@ -17,7 +17,7 @@ There are three modes cargo-sort can be used in:
  * **-n or --no-format**
     - Will **NOT** format the sorted toml. This option only has an effect if writing or printing out.
  * **--check-format**
-    - Checks that after sorting the original input file has not changed.
+    - Checks that after sorting the original input file has not changed. `--check` combined with this is strict on both sorting and formatting (note: formatting is subject to change without a major version bump).
  * **-g or --grouped**
     - When sorting keep table key value spacing. If you have dependency groups they will stick but be sorted within the grouping.
     The `key_value_newlines` config option needs to be `true` for this to have any effect.
