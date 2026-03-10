@@ -107,17 +107,14 @@ fn process_toml(
         (sorted_only.clone(), true)
     };
 
-    let normalize_crlf = |s: String| -> String {
-        if config.crlf.unwrap_or(fmt::DEF_CRLF) && !s.contains("\r\n") {
-            s.replace('\n', "\r\n")
-        } else {
-            s
-        }
-    };
-    let sorted_only = normalize_crlf(sorted_only);
-    let final_output = normalize_crlf(final_output);
-
     let is_sorted = toml_raw == sorted_only;
+
+    let final_output =
+        if config.crlf.unwrap_or(fmt::DEF_CRLF) && !final_output.contains("\r\n") {
+            final_output.replace('\n', "\r\n")
+        } else {
+            final_output
+        };
 
     ProcessedToml { is_sorted, is_formatted, final_output }
 }
