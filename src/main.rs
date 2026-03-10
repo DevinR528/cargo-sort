@@ -97,6 +97,7 @@ fn process_toml(
     let mut sorted =
         sort::sort_toml(toml_raw, sort::MATCHER, grouped, &config.table_order);
     let sorted_only = sorted.to_string();
+    let is_sorted = toml_raw == sorted_only;
 
     let (final_output, is_formatted) = if !no_format || check_format {
         fmt::fmt_toml(&mut sorted, &config);
@@ -104,10 +105,9 @@ fn process_toml(
         let is_fmt = sorted_only == formatted;
         (formatted, is_fmt)
     } else {
-        (sorted_only.clone(), true)
+        (sorted_only, true)
     };
 
-    let is_sorted = toml_raw == sorted_only;
 
     let final_output =
         if config.crlf.unwrap_or(fmt::DEF_CRLF) && !final_output.contains("\r\n") {
