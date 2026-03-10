@@ -100,14 +100,13 @@ fn process_toml(
     let is_sorted = toml_raw == sorted_only;
 
     let (final_output, is_formatted) = if !no_format || check_format {
-        fmt::fmt_toml(&mut sorted, &config);
+        fmt::fmt_toml(&mut sorted, config);
         let formatted = sorted.to_string();
         let is_fmt = sorted_only == formatted;
         (formatted, is_fmt)
     } else {
         (sorted_only, true)
     };
-
 
     let final_output =
         if config.crlf.unwrap_or(fmt::DEF_CRLF) && !final_output.contains("\r\n") {
@@ -139,13 +138,8 @@ fn check_toml(path: &str, cli: &Cli, config: &Config) -> IoResult<bool> {
         config.crlf = Some(crlf);
     }
 
-    let result = process_toml(
-        &toml_raw,
-        cli.grouped,
-        cli.no_format,
-        cli.check_format,
-        &config,
-    );
+    let result =
+        process_toml(&toml_raw, cli.grouped, cli.no_format, cli.check_format, &config);
 
     if cli.print {
         print!("{}", result.final_output);
