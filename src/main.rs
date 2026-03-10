@@ -10,8 +10,8 @@ mod sort;
 mod test_utils;
 
 const EXTRA_HELP: &str = "\
-    NOTE: formatting is applied after the check for sorting so \
-          sorted but unformatted toml will not cause a failure";
+    NOTE: in check mode, only unsorted dependencies cause failure; \
+          formatting differences are reported as warnings unless --check-format is used";
 
 type IoResult<T> = Result<T, Box<dyn std::error::Error>>;
 
@@ -73,6 +73,51 @@ fn write_green<S: Display>(highlight: &str, msg: S) -> IoResult<()> {
     writeln!(stdout, "{msg}").map_err(Into::into)
 }
 
+fn write_yellow<S: Display>(highlight: &str, msg: S) -> IoResult<()> {
+    let mut stderr = StandardStream::stderr(ColorChoice::Auto);
+    stderr.set_color(ColorSpec::new().set_fg(Some(Color::Yellow)))?;
+    write!(stderr, "{highlight}")?;
+    stderr.reset()?;
+    writeln!(stderr, "{msg}").map_err(Into::into)
+}
+
+struct ProcessedToml {
+    is_sorted: bool,
+    is_formatted: bool,
+    final_output: String,
+}
+
+fn process_toml(
+    toml_raw: &str,
+    grouped: bool,
+    no_format: bool,
+    check_format: bool,
+    config: &Config,
+) -> ProcessedToml {
+    let mut sorted =
+        sort::sort_toml(toml_raw, sort::MATCHER, grouped, &config.table_order);
+    let sorted_only = sorted.to_string();
+    let is_sorted = toml_raw == sorted_only;
+
+    let (final_output, is_formatted) = if !no_format || check_format {
+        fmt::fmt_toml(&mut sorted, config);
+        let formatted = sorted.to_string();
+        let is_fmt = sorted_only == formatted;
+        (formatted, is_fmt)
+    } else {
+        (sorted_only, true)
+    };
+
+    let final_output =
+        if config.crlf.unwrap_or(fmt::DEF_CRLF) && !final_output.contains("\r\n") {
+            final_output.replace('\n', "\r\n")
+        } else {
+            final_output
+        };
+
+    ProcessedToml { is_sorted, is_formatted, final_output }
+}
+
 fn check_toml(path: &str, cli: &Cli, config: &Config) -> IoResult<bool> {
     let mut path = PathBuf::from(path);
     if path.is_dir() {
@@ -93,51 +138,48 @@ fn check_toml(path: &str, cli: &Cli, config: &Config) -> IoResult<bool> {
         config.crlf = Some(crlf);
     }
 
-    let mut sorted =
-        sort::sort_toml(&toml_raw, sort::MATCHER, cli.grouped, &config.table_order);
-    let mut sorted_str = sorted.to_string();
-
-    let is_formatted =
-        // if no-format is not found apply formatting
-        if !cli.no_format || cli.check_format {
-            let original = sorted_str.clone();
-            fmt::fmt_toml(&mut sorted, &config);
-            sorted_str = sorted.to_string();
-            original == sorted_str
-        } else {
-            true
-        };
-
-    if config.crlf.unwrap_or(fmt::DEF_CRLF) && !sorted_str.contains("\r\n") {
-        sorted_str = sorted_str.replace('\n', "\r\n");
-    }
+    let result =
+        process_toml(&toml_raw, cli.grouped, cli.no_format, cli.check_format, &config);
 
     if cli.print {
-        print!("{sorted_str}");
+        print!("{}", result.final_output);
         return Ok(true);
     }
 
-    let is_sorted = toml_raw == sorted_str;
     if cli.check {
-        if !is_sorted {
+        if !result.is_sorted {
             write_red(
                 "error: ",
                 format!("Dependencies for {} are not sorted", krate.to_string_lossy()),
             )?;
         }
 
-        if !is_formatted {
-            write_red(
-                "error: ",
-                format!("Cargo.toml for {} is not formatted", krate.to_string_lossy()),
-            )?;
+        if !result.is_formatted {
+            if cli.check_format {
+                write_red(
+                    "error: ",
+                    format!(
+                        "Cargo.toml for {} is not formatted",
+                        krate.to_string_lossy()
+                    ),
+                )?;
+            } else {
+                write_yellow(
+                    "warning: ",
+                    format!(
+                        "Cargo.toml for {} is not formatted",
+                        krate.to_string_lossy()
+                    ),
+                )?;
+            }
         }
 
-        return Ok(is_sorted && is_formatted);
+        return Ok(result.is_sorted && (!cli.check_format || result.is_formatted));
     }
 
-    if !is_sorted {
-        std::fs::write(&path, &sorted_str)?;
+    let has_changes = toml_raw != result.final_output;
+    if has_changes {
+        std::fs::write(&path, &result.final_output)?;
         write_green(
             "Finished: ",
             format!("Cargo.toml for {:?} has been rewritten", krate.to_string_lossy()),
@@ -313,6 +355,34 @@ mod tests {
     fn config_error_on_missing_file() {
         let result = read_to_string("nonexistent_config.toml");
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn check_unsorted() {
+        let toml = "[dependencies]\nfoo = \"1\"\nbar = \"1\"\n";
+        let config = Config::default();
+        let result = process_toml(toml, false, false, false, &config);
+        assert!(!result.is_sorted);
+        assert!(result.is_formatted);
+    }
+
+    #[test]
+    fn check_sorted_unformatted() {
+        // Sorted deps, but missing space around '=' so formatting differs
+        let toml = "[dependencies]\nbar=\"1\"\nfoo=\"1\"\n";
+        let config = Config::default();
+        let result = process_toml(toml, false, false, false, &config);
+        assert!(result.is_sorted);
+        assert!(!result.is_formatted);
+    }
+
+    #[test]
+    fn sorted_unformatted_no_check_format() {
+        let toml = "[dependencies]\nbar=\"1\"\nfoo=\"1\"\n";
+        let config = Config::default();
+        let result = process_toml(toml, false, false, true, &config);
+        assert!(result.is_sorted);
+        assert!(!result.is_formatted);
     }
 }
 

@@ -263,7 +263,7 @@ fn format_multi_line_array(array: &mut Array, config: &Config) {
         // the array or not.
         let prefix_comments = value.prefix().trim();
         let suffix_comments = value.suffix().trim();
-        let trailing_comments = is_last_item.then(|| &trailing_comments);
+        let trailing_comments = is_last_item.then_some(&trailing_comments);
 
         // Trim each line of comments to enforce the same identation and concatenate them
         // to build the new prefix.
