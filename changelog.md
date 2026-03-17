@@ -1,3 +1,11 @@
+# 2.1.2
+
+Bug Fixes
+
+* Don't error out on formatting-only diff unless `--check-format` is passed ([#129])
+
+[#129]: https://github.com/DevinR528/cargo-sort/pull/129
+
 # 2.1.1
 
 Bug Fixes
