@@ -97,7 +97,11 @@ fn process_toml(
     let mut sorted =
         sort::sort_toml(toml_raw, sort::MATCHER, grouped, &config.table_order);
     let sorted_only = sorted.to_string();
-    let is_sorted = toml_raw == sorted_only;
+    // sort_toml/toml_edit always outputs LF, but input may have CRLF. Normalize
+    // the raw input for comparison's sake only (formatting checking/fix is
+    // unaffected).
+    let toml_normalized = toml_raw.replace("\r\n", "\n");
+    let is_sorted = toml_normalized == sorted_only;
 
     let (final_output, is_formatted) = if !no_format || check_format {
         fmt::fmt_toml(&mut sorted, config);
@@ -383,6 +387,17 @@ mod tests {
         let result = process_toml(toml, false, false, true, &config);
         assert!(result.is_sorted);
         assert!(!result.is_formatted);
+    }
+
+    #[test]
+    fn sorted_with_crlf_detected_as_sorted() {
+        let toml = "[dependencies]\r\nbar = \"1\"\r\nfoo = \"1\"\r\n";
+        let config = Config::default();
+        let result = process_toml(toml, false, false, false, &config);
+        assert!(
+            result.is_sorted,
+            "CRLF file with sorted deps should be detected as sorted"
+        );
     }
 }
 
