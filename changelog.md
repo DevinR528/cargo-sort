@@ -1,3 +1,11 @@
+# 2.1.3
+
+Bug Fixes
+
+* Fix a regression for checking files with CRLF file endings ([#131])
+
+[#131]: https://github.com/DevinR528/cargo-sort/pull/131
+
 # 2.1.2
 
 Bug Fixes
