@@ -723,6 +723,35 @@ exclude = { files = [
         similar_asserts::assert_eq!(expected2, toml.to_string());
     }
 
+    /// Regression test for https://github.com/DevinR528/cargo-sort/issues/132
+    ///
+    /// Trailing comments after arrays (e.g. `["dep:uniffi"] # Uniffi bindings`)
+    /// should be preserved. The comment lives in the array's decor suffix, which
+    /// was being cleared by both `format_single_line_array` and
+    /// `format_multi_line_array`.
+    #[test]
+    fn trailing_comment_after_array_is_preserved() {
+        let input = r#"[features]
+uniffi = ["dep:uniffi"] # Uniffi bindings
+wasm = [
+    "dep:tsify",
+    "dep:wasm-bindgen",
+    "dep:wasm-bindgen-futures",
+] # WASM support
+"#;
+        let expected = r#"[features]
+uniffi = ["dep:uniffi"] # Uniffi bindings
+wasm = [
+    "dep:tsify",
+    "dep:wasm-bindgen",
+    "dep:wasm-bindgen-futures",
+] # WASM support
+"#;
+        let mut toml = input.parse::<DocumentMut>().unwrap();
+        fmt_toml(&mut toml, &Config::default());
+        similar_asserts::assert_eq!(expected, toml.to_string());
+    }
+
     #[test]
     fn sort_and_format_feature_lists() {
         let config = Config {
