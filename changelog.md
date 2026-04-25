@@ -1,3 +1,11 @@
+# 2.1.4
+
+Bug Fixes
+
+* Fix a regression from 2.1.1 where comments after array values would be removed ([#134])
+
+[#134]: https://github.com/DevinR528/cargo-sort/pull/134
+
 # 2.1.3
 
 Bug Fixes
