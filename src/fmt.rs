@@ -234,8 +234,7 @@ fn format_single_line_array(array: &mut Array, config: &Config) {
     array.set_trailing_comma(config.always_trailing_comma);
 
     // Clean up the prefix and suffix of the array.
-    array.decor_mut().set_prefix(" ");
-    array.decor_mut().set_suffix("");
+    format_array_decor(array);
 }
 
 /// Format an array to fit on multiple lines.
@@ -285,10 +284,29 @@ fn format_multi_line_array(array: &mut Array, config: &Config) {
     // Update the trailing comma.
     array.set_trailing_comma(config.multiline_trailing_comma);
 
-    // Clean up the array, remove any extra whitespaces or comments.
+    // Clean up the prefix and suffix of the array.
     array.set_trailing(newline_pattern);
-    array.decor_mut().set_prefix(" ");
-    array.decor_mut().set_suffix("");
+    format_array_decor(array);
+}
+
+/// Format the prefix and suffix of an array.
+fn format_array_decor(array: &mut Array) {
+    let array_decor = array.decor_mut();
+
+    // Always put a single space before the array.
+    array_decor.set_prefix(" ");
+
+    // Preserve a comment after the array but clean up the whitespaces.
+    let trailing_comment = array_decor
+        .suffix()
+        .and_then(|trailing_comment| {
+            let trailing_comment = trailing_comment.as_str()?.trim();
+
+            // If there is a trailing comment, add a space before it.
+            (!trailing_comment.is_empty()).then(|| format!(" {trailing_comment}"))
+        })
+        .unwrap_or_default();
+    array_decor.set_suffix(trailing_comment);
 }
 
 fn fmt_value(value: &mut Value, config: &Config, ctx: &mut Context) {
@@ -617,7 +635,7 @@ xyzabc = [
     "foo",
     "bar",
     "baz",
-    ]
+    ]    # A comment after the array.
 integration = [
 
     # A feature comment that makes this line very long.
@@ -651,7 +669,7 @@ authors = [
     # Here is a comment
     "Oliver Schneider <clippy-iethah7aipeen8neex1a@oli-obk.de>",
 ]
-xyzabc = ["foo", "bar", "baz"]
+xyzabc = ["foo", "bar", "baz"] # A comment after the array.
 integration = [
     # A feature comment that makes this line very long.
     "git2",
@@ -690,7 +708,7 @@ authors = [
     # Here is a comment
     "Oliver Schneider <clippy-iethah7aipeen8neex1a@oli-obk.de>"
 ]
-xyzabc = ["foo", "bar", "baz"]
+xyzabc = ["foo", "bar", "baz"] # A comment after the array.
 integration = [
     # A feature comment that makes this line very long.
     "git2",

@@ -26,7 +26,7 @@ features = [
     "feat4", # This comment will end up on `feat1`.
     "feat1",
     "feat2" # This comment should stay with `feat2`.
-]
+]   # This comment should stay at the end of the array
 
 [target.'cfg(windows)'.dependencies]
 target_dep = { version = "1.0", features = [ "feat3", "feat1", "feat2"] }
