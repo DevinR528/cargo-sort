@@ -1,6 +1,6 @@
 [package]
 name = "cargo-sort"
-version = "2.1.3"
+version = "2.1.4"
 authors = [
     "Devin R <devin.ragotzy@gmail.com>",
     "Andronik Ordian <write@reusable.software>",
