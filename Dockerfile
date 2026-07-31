@@ -12,7 +12,7 @@ COPY . .
 RUN cargo build --verbose --locked --release
 RUN strip /app/target/release/cargo-sort
 
-FROM debian:buster-slim AS runtime
+FROM debian:trixie-slim AS runtime
 WORKDIR /app
 COPY --from=builder /app/target/release/cargo-sort /usr/local/bin
 USER 1000:1000
