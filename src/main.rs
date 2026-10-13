@@ -214,13 +214,14 @@ fn _main() -> IoResult<()> {
         .map_err(|e| format!("no current directory found: {e}"))?;
     let dir = cwd.to_string_lossy();
 
+    check_workspace_paths(&cli)?;
+
     let mut filtered_matches: Vec<String> = cli.cwd.clone();
-    let is_posible_workspace = filtered_matches.is_empty() || filtered_matches.len() == 1;
     if filtered_matches.is_empty() {
         filtered_matches.push(dir.to_string());
     }
 
-    if cli.workspace && is_posible_workspace {
+    if cli.workspace {
         let dir = filtered_matches[0].to_string();
         let mut path = PathBuf::from(&dir);
         if path.is_dir() {
@@ -306,6 +307,21 @@ fn _main() -> IoResult<()> {
     Ok(())
 }
 
+/// `--workspace` expands the members of a single workspace root, so it cannot be
+/// combined with more than one path. Without this check the extra paths were
+/// checked on their own and the workspace members were skipped without a word.
+fn check_workspace_paths(cli: &Cli) -> IoResult<()> {
+    if cli.workspace && cli.cwd.len() > 1 {
+        return Err(format!(
+            "--workspace takes at most one path (the workspace root), but {} were \
+             given; run cargo sort separately for paths outside the workspace",
+            cli.cwd.len()
+        )
+        .into());
+    }
+    Ok(())
+}
+
 fn array_string_members(value: &Item) -> Vec<&str> {
     value.as_array().into_iter().flatten().filter_map(|s| s.as_str()).collect()
 }
@@ -342,6 +358,26 @@ mod tests {
         let args = vec!["cargo-sort", "--check", "."];
         let cli = <Cli as clap::Parser>::try_parse_from(args).unwrap();
         assert_eq!(cli.config, None);
+    }
+
+    #[test]
+    fn workspace_with_several_paths_is_an_error() {
+        let args = vec!["cargo-sort", "--workspace", "--check", ".", "other"];
+        let cli = <Cli as clap::Parser>::try_parse_from(args).unwrap();
+        let err = check_workspace_paths(&cli).unwrap_err();
+        assert!(err.to_string().contains("--workspace takes at most one path"));
+    }
+
+    #[test]
+    fn workspace_with_zero_or_one_path_is_accepted() {
+        for args in [
+            vec!["cargo-sort", "--workspace"],
+            vec!["cargo-sort", "--workspace", "."],
+            vec!["cargo-sort", "--check", ".", "other"],
+        ] {
+            let cli = <Cli as clap::Parser>::try_parse_from(args).unwrap();
+            assert!(check_workspace_paths(&cli).is_ok());
+        }
     }
 
     #[test]
