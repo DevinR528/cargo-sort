@@ -1,8 +1,14 @@
-use std::{fmt::Display, fs::read_to_string, io::Write, path::PathBuf};
+use std::{
+    collections::HashSet,
+    fmt::Display,
+    fs::read_to_string,
+    io::Write,
+    path::{Path, PathBuf},
+};
 
 use fmt::Config;
 use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
-use toml_edit::{DocumentMut, Item};
+use toml_edit::{DocumentMut, Item, Table};
 
 mod fmt;
 mod sort;
@@ -215,61 +221,12 @@ fn _main() -> IoResult<()> {
     let dir = cwd.to_string_lossy();
 
     let mut filtered_matches: Vec<String> = cli.cwd.clone();
-    let is_posible_workspace = filtered_matches.is_empty() || filtered_matches.len() == 1;
     if filtered_matches.is_empty() {
         filtered_matches.push(dir.to_string());
     }
 
-    if cli.workspace && is_posible_workspace {
-        let dir = filtered_matches[0].to_string();
-        let mut path = PathBuf::from(&dir);
-        if path.is_dir() {
-            path.push("Cargo.toml");
-        }
-
-        let raw_toml = read_to_string(&path)
-            .map_err(|_| format!("no file found at: {}", path.display()))?;
-
-        let toml = raw_toml.parse::<DocumentMut>()?;
-        let workspace = toml.get("workspace");
-        if let Some(Item::Table(ws)) = workspace {
-            // The workspace excludes, used to filter members by
-            let excludes: Vec<&str> =
-                ws.get("exclude").map_or_else(Vec::new, array_string_members);
-            for member in ws.get("members").map_or_else(Vec::new, array_string_members) {
-                // TODO: a better test wether to glob?
-                if member.contains('*') || member.contains('?') {
-                    'globs: for entry in glob::glob(&format!("{dir}/{member}"))
-                        .unwrap_or_else(|e| {
-                            write_red("error: ", format!("Glob failed: {e}")).unwrap();
-                            std::process::exit(1);
-                        })
-                    {
-                        let path = entry?;
-
-                        // The `check_toml` function expects only folders that it appends
-                        // `Cargo.toml` onto
-                        if path.is_file() {
-                            continue;
-                        }
-
-                        // Since the glob function gives us actual paths we need to only
-                        // check if the relevant parts match so we can't just do
-                        // `excludes.contains(..)`
-                        let path_str = path.to_string_lossy();
-                        for excl in &excludes {
-                            if path_str.ends_with(excl) {
-                                continue 'globs;
-                            }
-                        }
-
-                        filtered_matches.push(path.display().to_string());
-                    }
-                } else {
-                    filtered_matches.push(format!("{dir}/{member}"));
-                }
-            }
-        }
+    if cli.workspace {
+        filtered_matches = workspace_targets(&filtered_matches)?;
     }
 
     let mut config = if let Some(config_path) = &cli.config {
@@ -304,6 +261,95 @@ fn _main() -> IoResult<()> {
         return Err("Some Cargo.toml files are not sorted or formatted".into());
     }
     Ok(())
+}
+
+fn manifest_path(path: &str) -> PathBuf {
+    let mut path = PathBuf::from(path);
+    if path.is_dir() {
+        path.push("Cargo.toml");
+    }
+    path
+}
+
+/// The paths to check with `--workspace`: every given path, followed by the members of
+/// each given manifest that has a `[workspace]` table. Paths that lead to the same
+/// manifest are kept only the first time they appear.
+fn workspace_targets(paths: &[String]) -> IoResult<Vec<String>> {
+    let mut targets = paths.to_vec();
+    let mut found_workspace = false;
+    for dir in paths {
+        let path = manifest_path(dir);
+        let raw_toml = read_to_string(&path)
+            .map_err(|_| format!("no file found at: {}", path.display()))?;
+
+        let toml = raw_toml.parse::<DocumentMut>()?;
+        if let Some(Item::Table(ws)) = toml.get("workspace") {
+            found_workspace = true;
+            // Members are relative to the directory that holds the manifest
+            let root = path
+                .parent()
+                .filter(|p| !p.as_os_str().is_empty())
+                .unwrap_or(Path::new("."));
+            targets.extend(workspace_members(&root.display().to_string(), ws)?);
+        }
+    }
+
+    if !found_workspace {
+        let manifests: Vec<String> =
+            paths.iter().map(|p| manifest_path(p).display().to_string()).collect();
+        return Err(format!(
+            "--workspace was given, but none of these manifests has a [workspace] \
+             table: {}",
+            manifests.join(", ")
+        )
+        .into());
+    }
+
+    let mut seen = HashSet::new();
+    targets.retain(|target| {
+        let manifest = manifest_path(target);
+        seen.insert(manifest.canonicalize().unwrap_or(manifest))
+    });
+    Ok(targets)
+}
+
+/// The member directories of the workspace whose manifest is in `dir`.
+fn workspace_members(dir: &str, ws: &Table) -> IoResult<Vec<String>> {
+    let mut members = Vec::new();
+    // The workspace excludes, used to filter members by
+    let excludes: Vec<&str> =
+        ws.get("exclude").map_or_else(Vec::new, array_string_members);
+    for member in ws.get("members").map_or_else(Vec::new, array_string_members) {
+        // TODO: a better test wether to glob?
+        if member.contains('*') || member.contains('?') {
+            'globs: for entry in glob::glob(&format!("{dir}/{member}"))
+                .map_err(|e| format!("Glob failed: {e}"))?
+            {
+                let path = entry?;
+
+                // The `check_toml` function expects only folders that it appends
+                // `Cargo.toml` onto
+                if path.is_file() {
+                    continue;
+                }
+
+                // Since the glob function gives us actual paths we need to only
+                // check if the relevant parts match so we can't just do
+                // `excludes.contains(..)`
+                let path_str = path.to_string_lossy();
+                for excl in &excludes {
+                    if path_str.ends_with(excl) {
+                        continue 'globs;
+                    }
+                }
+
+                members.push(path.display().to_string());
+            }
+        } else {
+            members.push(format!("{dir}/{member}"));
+        }
+    }
+    Ok(members)
 }
 
 fn array_string_members(value: &Item) -> Vec<&str> {
@@ -342,6 +388,285 @@ mod tests {
         let args = vec!["cargo-sort", "--check", "."];
         let cli = <Cli as clap::Parser>::try_parse_from(args).unwrap();
         assert_eq!(cli.config, None);
+    }
+
+    /// A directory of `Cargo.toml` files for one test, removed when dropped.
+    struct Tree(PathBuf);
+
+    impl Tree {
+        /// `manifests` are (directory, `Cargo.toml` contents) pairs.
+        fn new(name: &str, manifests: &[(&str, &str)]) -> Self {
+            let root = std::env::temp_dir()
+                .join(format!("cargo-sort-test-{}-{name}", std::process::id()));
+            let _ = std::fs::remove_dir_all(&root);
+            for (dir, manifest) in manifests {
+                let dir = root.join(dir);
+                std::fs::create_dir_all(&dir).unwrap();
+                std::fs::write(dir.join("Cargo.toml"), manifest).unwrap();
+            }
+            Tree(root)
+        }
+
+        /// `workspace_targets` for paths relative to the tree, with the results made
+        /// relative to the tree again and written with `/`.
+        fn targets(&self, paths: &[&str]) -> IoResult<Vec<String>> {
+            let paths: Vec<String> =
+                paths.iter().map(|p| format!("{}/{p}", self.0.display())).collect();
+            Ok(workspace_targets(&paths)?.iter().map(|t| self.relative(t)).collect())
+        }
+
+        fn relative(&self, path: &str) -> String {
+            let rel = Path::new(path).strip_prefix(&self.0).unwrap();
+            let parts: Vec<_> =
+                rel.components().map(|c| c.as_os_str().to_string_lossy()).collect();
+            parts.join("/")
+        }
+    }
+
+    impl Drop for Tree {
+        fn drop(&mut self) { let _ = std::fs::remove_dir_all(&self.0); }
+    }
+
+    const CRATE: &str = "[package]\nname = \"x\"\n";
+
+    #[test]
+    fn workspace_targets_single_root() {
+        let tree = Tree::new(
+            "single-root",
+            &[
+                ("ws", "[workspace]\nmembers = [\"a\", \"b\"]\n"),
+                ("ws/a", CRATE),
+                ("ws/b", CRATE),
+                (
+                    "ws2",
+                    "[workspace]\nmembers = [\"crate-*\"]\nexclude = [\"crate-d\"]\n",
+                ),
+                ("ws2/crate-c", CRATE),
+                ("ws2/crate-d", CRATE),
+            ],
+        );
+        assert_eq!(tree.targets(&["ws"]).unwrap(), ["ws", "ws/a", "ws/b"]);
+        assert_eq!(
+            tree.targets(&["ws/Cargo.toml"]).unwrap(),
+            ["ws/Cargo.toml", "ws/a", "ws/b"]
+        );
+        assert_eq!(tree.targets(&["ws2"]).unwrap(), ["ws2", "ws2/crate-c"]);
+    }
+
+    #[test]
+    fn workspace_targets_expand_every_workspace() {
+        let tree = Tree::new(
+            "every-workspace",
+            &[
+                ("ws", "[workspace]\nmembers = [\"a\", \"b\"]\n"),
+                ("ws/a", CRATE),
+                ("ws/b", CRATE),
+                ("ws2", "[workspace]\nmembers = [\"crates/*\"]\n"),
+                ("ws2/crates/c", CRATE),
+                ("ws2/crates/d", CRATE),
+            ],
+        );
+        assert_eq!(
+            tree.targets(&["ws", "ws2"]).unwrap(),
+            ["ws", "ws2", "ws/a", "ws/b", "ws2/crates/c", "ws2/crates/d"]
+        );
+        assert_eq!(
+            tree.targets(&["ws2", "ws"]).unwrap(),
+            ["ws2", "ws", "ws2/crates/c", "ws2/crates/d", "ws/a", "ws/b"]
+        );
+    }
+
+    #[test]
+    fn workspace_targets_keep_crates_without_workspace() {
+        let tree = Tree::new(
+            "plain-crate",
+            &[
+                ("ws", "[workspace]\nmembers = [\"a\"]\n"),
+                ("ws/a", CRATE),
+                ("plain", CRATE),
+            ],
+        );
+        assert_eq!(tree.targets(&["ws", "plain"]).unwrap(), ["ws", "plain", "ws/a"]);
+        assert_eq!(tree.targets(&["plain", "ws"]).unwrap(), ["plain", "ws", "ws/a"]);
+    }
+
+    #[test]
+    fn workspace_targets_are_deduplicated() {
+        let tree = Tree::new(
+            "dedupe",
+            &[
+                ("ws", "[workspace]\nmembers = [\"a\", \"b\"]\n"),
+                ("ws/a", CRATE),
+                ("ws/b", CRATE),
+                ("other", "[workspace]\nmembers = [\"../ws/b\"]\n"),
+            ],
+        );
+        // `b` is given, is a member of `ws` and is a member of `other`
+        assert_eq!(
+            tree.targets(&["ws", "ws/b", "other", "ws/"]).unwrap(),
+            ["ws", "ws/b", "other", "ws/a"]
+        );
+    }
+
+    #[test]
+    fn workspace_targets_need_a_workspace() {
+        let tree = Tree::new("no-workspace", &[("plain", CRATE), ("plain2", CRATE)]);
+        for paths in [&["plain"][..], &["plain", "plain2"]] {
+            let err = tree.targets(paths).unwrap_err().to_string();
+            assert!(err.contains("--workspace") && err.contains("[workspace]"), "{err}");
+        }
+    }
+
+    /// Generates small layouts from a fixed seed and checks `workspace_targets` against a
+    /// model of the expected targets: every given path and every member of every given
+    /// workspace, each manifest once, in the order given and then in manifest order.
+    #[test]
+    fn workspace_targets_generated_layouts() {
+        const SEED: u64 = 139;
+        const CASES: usize = 100;
+        let mut state = SEED;
+        let mut below = move |n: u64| {
+            state = state
+                .wrapping_mul(6_364_136_223_846_793_005)
+                .wrapping_add(1_442_695_040_888_963_407);
+            (state >> 33) % n
+        };
+        let (mut errors, mut duplicates, mut excluded, mut cross) = (0, 0, 0, 0);
+
+        for case in 0..CASES {
+            let roots = 1 + below(3) as usize;
+            let mut manifests: Vec<(String, String)> = Vec::new();
+            // Members of each root in manifest order, `None` for a crate without
+            // `[workspace]`
+            let mut members: Vec<Option<Vec<String>>> = Vec::new();
+            let mut shape = Vec::new();
+            for r in 0..roots {
+                for m in 0..3 {
+                    manifests.push((format!("r{r}/m{m}"), CRATE.to_owned()));
+                }
+                if below(4) == 0 {
+                    manifests.push((format!("r{r}"), CRATE.to_owned()));
+                    members.push(None);
+                    shape.push("crate".to_owned());
+                    continue;
+                }
+                let mut listed: Vec<String> =
+                    (0..3).filter(|_| below(2) == 0).map(|m| format!("m{m}")).collect();
+                let mut expanded: Vec<String> = listed.clone();
+                let mut exclude = Vec::new();
+                if below(2) == 0 {
+                    let skip = if below(2) == 0 { Some(below(3)) } else { None };
+                    for e in 0..3 {
+                        manifests.push((format!("r{r}/e{e}"), CRATE.to_owned()));
+                        if skip == Some(e) {
+                            exclude.push(format!("\"e{e}\""));
+                            excluded += 1;
+                        } else {
+                            expanded.push(format!("e{e}"));
+                        }
+                    }
+                    listed.push("e*".to_owned());
+                }
+                if roots > 1 && below(4) == 0 {
+                    let other = (r + 1 + below(roots as u64 - 1) as usize) % roots;
+                    listed.push(format!("../r{other}/m0"));
+                    expanded.push(format!("../r{other}/m0"));
+                    cross += 1;
+                }
+                let quoted: Vec<String> =
+                    listed.iter().map(|m| format!("\"{m}\"")).collect();
+                manifests.push((
+                    format!("r{r}"),
+                    format!(
+                        "[workspace]\nmembers = [{}]\nexclude = [{}]\n",
+                        quoted.join(", "),
+                        exclude.join(", ")
+                    ),
+                ));
+                shape.push(format!("workspace{listed:?} exclude{exclude:?}"));
+                members
+                    .push(Some(expanded.iter().map(|m| format!("r{r}/{m}")).collect()));
+            }
+
+            let mut given: Vec<String> = (0..roots).map(|r| format!("r{r}")).collect();
+            if below(3) == 0 {
+                let at = below(given.len() as u64 + 1) as usize;
+                given.insert(at, format!("r{}/m{}", below(roots as u64), below(3)));
+            }
+            if below(4) == 0 {
+                given.push(format!("r{}/", below(roots as u64)));
+            }
+
+            let name =
+                format!("case {case} (seed {SEED}): roots {shape:?}, given {given:?}");
+            let refs: Vec<(&str, &str)> =
+                manifests.iter().map(|(d, m)| (d.as_str(), m.as_str())).collect();
+            let tree = Tree::new(&format!("generated-{case}"), &refs);
+            let given_refs: Vec<&str> = given.iter().map(String::as_str).collect();
+            let result = tree.targets(&given_refs);
+
+            // The model: given paths, then the members of each given workspace root in
+            // given order, keeping the first path for each manifest
+            let normalize = |p: &str| {
+                let mut parts: Vec<&str> = Vec::new();
+                for part in p.split('/').filter(|s| !s.is_empty()) {
+                    if part == ".." {
+                        parts.pop();
+                    } else {
+                        parts.push(part);
+                    }
+                }
+                parts.join("/")
+            };
+            let root_of = |p: &str| {
+                let n = normalize(p);
+                n.strip_prefix('r')
+                    .and_then(|s| s.parse::<usize>().ok())
+                    .map(|r| members[r].as_ref())
+            };
+            let mut expected: Vec<String> = given.clone();
+            for g in &given {
+                if let Some(Some(m)) = root_of(g) {
+                    expected.extend(m.iter().cloned());
+                }
+            }
+            let before_dedupe = expected.len();
+            let mut seen = HashSet::new();
+            let expected: Vec<String> =
+                expected.into_iter().filter(|p| seen.insert(normalize(p))).collect();
+
+            if members.iter().all(Option::is_none) {
+                errors += 1;
+                let err = result.expect_err(&name).to_string();
+                assert!(err.contains("--workspace"), "{name}: {err}");
+                continue;
+            }
+            if expected.len() < before_dedupe {
+                duplicates += 1;
+            }
+            let targets = result.unwrap_or_else(|e| panic!("{name}: {e}"));
+            let keys: Vec<String> = targets.iter().map(|t| normalize(t)).collect();
+            let unique: HashSet<&String> = keys.iter().collect();
+            assert_eq!(unique.len(), keys.len(), "{name}: duplicate targets {keys:?}");
+            for g in &given {
+                assert!(
+                    keys.contains(&normalize(g)),
+                    "{name}: given {g} missing: {keys:?}"
+                );
+            }
+            for m in given.iter().filter_map(|g| root_of(g)).flatten().flatten() {
+                assert!(
+                    keys.contains(&normalize(m)),
+                    "{name}: member {m} missing: {keys:?}"
+                );
+            }
+            let expected_keys: Vec<String> =
+                expected.iter().map(|p| normalize(p)).collect();
+            assert_eq!(keys, expected_keys, "{name}: order");
+        }
+
+        // The generator has to reach every situation the model distinguishes
+        assert!(errors > 0 && duplicates > 0 && excluded > 0 && cross > 0);
     }
 
     #[test]
