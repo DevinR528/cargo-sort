@@ -320,15 +320,14 @@ fn workspace_members(dir: &str, ws: &Table) -> IoResult<Vec<String>> {
     let excludes: Vec<&str> =
         ws.get("exclude").map_or_else(Vec::new, array_string_members);
     for member in ws.get("members").map_or_else(Vec::new, array_string_members) {
-        // TODO: a better test wether to glob?
+        // TODO: a better test whether to glob?
         if member.contains('*') || member.contains('?') {
             'globs: for entry in glob::glob(&format!("{dir}/{member}"))
                 .map_err(|e| format!("Glob failed: {e}"))?
             {
                 let path = entry?;
 
-                // The `check_toml` function expects only folders that it appends
-                // `Cargo.toml` onto
+                // Cargo ignores files matched by `members`, so skip them too
                 if path.is_file() {
                     continue;
                 }
@@ -343,7 +342,7 @@ fn workspace_members(dir: &str, ws: &Table) -> IoResult<Vec<String>> {
                     }
                 }
 
-                members.push(path.display().to_string());
+                members.push(path_str.into_owned());
             }
         } else {
             members.push(format!("{dir}/{member}"));
