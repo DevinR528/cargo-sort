@@ -24,7 +24,7 @@ There are three modes cargo-sort can be used in:
  * **-p or --print**
     - Write the sorted toml file to stdout.
  * **-w or --workspace**
-    - Checks every crate in the workspace based on flags. Only one root may be given.
+    - Checks every crate in the workspace based on flags. Each path given whose `Cargo.toml` has a `[workspace]` table has its members checked too; at least one of them must have one.
  * **-o or --order**
     - Specify an ordering of tables. All nested tables will be sorted and appear after the specified table. Any unspecified table will be after specified.
  * **--config**
@@ -129,6 +129,10 @@ cargo-sort [FLAGS] path/to/a path/to/b path/to/c/Cargo.toml
 Finally cargo sort has the --workspace flag and will sort each Cargo.toml file in a workspace
 ```bash
 cargo-sort -w/--workspace
+```
+or in several workspaces at once
+```bash
+cargo-sort -w path/to/workspace-a path/to/workspace-b
 ```
 
 These are all valid. File names and extensions can be used on some of the paths but not others, if
