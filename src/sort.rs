@@ -130,7 +130,7 @@ pub(crate) fn sort_toml(
                 gather_headings(table, headings, 1);
                 headings.sort();
                 sort_table(table, group);
-                sort_nested_table(table, &target_tables);
+                sort_nested_table(table, &target_tables, group);
             }
             Item::None => continue,
             _ => {}
@@ -193,24 +193,24 @@ fn sort_table(table: &mut Table, group: bool) {
     }
 }
 
-fn sort_nested_table(table: &mut Table, target_tables: &TargetTablePaths) {
+fn sort_nested_table(table: &mut Table, target_tables: &TargetTablePaths, group: bool) {
     // The `table` name must be `target`
     for paths in target_tables.values() {
         for path in paths {
             if path.len() > 1 {
-                sort_table_by_path(table, &path[1..]);
+                sort_table_by_path(table, &path[1..], group);
             }
         }
     }
 }
 
-fn sort_table_by_path(table: &mut Table, path: &[String]) {
+fn sort_table_by_path(table: &mut Table, path: &[String], group: bool) {
     let Some(first) = path.first() else {
-        table.sort_values();
+        sort_table(table, group);
         return;
     };
     if let Some(Item::Table(inner_table)) = table.get_mut(first) {
-        sort_table_by_path(inner_table, &path[1..]);
+        sort_table_by_path(inner_table, &path[1..], group);
     }
 }
 
@@ -525,6 +525,41 @@ mod test {
         let input = fs::read_to_string("examp/ruma.toml").unwrap();
         let expected = fs::read_to_string("examp/ruma.sorted.toml").unwrap();
         let sorted = super::sort_toml(&input, MATCHER, true, &[]);
+        assert_eq(expected, sorted);
+    }
+
+    #[test]
+    fn issue_137_grouped_target_tables_are_sorted_per_group() {
+        let input = fs::read_to_string("regressions/137.toml").unwrap();
+        let expected = fs::read_to_string("regressions/137.sorted.toml").unwrap();
+        let sorted = super::sort_toml(&input, MATCHER, true, &[]);
+        assert_eq(expected, sorted);
+    }
+
+    #[test]
+    fn issue_137_sorted_groups_in_target_tables_are_unchanged() {
+        let input = fs::read_to_string("regressions/137.sorted.toml").unwrap();
+        let sorted = super::sort_toml(&input, MATCHER, true, &[]);
+        assert_eq(input, sorted);
+    }
+
+    #[test]
+    fn issue_137_ungrouped_target_tables_are_still_sorted_as_a_whole() {
+        let input = "\
+[target.'cfg(unix)'.dependencies]
+xwt-core = \"0.9\"
+web-wt-sys = \"0.3\"
+thiserror = \"2\"
+js-sys = \"0.3\"
+";
+        let expected = "\
+[target.'cfg(unix)'.dependencies]
+js-sys = \"0.3\"
+thiserror = \"2\"
+web-wt-sys = \"0.3\"
+xwt-core = \"0.9\"
+";
+        let sorted = super::sort_toml(input, MATCHER, false, &[]);
         assert_eq(expected, sorted);
     }
 
