@@ -326,7 +326,7 @@ fn sort_lexicographical(
 ) {
     // Since the root table is always index 0 we add one
     let first_table_idx = first_table.unwrap_or_default() + 1;
-    for (idx, heading) in heading_order.iter().flat_map(|(_, segs)| segs).enumerate() {
+    for (idx, heading) in heading_order.values().flatten().enumerate() {
         if let Heading::Complete(segs) = heading {
             let mut nested = 0;
             let mut table = Some(toml.as_table_mut());
