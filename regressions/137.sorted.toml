@@ -1,0 +1,33 @@
+[package]
+name = "sorttest"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+anyhow = "1"
+serde = "1"
+
+alpha = "1"
+zeta = "1"
+
+[target.'cfg(target_family = "wasm")'.dependencies]
+web-wt-sys = "0.3"
+xwt-core = "0.9"
+
+js-sys = "0.3"
+thiserror = "2"
+
+[target.'cfg(unix)'.dev-dependencies]
+a = "1"
+b = "1"
+
+# comment kept with its group
+c = "1"
+d = "1"
+
+[target.'cfg(windows)'.build-dependencies]
+embed-resource = "2"
+winres = "0.1"
+
+[target.'cfg(windows)'.dependencies.windows-sys]
+version = "0.52"
