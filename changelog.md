@@ -1,3 +1,9 @@
+# 2.1.5
+
+* Upgrade the Docker base image to Debian Trixie (docker builds were broken)
+* Support several manifests with --workspace
+* Respect --grouped inside target-specific dependency tables
+
 # 2.1.4
 
 Bug Fixes
