@@ -8,6 +8,9 @@ use std::{
 
 const SORTED: &str = "[dependencies]\nanyhow = \"1\"\nserde = \"1\"\n";
 const UNSORTED: &str = "[dependencies]\nserde = \"1\"\nanyhow = \"1\"\n";
+/// Like `SORTED`/`UNSORTED`, but without a trailing newline (issue #43).
+const SORTED_NO_NEWLINE: &str = "[dependencies]\nanyhow = \"1\"\nserde = \"1\"";
+const UNSORTED_NO_NEWLINE: &str = "[dependencies]\nserde = \"1\"\nanyhow = \"1\"";
 
 /// A directory of `Cargo.toml` files for one test, removed when dropped.
 struct Tree(PathBuf);
@@ -159,4 +162,32 @@ fn paths_without_workspace_flag_are_checked_as_given() {
     let out = tree.run("ws", &["--check", ".", "extra"]);
     assert_eq!(checked(&out), [".", "extra"]);
     assert!(out.status.success(), "{}", stderr(&out));
+}
+
+/// Issue #43: a sorted manifest without a trailing newline still passes --check.
+#[test]
+fn missing_trailing_newline_is_sorted() {
+    let tree = Tree::new(
+        "issue-43",
+        &[("ws", "[workspace]\nmembers = [\"a\"]\n"), ("ws/a", SORTED_NO_NEWLINE)],
+    );
+    let out = tree.run("ws", &["-w", "--grouped", "--check"]);
+    assert_eq!(checked(&out), ["ws", "a"]);
+    assert!(out.status.success(), "{}", stderr(&out));
+}
+
+/// Issue #43: an unsorted manifest without a trailing newline still fails --check.
+#[test]
+fn unsorted_missing_trailing_newline_fails_check() {
+    let tree = Tree::new(
+        "issue-43-unsorted",
+        &[("ws", "[workspace]\nmembers = [\"a\"]\n"), ("ws/a", UNSORTED_NO_NEWLINE)],
+    );
+    let out = tree.run("ws", &["-w", "--grouped", "--check"]);
+    assert!(
+        stderr(&out).contains("Dependencies for a are not sorted"),
+        "{}",
+        stderr(&out)
+    );
+    assert!(!out.status.success());
 }
