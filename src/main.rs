@@ -93,6 +93,15 @@ struct ProcessedToml {
     final_output: String,
 }
 
+/// Appends a trailing newline to `s` unless it is empty or already ends with one.
+fn with_trailing_newline(s: &str) -> String {
+    if s.is_empty() || s.ends_with('\n') {
+        s.to_owned()
+    } else {
+        format!("{s}\n")
+    }
+}
+
 fn process_toml(
     toml_raw: &str,
     grouped: bool,
@@ -105,9 +114,12 @@ fn process_toml(
     let sorted_only = sorted.to_string();
     // sort_toml/toml_edit always outputs LF, but input may have CRLF. Normalize
     // the raw input for comparison's sake only (formatting checking/fix is
-    // unaffected).
+    // unaffected). toml_edit also always ends the document with a newline, so a
+    // missing trailing newline in the input must not by itself count as
+    // "unsorted" (#43).
     let toml_normalized = toml_raw.replace("\r\n", "\n");
-    let is_sorted = toml_normalized == sorted_only;
+    let is_sorted =
+        with_trailing_newline(&toml_normalized) == with_trailing_newline(&sorted_only);
 
     let (final_output, is_formatted) = if !no_format || check_format {
         fmt::fmt_toml(&mut sorted, config);
@@ -722,6 +734,41 @@ mod tests {
             result.is_sorted,
             "CRLF file with sorted deps should be detected as sorted"
         );
+    }
+
+    /// Issue #43: toml_edit always ends its output with a newline, so a missing
+    /// trailing newline in the input must not make a sorted file "unsorted".
+    #[test]
+    fn issue_43_missing_trailing_newline_is_sorted() {
+        let input = read_to_string("regressions/43.toml").unwrap();
+        assert!(!input.ends_with('\n'), "the fixture must not end with a newline");
+        let config = Config::default();
+        let result = process_toml(&input, true, false, false, &config);
+        assert!(result.is_sorted, "missing trailing newline must not fail --check");
+    }
+
+    #[test]
+    fn sorted_without_trailing_newline_detected_as_sorted() {
+        let toml = "[dependencies]\nbar = \"1\"\nfoo = \"1\"";
+        let config = Config::default();
+        let result = process_toml(toml, false, false, false, &config);
+        assert!(result.is_sorted);
+    }
+
+    #[test]
+    fn crlf_sorted_without_trailing_newline_detected_as_sorted() {
+        let toml = "[dependencies]\r\nbar = \"1\"\r\nfoo = \"1\"";
+        let config = Config::default();
+        let result = process_toml(toml, false, false, false, &config);
+        assert!(result.is_sorted);
+    }
+
+    #[test]
+    fn unsorted_without_trailing_newline_still_detected() {
+        let toml = "[dependencies]\nfoo = \"1\"\nbar = \"1\"";
+        let config = Config::default();
+        let result = process_toml(toml, false, false, false, &config);
+        assert!(!result.is_sorted);
     }
 }
 
