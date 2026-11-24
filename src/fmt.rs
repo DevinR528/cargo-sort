@@ -247,11 +247,8 @@ fn format_single_line_array(array: &mut Array, config: &Config) {
 /// Format an array to fit on multiple lines.
 fn format_multi_line_array(array: &mut Array, config: &Config) {
     let newline_pattern = if config.crlf.unwrap_or(DEF_CRLF) { "\r\n" } else { "\n" };
-    let indent = if config.use_tabs {
-        "\t".to_owned()
-    } else {
-        " ".repeat(config.indent_count)
-    };
+    let indent =
+        if config.use_tabs { "\t".to_owned() } else { " ".repeat(config.indent_count) };
     let newline_and_indent = format!("{newline_pattern}{indent}");
 
     let array_len = array.len();
