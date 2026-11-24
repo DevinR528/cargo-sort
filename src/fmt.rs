@@ -248,7 +248,7 @@ fn format_single_line_array(array: &mut Array, config: &Config) {
 fn format_multi_line_array(array: &mut Array, config: &Config) {
     let newline_pattern = if config.crlf.unwrap_or(DEF_CRLF) { "\r\n" } else { "\n" };
     let indent = if config.use_tabs {
-        String::from("\t")
+        "\t".to_owned()
     } else {
         " ".repeat(config.indent_count)
     };
