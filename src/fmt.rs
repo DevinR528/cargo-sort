@@ -64,6 +64,11 @@ pub(crate) struct Config {
     /// Defaults to 4.
     pub indent_count: usize,
 
+    /// Whether to use tabs for indentation.
+    ///
+    /// Defaults to `false`.
+    pub use_tabs: bool,
+
     /// Omit whitespace padding inside inline tables.
     ///
     /// Defaults to `false`.
@@ -107,6 +112,7 @@ impl Default for Config {
             multiline_trailing_comma: true,
             max_array_line_len: 80,
             indent_count: 4,
+            use_tabs: false,
             space_around_eq: true,
             compact_arrays: false,
             compact_inline_tables: false,
@@ -143,6 +149,7 @@ impl FromStr for Config {
                 .unwrap_or(80) as usize,
             indent_count: toml.get("indent_count").and_then(Item::as_integer).unwrap_or(4)
                 as usize,
+            use_tabs: toml.get("use_tabs").and_then(Item::as_bool).unwrap_or(false),
             space_around_eq: toml
                 .get("space_around_eq")
                 .and_then(Item::as_bool)
@@ -240,7 +247,11 @@ fn format_single_line_array(array: &mut Array, config: &Config) {
 /// Format an array to fit on multiple lines.
 fn format_multi_line_array(array: &mut Array, config: &Config) {
     let newline_pattern = if config.crlf.unwrap_or(DEF_CRLF) { "\r\n" } else { "\n" };
-    let indent = " ".repeat(config.indent_count);
+    let indent = if config.use_tabs {
+        "\t".to_owned()
+    } else {
+        " ".repeat(config.indent_count)
+    };
     let newline_and_indent = format!("{newline_pattern}{indent}");
 
     let array_len = array.len();
@@ -753,6 +764,26 @@ exclude = { files = [
         let input = fs::read_to_string("examp/features.toml").unwrap();
         let expected = fs::read_to_string("examp/features.sorted.toml").unwrap();
 
+        let mut toml = input.parse::<DocumentMut>().unwrap();
+        fmt_toml(&mut toml, &config);
+        assert_eq(expected, toml.to_string());
+    }
+
+    #[test]
+    fn indent_with_tabs() {
+        let config =
+            Config { use_tabs: true, max_array_line_len: 25, ..Default::default() };
+        let input = r#"
+[features]
+default = ["feature_a", "feature_b"]
+"#;
+        let expected = "
+[features]
+default = [
+\t\"feature_a\",
+\t\"feature_b\",
+]
+";
         let mut toml = input.parse::<DocumentMut>().unwrap();
         fmt_toml(&mut toml, &config);
         assert_eq(expected, toml.to_string());
