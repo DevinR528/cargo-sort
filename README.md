@@ -25,6 +25,8 @@ There are three modes cargo-sort can be used in:
     - Write the sorted toml file to stdout.
  * **-w or --workspace**
     - Checks every crate in the workspace based on flags. Each path given whose `Cargo.toml` has a `[workspace]` table has its members checked too; at least one of them must have one.
+ * **-q or --quiet**
+    - Reduces output verbosity. Supply multiple times to reduce verbosity further (i.e. `-qq`, `-qqq`)
  * **-o or --order**
     - Specify an ordering of tables. All nested tables will be sorted and appear after the specified table. Any unspecified table will be after specified.
  * **--config**

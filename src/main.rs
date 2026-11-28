@@ -19,6 +19,15 @@ const EXTRA_HELP: &str = "\
     NOTE: in check mode, only unsorted dependencies cause failure; \
           formatting differences are reported as warnings unless --check-format is used";
 
+/// [`Cli::quiet`] threshold at which [`write_red`] is suppressed
+const RED_THRESHOLD: u8 = 3;
+
+/// [`Cli::quiet`] threshold at which [`write_yellow`] is suppressed
+const YELLOW_THRESHOLD: u8 = 2;
+
+/// [`Cli::quiet`] threshold at which [`write_green`] is suppressed
+const GREEN_THRESHOLD: u8 = 1;
+
 type IoResult<T> = Result<T, Box<dyn std::error::Error>>;
 
 /// Ensure Cargo.toml dependency tables are sorted.
@@ -53,6 +62,10 @@ pub struct Cli {
     #[arg(short, long)]
     pub grouped: bool,
 
+    /// Reduces output verbosity
+    #[arg(short, long, action = clap::ArgAction::Count)]
+    pub quiet: u8,
+
     /// List the order tables should be written out
     /// (--order package,dependencies,features)
     #[arg(short, long, value_delimiter = ',')]
@@ -63,7 +76,10 @@ pub struct Cli {
     pub config: Option<PathBuf>,
 }
 
-fn write_red<S: Display>(highlight: &str, msg: S) -> IoResult<()> {
+fn write_red<S: Display>(highlight: &str, msg: S, quiet: u8) -> IoResult<()> {
+    if quiet >= RED_THRESHOLD {
+        return Ok(());
+    }
     let mut stderr = StandardStream::stderr(ColorChoice::Auto);
     stderr.set_color(ColorSpec::new().set_fg(Some(Color::Red)))?;
     write!(stderr, "{highlight}")?;
@@ -71,7 +87,10 @@ fn write_red<S: Display>(highlight: &str, msg: S) -> IoResult<()> {
     writeln!(stderr, "{msg}").map_err(Into::into)
 }
 
-fn write_green<S: Display>(highlight: &str, msg: S) -> IoResult<()> {
+fn write_green<S: Display>(highlight: &str, msg: S, quiet: u8) -> IoResult<()> {
+    if quiet >= GREEN_THRESHOLD {
+        return Ok(());
+    }
     let mut stdout = StandardStream::stdout(ColorChoice::Auto);
     stdout.set_color(ColorSpec::new().set_fg(Some(Color::Green)))?;
     write!(stdout, "{highlight}")?;
@@ -79,7 +98,10 @@ fn write_green<S: Display>(highlight: &str, msg: S) -> IoResult<()> {
     writeln!(stdout, "{msg}").map_err(Into::into)
 }
 
-fn write_yellow<S: Display>(highlight: &str, msg: S) -> IoResult<()> {
+fn write_yellow<S: Display>(highlight: &str, msg: S, quiet: u8) -> IoResult<()> {
+    if quiet >= YELLOW_THRESHOLD {
+        return Ok(());
+    }
     let mut stderr = StandardStream::stderr(ColorChoice::Auto);
     stderr.set_color(ColorSpec::new().set_fg(Some(Color::Yellow)))?;
     write!(stderr, "{highlight}")?;
@@ -136,7 +158,7 @@ fn check_toml(path: &str, cli: &Cli, config: &Config) -> IoResult<bool> {
 
     let krate = path.components().nth_back(1).ok_or("No crate folder found")?.as_os_str();
 
-    write_green("Checking ", format!("{}...", krate.to_string_lossy()))?;
+    write_green("Checking ", format!("{}...", krate.to_string_lossy()), cli.quiet)?;
 
     let toml_raw = read_to_string(&path)
         .map_err(|_| format!("No file found at: {}", path.display()))?;
@@ -161,6 +183,7 @@ fn check_toml(path: &str, cli: &Cli, config: &Config) -> IoResult<bool> {
             write_red(
                 "error: ",
                 format!("Dependencies for {} are not sorted", krate.to_string_lossy()),
+                cli.quiet,
             )?;
         }
 
@@ -170,16 +193,18 @@ fn check_toml(path: &str, cli: &Cli, config: &Config) -> IoResult<bool> {
                     "error: ",
                     format!(
                         "Cargo.toml for {} is not formatted",
-                        krate.to_string_lossy()
+                        krate.to_string_lossy(),
                     ),
+                    cli.quiet,
                 )?;
             } else {
                 write_yellow(
                     "warning: ",
                     format!(
                         "Cargo.toml for {} is not formatted",
-                        krate.to_string_lossy()
+                        krate.to_string_lossy(),
                     ),
+                    cli.quiet,
                 )?;
             }
         }
@@ -193,6 +218,7 @@ fn check_toml(path: &str, cli: &Cli, config: &Config) -> IoResult<bool> {
         write_green(
             "Finished: ",
             format!("Cargo.toml for {:?} has been rewritten", krate.to_string_lossy()),
+            cli.quiet,
         )?;
     } else {
         write_green(
@@ -201,21 +227,14 @@ fn check_toml(path: &str, cli: &Cli, config: &Config) -> IoResult<bool> {
                 "Cargo.toml for {} is sorted already, no changes made",
                 krate.to_string_lossy()
             ),
+            cli.quiet,
         )?;
     }
 
     Ok(true)
 }
 
-fn _main() -> IoResult<()> {
-    let mut args: Vec<String> = std::env::args().collect();
-    // remove "sort" when invoked `cargo sort` sort is the first arg
-    // https://github.com/rust-lang/cargo/issues/7653
-    if args.len() > 1 && args[1] == "sort" {
-        args.remove(1);
-    }
-    let cli = <Cli as clap::Parser>::parse_from(args);
-
+fn _main(cli: Cli) -> IoResult<()> {
     let cwd = std::env::current_dir()
         .map_err(|e| format!("no current directory found: {e}"))?;
     let dir = cwd.to_string_lossy();
@@ -356,8 +375,17 @@ fn array_string_members(value: &Item) -> Vec<&str> {
 }
 
 fn main() {
-    _main().unwrap_or_else(|e| {
-        write_red("error: ", e).unwrap();
+    let mut args: Vec<String> = std::env::args().collect();
+    // remove "sort" when invoked `cargo sort` sort is the first arg
+    // https://github.com/rust-lang/cargo/issues/7653
+    if args.len() > 1 && args[1] == "sort" {
+        args.remove(1);
+    }
+    let cli = <Cli as clap::Parser>::parse_from(args);
+    let quiet = cli.quiet;
+
+    _main(cli).unwrap_or_else(|e| {
+        write_red("error: ", e, quiet).unwrap();
         std::process::exit(1);
     });
 }
